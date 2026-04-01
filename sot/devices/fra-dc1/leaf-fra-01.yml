@@ -1,0 +1,131 @@
+---
+# ACME Investments — Device: leaf-fra-01
+# Role: Leaf / RR client — FRA DC1
+# CRITICAL: TRADING zone (VLAN 100) is PROHIBITED at this site
+# lab_state: sot_only
+# Last reviewed: 2026-03-01
+
+hostname: leaf-fra-01
+fqdn: leaf-fra-01.fra-dc1.acme-investments.internal
+role: leaf
+platform: arista_eos
+image: ceos:4.32.2F
+hardware_model: DCS-7050TX3-48C8
+serial: ACE2430011B
+eol_date: "2029-06-30"
+lab_state: sot_only
+
+site: fra-dc1
+region: eu-fra
+compliance_tags: [mifid2, bafin, gdpr_applicable, eu_gdpr, gdpr_strict, no_trading_zone]
+# TRADING zone intentionally absent from security_zones
+security_zones: [CORPORATE, DMZ, MGMT_ZONE]
+
+management:
+  interface: Management0
+  ip: 10.30.0.11/25
+  gateway: 10.30.0.126
+  vrf: MGMT
+
+loopback:
+  interface: Loopback0
+  ip: 10.30.255.11/32
+
+vrfs:
+  - name: MGMT
+    rd: "65030:999"
+  # TRADING_VRF intentionally absent — prohibited at FRA
+  - name: CORPORATE_VRF
+    description: "Corporate workstations and regulatory reporting servers"
+    rd: "65030:200"
+    route_target_import: "65030:200"
+    route_target_export: "65030:200"
+  - name: DMZ_VRF
+    description: "DMZ — BaFin portal and regulatory connectivity"
+    rd: "65030:300"
+    route_target_import: "65030:300"
+    route_target_export: "65030:300"
+  - name: MGMT_VRF
+    description: "Network device management"
+    rd: "65030:400"
+    route_target_import: "65030:400"
+    route_target_export: "65030:400"
+
+vlans:
+  # VLAN 100 TRADING intentionally absent — regulatory prohibition
+  - vlan_id: 200
+    name: CORPORATE
+    vrf: CORPORATE_VRF
+    svi_ip: 10.30.2.3/22
+    active: true
+  - vlan_id: 300
+    name: DMZ
+    vrf: DMZ_VRF
+    svi_ip: 10.30.6.2/24
+    active: true
+  - vlan_id: 400
+    name: MGMT
+    vrf: MGMT_VRF
+    svi_ip: 10.30.0.3/25
+    active: true
+
+interfaces:
+  - name: Ethernet1
+    description: "P2P -> spine-fra-01 Ethernet1"
+    ip: 10.30.100.1/31
+    peer_device: spine-fra-01
+    peer_interface: Ethernet1
+    mtu: 9214
+  - name: Ethernet2
+    description: "P2P -> spine-fra-02 Ethernet1"
+    ip: 10.30.100.9/31
+    peer_device: spine-fra-02
+    peer_interface: Ethernet1
+    mtu: 9214
+  - name: Ethernet3
+    description: "Server access — CORPORATE VLAN 200"
+    mode: access
+    access_vlan: 200
+    mtu: 9214
+  - name: Ethernet4
+    description: "Server trunk — CORPORATE VLAN 200"
+    mode: access
+    access_vlan: 200
+    mtu: 9214
+
+vrrp:
+  # No VRRP group 10 (TRADING) — prohibited
+  - group: 20
+    vlan: 200
+    vrf: CORPORATE_VRF
+    virtual_ip: 10.30.2.1
+    priority: 110
+    preempt: true
+  - group: 30
+    vlan: 300
+    vrf: DMZ_VRF
+    virtual_ip: 10.30.6.1
+    priority: 110
+    preempt: true
+  - group: 40
+    vlan: 400
+    vrf: MGMT_VRF
+    virtual_ip: 10.30.0.126
+    priority: 110
+    preempt: true
+
+bgp:
+  local_as: 65030
+  router_id: 10.30.255.11
+  role: rr_client
+  neighbors:
+    - peer_ip: 10.30.255.1
+      remote_as: 65030
+      description: "iBGP RR -> spine-fra-01"
+      update_source: Loopback0
+      md5_password_ref: bgp_md5_fra_dc1_fabric
+    - peer_ip: 10.30.255.2
+      remote_as: 65030
+      description: "iBGP RR -> spine-fra-02"
+      update_source: Loopback0
+      md5_password_ref: bgp_md5_fra_dc1_fabric

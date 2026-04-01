@@ -1,0 +1,72 @@
+---
+# ACME Investments — Device: fw-nyc2-01
+# Role: Firewall (Linux/FRR) — NYC DC2
+# lab_state: sot_only
+# Last reviewed: 2026-03-01
+
+hostname: fw-nyc2-01
+fqdn: fw-nyc2-01.nyc-dc2.acme-investments.internal
+role: firewall
+platform: frr
+image: frrouting/frr:9.1.0
+hardware_model: "Virtual Appliance (Linux KVM)"
+serial: FWNYC2411030
+eol_date: "2028-12-31"
+lab_state: sot_only
+
+site: nyc-dc2
+region: americas-nyc
+compliance_tags: [sox, sec, reg_sci]
+security_zones: [TRADING, CORPORATE, DMZ, MGMT_ZONE]
+
+management:
+  interface: eth0
+  ip: 10.11.0.30/25
+  gateway: 10.11.0.126
+
+loopback:
+  interface: lo
+  ip: 10.11.255.30/32
+
+interfaces:
+  - name: eth0
+    description: "OOB management"
+    ip: 10.11.0.30/25
+  - name: eth1
+    description: "-> border-nyc2-01 Ethernet6 [DMZ external]"
+    ip: 10.11.6.254/24
+    peer_device: border-nyc2-01
+    peer_interface: Ethernet6
+    mtu: 9000
+    zone: DMZ
+  - name: eth2
+    description: "-> leaf-nyc2-01 Ethernet5 [internal TRADING/CORPORATE]"
+    ip: 10.11.1.254/24
+    peer_device: leaf-nyc2-01
+    peer_interface: Ethernet5
+    mtu: 9000
+    zone: TRADING
+  - name: eth3
+    description: "-> leaf-nyc2-02 Ethernet5 [MGMT]"
+    ip: 10.11.0.254/25
+    peer_device: leaf-nyc2-02
+    peer_interface: Ethernet5
+    mtu: 9000
+    zone: MGMT_ZONE
+  - name: lo
+    ip: 10.11.255.30/32
+
+firewall_policy:
+  default_action: deny
+  stateful: true
+  policy_set: acme_dc_firewall_policy_v3
+
+bgp:
+  local_as: 65011
+  router_id: 10.11.255.30
+  role: firewall_bgp
+  neighbors:
+    - peer_ip: 10.11.6.253
+      remote_as: 65011
+      description: "iBGP to border-nyc2-01 for DMZ routing"
+      md5_password_ref: bgp_md5_nyc_dc2_fabric

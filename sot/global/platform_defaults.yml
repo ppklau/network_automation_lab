@@ -1,0 +1,286 @@
+---
+# ACME Investments — Platform Defaults
+# Per-platform baseline configuration applied to all devices of that type
+# Rendered by automation tooling before device-specific vars are applied
+# Last reviewed: 2026-03-01
+
+platforms:
+
+  # ──────────────────────────────────────────
+  # Arista EOS — used on all DC devices (spines, leaves, borders)
+  # ──────────────────────────────────────────
+  arista_eos:
+    image: ceos:4.32.2F
+    nos: eos
+    ansible_network_os: arista.eos.eos
+    management_interface: Management0
+
+    banner:
+      motd: |
+        **************************************************************************
+        *  ACME INVESTMENTS — AUTHORISED ACCESS ONLY                            *
+        *  Unauthorised access is strictly prohibited and may be subject to      *
+        *  civil and criminal prosecution under the Computer Misuse Act 1990     *
+        *  and the Electronic Communications Act 2000.                           *
+        *  All sessions are logged and monitored.                                *
+        *  If you are not an authorised user, disconnect immediately.            *
+        **************************************************************************
+      login: "Authorised users only. All activity is monitored and logged."
+
+    aaa:
+      # TACACS+ for authentication, local fallback for console break-glass
+      authentication:
+        login:
+          - method: group
+            group: TACACS_SERVERS
+          - method: local
+        enable:
+          - method: group
+            group: TACACS_SERVERS
+          - method: enable
+      authorization:
+        exec:
+          - method: group
+            group: TACACS_SERVERS
+          - method: local
+        commands_all_levels:
+          - method: group
+            group: TACACS_SERVERS
+          - method: local
+      accounting:
+        exec: start-stop group TACACS_SERVERS
+        commands_all_levels: start-stop group TACACS_SERVERS
+      tacacs_servers:
+        - ip: 10.1.0.52
+          key_ref: tacacs_key_primary
+          vrf: MGMT
+        - ip: 10.10.0.52
+          key_ref: tacacs_key_secondary
+          vrf: MGMT
+      local_users:
+        - username: netadmin
+          privilege: 15
+          password_ref: local_admin_password
+          role: network-admin
+          description: "Break-glass local admin — change password on first use"
+        - username: ansible
+          privilege: 15
+          password_ref: ansible_password
+          role: network-admin
+          description: "Service account for Ansible automation"
+
+    logging:
+      facility: local6
+      trap_level: informational
+      source_interface: Loopback0
+      servers:
+        - ip: 10.1.0.53
+          port: 514
+          protocol: udp
+          description: "Graylog — LON DC1"
+        - ip: 10.10.0.53
+          port: 514
+          protocol: udp
+          description: "Graylog — NYC DC1"
+      format:
+        timestamp: traditional year
+        hostname: fqdn
+        sequence_numbers: true
+
+    ntp:
+      authenticate: true
+      source_interface: Loopback0
+      servers:
+        - ip: 10.1.0.50
+          key_id: 1
+          preferred: true
+          vrf: MGMT
+        - ip: 10.10.0.50
+          key_id: 2
+          preferred: false
+          vrf: MGMT
+        - hostname: pool.ntp.org
+          preferred: false
+          vrf: MGMT
+
+    dns:
+      source_interface: Management0
+      vrf: MGMT
+      servers:
+        - 10.1.0.51
+        - 10.10.0.51
+      domain_name: acme-investments.internal
+      search_list:
+        - acme-investments.internal
+        - dc.acme-investments.internal
+
+    snmp:
+      version: v3
+      source_interface: Loopback0
+      users:
+        - username: acme_monitoring
+          auth_protocol: sha
+          auth_key_ref: snmp_auth_key_monitoring
+          priv_protocol: aes128
+          priv_key_ref: snmp_priv_key_monitoring
+          access: ro
+      trap_targets:
+        - ip: 10.1.0.60
+          version: v3
+          username: acme_monitoring
+        - ip: 10.10.0.60
+          version: v3
+          username: acme_monitoring
+
+    management_vrf: MGMT
+
+    # Default interface settings applied unless overridden
+    interface_defaults:
+      mtu: 9214           # Jumbo frames throughout DC fabric
+      speed: auto
+      duplex: auto
+      storm_control:
+        broadcast: 10     # percent
+        multicast: 10
+      spanning_tree: portfast  # only on access-facing ports
+
+    spanning_tree:
+      mode: rapid-pvst
+      priority_per_vlan:
+        100: 4096          # leaf-lon-01 and -02 are root bridges per VLAN
+        200: 4096
+        300: 4096
+        400: 4096
+      portfast_default: false
+
+    vrf_definitions:
+      - name: MGMT
+        rd: "auto"
+        description: "Out-of-band management — overlaps with MGMT_VRF data plane"
+      - name: TRADING_VRF
+        description: "Equities/FX trading systems (LON/NYC/SIN/HKG only)"
+        route_distinguisher_base: "65001:100"  # site ASN + VLAN
+      - name: CORPORATE_VRF
+        description: "Corporate workstations and servers"
+        route_distinguisher_base: "65001:200"
+      - name: DMZ_VRF
+        description: "DMZ / internet-facing / partner connectivity"
+        route_distinguisher_base: "65001:300"
+      - name: MGMT_VRF
+        description: "Network device management data plane"
+        route_distinguisher_base: "65001:400"
+
+    bgp_defaults:
+      graceful_restart: true
+      graceful_restart_time: 300
+      hold_time: 90
+      keepalive_time: 30
+      log_neighbor_changes: true
+      maximum_paths: 4
+      bestpath:
+        as_path: multipath_relax
+        ecmp_fast: true
+
+    # EOS-specific features
+    features:
+      lldp: enabled
+      cdp: disabled
+      ipv6: disabled           # IPv4-only deployment
+      pim: disabled            # no multicast in fabric
+      lacp: enabled
+      bfd: enabled             # used for BGP fast failover
+
+  # ──────────────────────────────────────────
+  # FRRouting (FRR) — firewalls and branch routers
+  # ──────────────────────────────────────────
+  frr:
+    nos: frr
+    ansible_network_os: frr.frr.frr
+    management_interface: eth0
+
+    banner:
+      motd: |
+        **************************************************************************
+        *  ACME INVESTMENTS — AUTHORISED ACCESS ONLY                            *
+        *  Unauthorised access is strictly prohibited.                           *
+        *  All sessions are logged and monitored.                                *
+        **************************************************************************
+
+    aaa:
+      # Linux PAM / TACACS+ via pam_tacplus
+      authentication:
+        - method: tacacs+
+          server_group: TACACS_SERVERS
+        - method: local
+      tacacs_servers:
+        - ip: 10.1.0.52
+          key_ref: tacacs_key_primary
+        - ip: 10.10.0.52
+          key_ref: tacacs_key_secondary
+      local_users:
+        - username: netadmin
+          sudo: true
+          password_ref: local_admin_password
+          description: "Break-glass local admin"
+        - username: ansible
+          sudo: true
+          password_ref: ansible_password
+          description: "Ansible service account"
+
+    logging:
+      facility: daemon
+      level: info
+      servers:
+        - ip: 10.1.0.53
+          port: 514
+        - ip: 10.10.0.53
+          port: 514
+      syslog_format: rfc5424
+
+    ntp:
+      client: chrony          # chrony preferred over ntpd on modern Linux
+      source_interface: lo
+      servers:
+        - ip: 10.1.0.50
+          iburst: true
+          preferred: true
+        - ip: 10.10.0.50
+          iburst: true
+        - hostname: pool.ntp.org
+          iburst: false
+
+    dns:
+      servers:
+        - 10.1.0.51
+        - 10.10.0.51
+      domain: acme-investments.internal
+      search:
+        - acme-investments.internal
+
+    snmp:
+      daemon: snmpd
+      version: v3
+      source_interface: lo
+      users:
+        - username: acme_monitoring
+          auth_protocol: SHA
+          auth_key_ref: snmp_auth_key_monitoring
+          priv_protocol: AES
+          priv_key_ref: snmp_priv_key_monitoring
+          access: ro
+
+    interface_defaults:
+      mtu: 9000             # Linux kernel default max; set per-interface in /etc/network/interfaces
+      ipv6: disabled
+
+    bgp_defaults:
+      graceful_restart: true
+      log_neighbor_changes: true
+      timers:
+        keepalive: 30
+        hold_time: 90
+      maximum_paths: 4
+
+    features:
+      lldp: enabled         # lldpd daemon
+      bfd: enabled          # bfdd in FRR suite

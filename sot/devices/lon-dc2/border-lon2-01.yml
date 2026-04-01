@@ -1,0 +1,80 @@
+---
+# ACME Investments — Device: border-lon2-01
+# Role: Border router — London DC2
+# iBGP RR client; eBGP to lon-dc1 (inter-DC link)
+# lab_state: sot_only
+# Last reviewed: 2026-03-01
+
+hostname: border-lon2-01
+fqdn: border-lon2-01.lon-dc2.acme-investments.internal
+role: border
+platform: arista_eos
+image: ceos:4.32.2F
+hardware_model: DCS-7050CX3-32S
+serial: ACE2402020C
+eol_date: "2029-12-31"
+lab_state: sot_only
+
+site: lon-dc2
+region: emea-lon
+compliance_tags: [mifid2, fca, gdpr_applicable, uk_gdpr]
+security_zones: [TRADING, CORPORATE, DMZ, MGMT_ZONE]
+
+management:
+  interface: Management0
+  ip: 10.2.0.20/25
+  gateway: 10.2.0.126
+  vrf: MGMT
+
+loopback:
+  interface: Loopback0
+  ip: 10.2.255.20/32
+
+interfaces:
+  - name: Ethernet1
+    description: "P2P -> spine-lon2-01 Ethernet5"
+    ip: 10.2.100.17/31
+    peer_device: spine-lon2-01
+    peer_interface: Ethernet5
+    mtu: 9214
+
+  - name: Ethernet2
+    description: "P2P -> spine-lon2-02 Ethernet5"
+    ip: 10.2.100.19/31
+    peer_device: spine-lon2-02
+    peer_interface: Ethernet5
+    mtu: 9214
+
+  - name: Ethernet3
+    description: "Inter-DC WAN -> border-lon-01 [LON-DC1<->LON-DC2 eBGP AS65001<->AS65002]"
+    ip: 10.0.4.1/31            # lon-dc2=.1, lon-dc1=.0
+    peer_device: border-lon-01
+    peer_interface: Ethernet7   # border-lon-01's inter-DC port
+    mtu: 9000
+    circuit_id: LON-DC1-DC2-001
+
+bgp:
+  local_as: 65002
+  router_id: 10.2.255.20
+  role: rr_client
+  neighbors:
+    - peer_ip: 10.2.255.1
+      remote_as: 65002
+      description: "iBGP RR -> spine-lon2-01"
+      update_source: Loopback0
+      md5_password_ref: bgp_md5_lon_dc2_fabric
+    - peer_ip: 10.2.255.2
+      remote_as: 65002
+      description: "iBGP RR -> spine-lon2-02"
+      update_source: Loopback0
+      md5_password_ref: bgp_md5_lon_dc2_fabric
+    - peer_ip: 10.0.4.0
+      remote_as: 65001
+      description: "eBGP inter-DC -> border-lon-01 [lon-dc1]"
+      md5_password_ref: bgp_md5_interdc_lon1_lon2
+      route_map_in: RM_INTERDC_LON_NYC_IN    # reuse similar policy
+      route_map_out: RM_INTERDC_LON_NYC_OUT
+  aggregate_addresses:
+    - prefix: 10.2.0.0/16
+      summary_only: true
+      description: "Aggregate LON DC2"

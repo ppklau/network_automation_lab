@@ -1,0 +1,335 @@
+---
+# ACME Investments — BGP Route Policies
+# Route-maps, prefix-lists, and inter-region advertisement policies
+# Referenced by device-level BGP configuration
+# Last reviewed: 2026-03-01
+
+# ──────────────────────────────────────────
+# Prefix Lists
+# ──────────────────────────────────────────
+prefix_lists:
+
+  # DC aggregate summary prefixes (advertised outbound to WAN)
+  PL_DC_AGGREGATES:
+    description: "All DC summary prefixes — advertised over inter-region links"
+    entries:
+      - seq: 10  permit: 10.1.0.0/16   le: 16   # lon-dc1
+      - seq: 20  permit: 10.2.0.0/16   le: 16   # lon-dc2
+      - seq: 30  permit: 10.10.0.0/16  le: 16   # nyc-dc1
+      - seq: 40  permit: 10.11.0.0/16  le: 16   # nyc-dc2
+      - seq: 50  permit: 10.20.0.0/16  le: 16   # sin-dc1
+      - seq: 60  permit: 10.21.0.0/16  le: 16   # hkg-dc1
+      - seq: 70  permit: 10.30.0.0/16  le: 16   # fra-dc1
+
+  PL_LON_DC1_SUBNETS:
+    description: "London DC1 specific subnets"
+    entries:
+      - seq: 10  permit: 10.1.0.0/25   le: 32   # mgmt
+      - seq: 20  permit: 10.1.1.0/24   le: 32   # trading
+      - seq: 30  permit: 10.2.0.0/22   le: 32   # corporate (note: /22)
+      - seq: 40  permit: 10.1.6.0/24   le: 32   # dmz
+      - seq: 50  permit: 10.1.255.0/24 le: 32   # loopbacks
+
+  PL_BRANCH_AGGREGATES:
+    description: "All branch summary prefixes"
+    entries:
+      - seq: 10  permit: 10.100.0.0/16  le: 29  # UK branches
+      - seq: 20  permit: 10.101.0.0/16  le: 29  # US branches
+      - seq: 30  permit: 10.102.0.0/16  le: 29  # APAC branches
+      - seq: 40  permit: 10.103.0.0/16  le: 29  # EU branches
+
+  PL_UK_BRANCHES:
+    description: "UK branch prefixes (/29s within 10.100.0.0/16)"
+    entries:
+      - seq: 10  permit: 10.100.0.0/16  ge: 29  le: 29
+
+  PL_US_BRANCHES:
+    description: "US branch prefixes"
+    entries:
+      - seq: 10  permit: 10.101.0.0/16  ge: 29  le: 29
+
+  PL_APAC_BRANCHES:
+    description: "APAC branch prefixes"
+    entries:
+      - seq: 10  permit: 10.102.0.0/16  ge: 29  le: 29
+
+  PL_EU_BRANCHES:
+    description: "EU branch prefixes"
+    entries:
+      - seq: 10  permit: 10.103.0.0/16  ge: 29  le: 29
+
+  PL_WAN_LINKS:
+    description: "Inter-region WAN /31 links"
+    entries:
+      - seq: 10  permit: 10.0.0.0/16  ge: 31  le: 31
+
+  PL_LOOPBACKS_ALL:
+    description: "All DC loopback addresses"
+    entries:
+      - seq: 10  permit: 10.1.255.0/24   le: 32
+      - seq: 20  permit: 10.2.255.0/24   le: 32
+      - seq: 30  permit: 10.10.255.0/24  le: 32
+      - seq: 40  permit: 10.11.255.0/24  le: 32
+      - seq: 50  permit: 10.20.255.0/24  le: 32
+      - seq: 60  permit: 10.21.255.0/24  le: 32
+      - seq: 70  permit: 10.30.255.0/24  le: 32
+
+  PL_TRADING_PREFIXES:
+    description: "TRADING VRF prefixes — must not be sent to Frankfurt"
+    entries:
+      - seq: 10  permit: 10.1.1.0/24    # lon-dc1 trading
+      - seq: 20  permit: 10.2.1.0/24    # lon-dc2 trading
+      - seq: 30  permit: 10.10.1.0/24   # nyc-dc1 trading
+      - seq: 40  permit: 10.11.1.0/24   # nyc-dc2 trading
+      - seq: 50  permit: 10.20.1.0/24   # sin-dc1 trading
+      - seq: 60  permit: 10.21.1.0/24   # hkg-dc1 trading
+
+  PL_DENY_ALL:
+    description: "Deny all — used as final deny in route-maps"
+    entries:
+      - seq: 10  deny: 0.0.0.0/0  le: 32
+
+  PL_RFC1918:
+    description: "All RFC1918 space — used for sanity checks"
+    entries:
+      - seq: 10  permit: 10.0.0.0/8    le: 32
+      - seq: 20  permit: 172.16.0.0/12 le: 32
+      - seq: 30  permit: 192.168.0.0/16 le: 32
+
+# ──────────────────────────────────────────
+# AS Path Access Lists
+# ──────────────────────────────────────────
+as_path_lists:
+  ASPATH_DENY_PRIVATE_AS:
+    description: "Deny routes with private ASNs that should not be visible externally"
+    entries:
+      - seq: 10  deny:   "_6[45][0-9]{3}_"   # 64512-65535 range
+      - seq: 20  permit: ".*"
+
+  ASPATH_LON_ORIGINATED:
+    description: "Routes originated within LON ASNs"
+    entries:
+      - seq: 10  permit: "^65001$"
+      - seq: 20  permit: "^65002$"
+
+  ASPATH_BRANCH_ONLY:
+    description: "Routes originated from branch ASNs only"
+    entries:
+      - seq: 10  permit: "^651[0-9][0-9]$"   # 65100-65143
+      - seq: 20  deny:   ".*"
+
+# ──────────────────────────────────────────
+# Local Preference Values
+# ──────────────────────────────────────────
+local_preference:
+  default: 100
+  preferred_path: 200      # Primary DC paths
+  secondary_path: 50       # DR/secondary DC paths
+  last_resort: 10          # Last resort failover
+
+# ──────────────────────────────────────────
+# Route Maps
+# ──────────────────────────────────────────
+route_maps:
+
+  # ── Inbound policies ──────────────────────
+
+  RM_BRANCH_IN:
+    description: "Applied inbound on eBGP sessions from branch routers"
+    sequences:
+      - seq: 10
+        match:
+          prefix_list: PL_UK_BRANCHES
+          or: PL_US_BRANCHES
+          or: PL_APAC_BRANCHES
+          or: PL_EU_BRANCHES
+        set:
+          local_preference: 100
+          community_additive: "65001:502"    # tag as branch aggregate
+        action: permit
+      - seq: 20
+        action: deny
+        description: "Deny everything not matching expected branch prefixes"
+
+  RM_INTERDC_LON_NYC_IN:
+    description: "Inbound from border-nyc-01 on WAN link"
+    sequences:
+      - seq: 10
+        match:
+          prefix_list: PL_DC_AGGREGATES
+        set:
+          local_preference: 100
+          community_additive: "65001:110"   # mark as NYC origin
+        action: permit
+      - seq: 20
+        match:
+          prefix_list: PL_US_BRANCHES
+        set:
+          local_preference: 100
+          community_additive: "65001:502"
+        action: permit
+      - seq: 30
+        action: deny
+
+  RM_INTERDC_LON_SIN_IN:
+    description: "Inbound from border-sin-01 on WAN link"
+    sequences:
+      - seq: 10
+        match:
+          prefix_list: PL_DC_AGGREGATES
+        set:
+          local_preference: 100
+          community_additive: "65001:120"
+        action: permit
+      - seq: 20
+        match:
+          prefix_list: PL_APAC_BRANCHES
+        set:
+          local_preference: 100
+          community_additive: "65001:502"
+        action: permit
+      - seq: 30
+        action: deny
+
+  RM_INTERDC_LON_FRA_IN:
+    description: "Inbound from border-fra-01 on WAN link — TRADING community MUST be absent"
+    sequences:
+      - seq: 5
+        match:
+          community: ZONE_TRADING    # "65001:200"
+        action: deny
+        description: "CRITICAL: Reject any prefix tagged with TRADING zone from Frankfurt"
+      - seq: 10
+        match:
+          prefix_list: PL_DC_AGGREGATES
+        set:
+          local_preference: 100
+          community_additive: "65001:130"
+        action: permit
+      - seq: 20
+        match:
+          prefix_list: PL_EU_BRANCHES
+        set:
+          local_preference: 100
+          community_additive: "65001:502"
+        action: permit
+      - seq: 30
+        action: deny
+
+  # ── Outbound policies ──────────────────────
+
+  RM_BRANCH_OUT:
+    description: "Applied outbound on eBGP sessions to branch routers — advertise DC aggregates only"
+    sequences:
+      - seq: 10
+        match:
+          prefix_list: PL_DC_AGGREGATES
+        action: permit
+      - seq: 20
+        match:
+          prefix_list: PL_LOOPBACKS_ALL
+        action: permit
+      - seq: 30
+        action: deny
+        description: "Do not send WAN P2P links or other infrastructure to branches"
+
+  RM_INTERDC_LON_NYC_OUT:
+    description: "Outbound to border-nyc-01 — send LON aggregates and branch routes"
+    sequences:
+      - seq: 10
+        match:
+          prefix_list: PL_DC_AGGREGATES
+        action: permit
+      - seq: 20
+        match:
+          prefix_list: PL_UK_BRANCHES
+        action: permit
+      - seq: 30
+        match:
+          prefix_list: PL_LOOPBACKS_ALL
+        action: permit
+      - seq: 40
+        action: deny
+
+  RM_INTERDC_LON_SIN_OUT:
+    description: "Outbound to border-sin-01"
+    sequences:
+      - seq: 10
+        match:
+          prefix_list: PL_DC_AGGREGATES
+        action: permit
+      - seq: 20
+        match:
+          prefix_list: PL_UK_BRANCHES
+        action: permit
+      - seq: 30
+        match:
+          prefix_list: PL_LOOPBACKS_ALL
+        action: permit
+      - seq: 40
+        action: deny
+
+  RM_INTERDC_LON_FRA_OUT:
+    description: "Outbound to border-fra-01 — MUST strip TRADING prefixes and communities"
+    sequences:
+      - seq: 5
+        match:
+          prefix_list: PL_TRADING_PREFIXES
+        action: deny
+        description: "CRITICAL: Never advertise TRADING VRF prefixes to Frankfurt"
+      - seq: 7
+        match:
+          community: ZONE_TRADING
+        action: deny
+        description: "CRITICAL: Deny any prefix tagged with TRADING zone community"
+      - seq: 10
+        match:
+          prefix_list: PL_DC_AGGREGATES
+        set:
+          community_delete: "65001:200"   # strip TRADING community before sending
+        action: permit
+      - seq: 20
+        match:
+          prefix_list: PL_EU_BRANCHES
+        action: permit
+      - seq: 30
+        action: deny
+
+  RM_IBGP_RR_TO_CLIENTS:
+    description: "Route reflector outbound to iBGP RR clients — internal fabric"
+    sequences:
+      - seq: 10
+        match:
+          prefix_list: PL_RFC1918
+        action: permit
+      - seq: 20
+        action: deny
+
+  RM_DEFAULT_DENY:
+    description: "Catch-all deny — applied where explicit policies are not configured"
+    sequences:
+      - seq: 10
+        action: deny
+        match:
+          prefix_list: PL_DENY_ALL
+
+# ──────────────────────────────────────────
+# Inter-Region Policy Summary Table
+# ──────────────────────────────────────────
+inter_region_policy_summary:
+  # Each entry: link name, inbound policy, outbound policy, special_notes
+  - link: lon-nyc
+    inbound_on_lon:  RM_INTERDC_LON_NYC_IN
+    outbound_from_lon: RM_INTERDC_LON_NYC_OUT
+    md5_key_ref: bgp_md5_wan_lon_nyc
+
+  - link: lon-sin
+    inbound_on_lon:  RM_INTERDC_LON_SIN_IN
+    outbound_from_lon: RM_INTERDC_LON_SIN_OUT
+    md5_key_ref: bgp_md5_wan_lon_sin
+
+  - link: lon-fra
+    inbound_on_lon:  RM_INTERDC_LON_FRA_IN
+    outbound_from_lon: RM_INTERDC_LON_FRA_OUT
+    md5_key_ref: bgp_md5_wan_lon_fra
+    compliance_enforcement: "TRADING prefixes denied both inbound and outbound"

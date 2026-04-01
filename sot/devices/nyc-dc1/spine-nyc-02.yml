@@ -1,0 +1,104 @@
+---
+# ACME Investments — Device: spine-nyc-02
+# Role: Spine / BGP Route Reflector — NYC DC1
+# lab_state: sot_only
+# Last reviewed: 2026-03-01
+
+hostname: spine-nyc-02
+fqdn: spine-nyc-02.nyc-dc1.acme-investments.internal
+role: spine
+platform: arista_eos
+image: ceos:4.32.2F
+hardware_model: DCS-7050CX3-32S
+serial: ACE2410002A
+eol_date: "2029-12-31"
+lab_state: sot_only
+
+site: nyc-dc1
+region: americas-nyc
+compliance_tags: [sox, sec, reg_sci]
+security_zones: [MGMT_ZONE]
+
+management:
+  interface: Management0
+  ip: 10.10.0.2/25
+  gateway: 10.10.0.126
+  vrf: MGMT
+
+loopback:
+  interface: Loopback0
+  ip: 10.10.255.2/32
+
+interfaces:
+  - name: Ethernet1
+    description: "P2P -> leaf-nyc-01 Ethernet2"
+    ip: 10.10.100.8/31
+    peer_device: leaf-nyc-01
+    peer_interface: Ethernet2
+    mtu: 9214
+  - name: Ethernet2
+    description: "P2P -> leaf-nyc-02 Ethernet2"
+    ip: 10.10.100.10/31
+    peer_device: leaf-nyc-02
+    peer_interface: Ethernet2
+    mtu: 9214
+  - name: Ethernet3
+    description: "P2P -> leaf-nyc-03 Ethernet2"
+    ip: 10.10.100.12/31
+    peer_device: leaf-nyc-03
+    peer_interface: Ethernet2
+    mtu: 9214
+  - name: Ethernet4
+    description: "P2P -> leaf-nyc-04 Ethernet2"
+    ip: 10.10.100.14/31
+    peer_device: leaf-nyc-04
+    peer_interface: Ethernet2
+    mtu: 9214
+  - name: Ethernet5
+    description: "P2P -> border-nyc-01 Ethernet2"
+    ip: 10.10.100.18/31
+    peer_device: border-nyc-01
+    peer_interface: eth2
+    mtu: 9214
+
+bgp:
+  local_as: 65010
+  router_id: 10.10.255.2
+  role: route_reflector
+  neighbors:
+    - peer_ip: 10.10.255.1
+      remote_as: 65010
+      description: "iBGP peer -> spine-nyc-01"
+      update_source: Loopback0
+      route_reflector_client: false
+      md5_password_ref: bgp_md5_nyc_dc1_fabric
+    - peer_ip: 10.10.255.11
+      remote_as: 65010
+      description: "iBGP RR client -> leaf-nyc-01"
+      update_source: Loopback0
+      route_reflector_client: true
+      md5_password_ref: bgp_md5_nyc_dc1_fabric
+    - peer_ip: 10.10.255.12
+      remote_as: 65010
+      description: "iBGP RR client -> leaf-nyc-02"
+      update_source: Loopback0
+      route_reflector_client: true
+      md5_password_ref: bgp_md5_nyc_dc1_fabric
+    - peer_ip: 10.10.255.13
+      remote_as: 65010
+      description: "iBGP RR client -> leaf-nyc-03"
+      update_source: Loopback0
+      route_reflector_client: true
+      md5_password_ref: bgp_md5_nyc_dc1_fabric
+    - peer_ip: 10.10.255.14
+      remote_as: 65010
+      description: "iBGP RR client -> leaf-nyc-04"
+      update_source: Loopback0
+      route_reflector_client: true
+      md5_password_ref: bgp_md5_nyc_dc1_fabric
+    - peer_ip: 10.10.255.20
+      remote_as: 65010
+      description: "iBGP RR client -> border-nyc-01"
+      update_source: Loopback0
+      route_reflector_client: true
+      md5_password_ref: bgp_md5_nyc_dc1_fabric

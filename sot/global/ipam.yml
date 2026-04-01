@@ -1,0 +1,534 @@
+---
+# ACME Investments — IP Address Management (IPAM)
+# Supernet: 10.0.0.0/8  (RFC 1918 private)
+# Managed by: Network Engineering / IPAM team
+# Last reviewed: 2026-03-01
+
+supernet: 10.0.0.0/8
+
+# ──────────────────────────────────────────────────────────────
+# Inter-Region WAN Links  (10.0.0.0/16)
+# /31 point-to-point between border routers
+# ──────────────────────────────────────────────────────────────
+wan_links:
+  supernet: 10.0.0.0/16
+
+  links:
+    - name: lon-nyc
+      prefix: 10.0.1.0/31
+      endpoints:
+        - device: border-lon-01
+          ip: 10.0.1.0/31
+          side: london
+        - device: border-nyc-01
+          ip: 10.0.1.1/31
+          side: new_york
+      ebgp_peers:
+        lon_asn: 65001
+        nyc_asn: 65010
+
+    - name: lon-sin
+      prefix: 10.0.2.0/31
+      endpoints:
+        - device: border-lon-01
+          ip: 10.0.2.0/31
+          side: london
+        - device: border-sin-01
+          ip: 10.0.2.1/31
+          side: singapore
+      ebgp_peers:
+        lon_asn: 65001
+        sin_asn: 65020
+
+    - name: lon-fra
+      prefix: 10.0.3.0/31
+      endpoints:
+        - device: border-lon-01
+          ip: 10.0.3.0/31
+          side: london
+        - device: border-fra-01
+          ip: 10.0.3.1/31
+          side: frankfurt
+      ebgp_peers:
+        lon_asn: 65001
+        fra_asn: 65030
+
+    - name: lon-dc1-lon-dc2
+      prefix: 10.0.4.0/31
+      description: "Intra-London inter-DC link"
+      endpoints:
+        - device: border-lon-01
+          ip: 10.0.4.0/31
+          side: lon-dc1
+        - device: border-lon2-01
+          ip: 10.0.4.1/31
+          side: lon-dc2
+      ebgp_peers:
+        lon_dc1_asn: 65001
+        lon_dc2_asn: 65002
+
+    - name: nyc-dc1-nyc-dc2
+      prefix: 10.0.5.0/31
+      description: "Intra-NYC inter-DC link"
+      endpoints:
+        - device: border-nyc-01
+          ip: 10.0.5.0/31
+          side: nyc-dc1
+        - device: border-nyc2-01
+          ip: 10.0.5.1/31
+          side: nyc-dc2
+      ebgp_peers:
+        nyc_dc1_asn: 65010
+        nyc_dc2_asn: 65011
+
+    - name: sin-hkg
+      prefix: 10.0.6.0/31
+      description: "APAC inter-DC link"
+      endpoints:
+        - device: border-sin-01
+          ip: 10.0.6.0/31
+          side: singapore
+        - device: border-hkg-01
+          ip: 10.0.6.1/31
+          side: hong_kong
+      ebgp_peers:
+        sin_asn: 65020
+        hkg_asn: 65021
+
+# ──────────────────────────────────────────────────────────────
+# Data Centre Allocations  (10.1–10.30.x.x)
+# Each DC gets a /16; structure is identical across all DCs
+# ──────────────────────────────────────────────────────────────
+data_centres:
+
+  lon-dc1:
+    supernet: 10.1.0.0/16
+    asn: 65001
+    subnets:
+      management:
+        prefix: 10.1.0.0/25
+        vlan: 400
+        gateway: 10.1.0.126
+        description: "Out-of-band management network"
+      loopbacks:
+        prefix: 10.1.255.0/24
+        description: "Device loopback addresses — /32 per device"
+        allocations:
+          spine-lon-01:  10.1.255.1/32
+          spine-lon-02:  10.1.255.2/32
+          leaf-lon-01:   10.1.255.11/32
+          leaf-lon-02:   10.1.255.12/32
+          leaf-lon-03:   10.1.255.13/32
+          leaf-lon-04:   10.1.255.14/32
+          border-lon-01: 10.1.255.20/32
+      fabric_p2p:
+        prefix: 10.1.100.0/24
+        description: "Underlay fabric /31 point-to-point links"
+        links:
+          spine01_leaf01:   10.1.100.0/31   # spine-lon-01(.0) <-> leaf-lon-01(.1)
+          spine01_leaf02:   10.1.100.2/31   # spine-lon-01(.2) <-> leaf-lon-02(.3)
+          spine01_leaf03:   10.1.100.4/31   # spine-lon-01(.4) <-> leaf-lon-03(.5)
+          spine01_leaf04:   10.1.100.6/31   # spine-lon-01(.6) <-> leaf-lon-04(.7)
+          spine02_leaf01:   10.1.100.8/31   # spine-lon-02(.8) <-> leaf-lon-01(.9)
+          spine02_leaf02:   10.1.100.10/31  # spine-lon-02(.10) <-> leaf-lon-02(.11)
+          spine02_leaf03:   10.1.100.12/31  # spine-lon-02(.12) <-> leaf-lon-03(.13)
+          spine02_leaf04:   10.1.100.14/31  # spine-lon-02(.14) <-> leaf-lon-04(.15)
+          spine01_border01: 10.1.100.16/31  # spine-lon-01(.16) <-> border-lon-01(.17)
+          spine02_border01: 10.1.100.18/31  # spine-lon-02(.18) <-> border-lon-01(.19)
+      vlans:
+        trading:
+          vlan_id: 100
+          prefix: 10.1.1.0/24
+          vip: 10.1.1.1
+          description: "TRADING_VRF — equities/FX trading systems"
+          active_in_site: true
+        corporate:
+          vlan_id: 200
+          prefix: 10.1.2.0/22
+          vip: 10.1.2.1
+          description: "CORPORATE_VRF — corporate workstations/servers"
+          active_in_site: true
+        dmz:
+          vlan_id: 300
+          prefix: 10.1.6.0/24
+          vip: 10.1.6.1
+          description: "DMZ_VRF — internet-facing / partner connectivity"
+          active_in_site: true
+        mgmt:
+          vlan_id: 400
+          prefix: 10.1.0.0/25
+          vip: 10.1.0.126
+          description: "MGMT_VRF — network device management"
+          active_in_site: true
+
+  lon-dc2:
+    supernet: 10.2.0.0/16
+    asn: 65002
+    subnets:
+      management:
+        prefix: 10.2.0.0/25
+        vlan: 400
+        gateway: 10.2.0.126
+      loopbacks:
+        prefix: 10.2.255.0/24
+        allocations:
+          spine-lon2-01:  10.2.255.1/32
+          spine-lon2-02:  10.2.255.2/32
+          leaf-lon2-01:   10.2.255.11/32
+          leaf-lon2-02:   10.2.255.12/32
+          leaf-lon2-03:   10.2.255.13/32
+          leaf-lon2-04:   10.2.255.14/32
+          border-lon2-01: 10.2.255.20/32
+      fabric_p2p:
+        prefix: 10.2.100.0/24
+        links:
+          spine01_leaf01:   10.2.100.0/31
+          spine01_leaf02:   10.2.100.2/31
+          spine01_leaf03:   10.2.100.4/31
+          spine01_leaf04:   10.2.100.6/31
+          spine02_leaf01:   10.2.100.8/31
+          spine02_leaf02:   10.2.100.10/31
+          spine02_leaf03:   10.2.100.12/31
+          spine02_leaf04:   10.2.100.14/31
+          spine01_border01: 10.2.100.16/31
+          spine02_border01: 10.2.100.18/31
+      vlans:
+        trading:
+          vlan_id: 100
+          prefix: 10.2.1.0/24
+          vip: 10.2.1.1
+          active_in_site: true
+        corporate:
+          vlan_id: 200
+          prefix: 10.2.2.0/22
+          vip: 10.2.2.1
+          active_in_site: true
+        dmz:
+          vlan_id: 300
+          prefix: 10.2.6.0/24
+          vip: 10.2.6.1
+          active_in_site: true
+        mgmt:
+          vlan_id: 400
+          prefix: 10.2.0.0/25
+          vip: 10.2.0.126
+          active_in_site: true
+
+  nyc-dc1:
+    supernet: 10.10.0.0/16
+    asn: 65010
+    subnets:
+      management:
+        prefix: 10.10.0.0/25
+        vlan: 400
+        gateway: 10.10.0.126
+      loopbacks:
+        prefix: 10.10.255.0/24
+        allocations:
+          spine-nyc-01:  10.10.255.1/32
+          spine-nyc-02:  10.10.255.2/32
+          leaf-nyc-01:   10.10.255.11/32
+          leaf-nyc-02:   10.10.255.12/32
+          leaf-nyc-03:   10.10.255.13/32
+          leaf-nyc-04:   10.10.255.14/32
+          border-nyc-01: 10.10.255.20/32
+      fabric_p2p:
+        prefix: 10.10.100.0/24
+        links:
+          spine01_leaf01:   10.10.100.0/31
+          spine01_leaf02:   10.10.100.2/31
+          spine01_leaf03:   10.10.100.4/31
+          spine01_leaf04:   10.10.100.6/31
+          spine02_leaf01:   10.10.100.8/31
+          spine02_leaf02:   10.10.100.10/31
+          spine02_leaf03:   10.10.100.12/31
+          spine02_leaf04:   10.10.100.14/31
+          spine01_border01: 10.10.100.16/31
+          spine02_border01: 10.10.100.18/31
+      vlans:
+        trading:
+          vlan_id: 100
+          prefix: 10.10.1.0/24
+          vip: 10.10.1.1
+          active_in_site: true
+        corporate:
+          vlan_id: 200
+          prefix: 10.10.2.0/22
+          vip: 10.10.2.1
+          active_in_site: true
+        dmz:
+          vlan_id: 300
+          prefix: 10.10.6.0/24
+          vip: 10.10.6.1
+          active_in_site: true
+        mgmt:
+          vlan_id: 400
+          prefix: 10.10.0.0/25
+          vip: 10.10.0.126
+          active_in_site: true
+
+  nyc-dc2:
+    supernet: 10.11.0.0/16
+    asn: 65011
+    subnets:
+      management:
+        prefix: 10.11.0.0/25
+        vlan: 400
+        gateway: 10.11.0.126
+      loopbacks:
+        prefix: 10.11.255.0/24
+        allocations:
+          spine-nyc2-01:  10.11.255.1/32
+          spine-nyc2-02:  10.11.255.2/32
+          leaf-nyc2-01:   10.11.255.11/32
+          leaf-nyc2-02:   10.11.255.12/32
+          border-nyc2-01: 10.11.255.20/32
+      fabric_p2p:
+        prefix: 10.11.100.0/24
+        links:
+          spine01_leaf01:   10.11.100.0/31
+          spine01_leaf02:   10.11.100.2/31
+          spine02_leaf01:   10.11.100.8/31
+          spine02_leaf02:   10.11.100.10/31
+          spine01_border01: 10.11.100.16/31
+          spine02_border01: 10.11.100.18/31
+      vlans:
+        trading:
+          vlan_id: 100
+          prefix: 10.11.1.0/24
+          vip: 10.11.1.1
+          active_in_site: true
+        corporate:
+          vlan_id: 200
+          prefix: 10.11.2.0/22
+          vip: 10.11.2.1
+          active_in_site: true
+        dmz:
+          vlan_id: 300
+          prefix: 10.11.6.0/24
+          vip: 10.11.6.1
+          active_in_site: true
+        mgmt:
+          vlan_id: 400
+          prefix: 10.11.0.0/25
+          vip: 10.11.0.126
+          active_in_site: true
+
+  sin-dc1:
+    supernet: 10.20.0.0/16
+    asn: 65020
+    subnets:
+      management:
+        prefix: 10.20.0.0/25
+        vlan: 400
+        gateway: 10.20.0.126
+      loopbacks:
+        prefix: 10.20.255.0/24
+        allocations:
+          spine-sin-01:  10.20.255.1/32
+          spine-sin-02:  10.20.255.2/32
+          leaf-sin-01:   10.20.255.11/32
+          leaf-sin-02:   10.20.255.12/32
+          leaf-sin-03:   10.20.255.13/32
+          leaf-sin-04:   10.20.255.14/32
+          border-sin-01: 10.20.255.20/32
+      fabric_p2p:
+        prefix: 10.20.100.0/24
+        links:
+          spine01_leaf01:   10.20.100.0/31
+          spine01_leaf02:   10.20.100.2/31
+          spine01_leaf03:   10.20.100.4/31
+          spine01_leaf04:   10.20.100.6/31
+          spine02_leaf01:   10.20.100.8/31
+          spine02_leaf02:   10.20.100.10/31
+          spine02_leaf03:   10.20.100.12/31
+          spine02_leaf04:   10.20.100.14/31
+          spine01_border01: 10.20.100.16/31
+          spine02_border01: 10.20.100.18/31
+      vlans:
+        trading:
+          vlan_id: 100
+          prefix: 10.20.1.0/24
+          vip: 10.20.1.1
+          active_in_site: true
+        corporate:
+          vlan_id: 200
+          prefix: 10.20.2.0/22
+          vip: 10.20.2.1
+          active_in_site: true
+        dmz:
+          vlan_id: 300
+          prefix: 10.20.6.0/24
+          vip: 10.20.6.1
+          active_in_site: true
+        mgmt:
+          vlan_id: 400
+          prefix: 10.20.0.0/25
+          vip: 10.20.0.126
+          active_in_site: true
+
+  hkg-dc1:
+    supernet: 10.21.0.0/16
+    asn: 65021
+    subnets:
+      management:
+        prefix: 10.21.0.0/25
+        vlan: 400
+        gateway: 10.21.0.126
+      loopbacks:
+        prefix: 10.21.255.0/24
+        allocations:
+          spine-hkg-01:  10.21.255.1/32
+          spine-hkg-02:  10.21.255.2/32
+          leaf-hkg-01:   10.21.255.11/32
+          leaf-hkg-02:   10.21.255.12/32
+          border-hkg-01: 10.21.255.20/32
+      fabric_p2p:
+        prefix: 10.21.100.0/24
+        links:
+          spine01_leaf01:   10.21.100.0/31
+          spine01_leaf02:   10.21.100.2/31
+          spine02_leaf01:   10.21.100.8/31
+          spine02_leaf02:   10.21.100.10/31
+          spine01_border01: 10.21.100.16/31
+          spine02_border01: 10.21.100.18/31
+      vlans:
+        trading:
+          vlan_id: 100
+          prefix: 10.21.1.0/24
+          vip: 10.21.1.1
+          active_in_site: true
+        corporate:
+          vlan_id: 200
+          prefix: 10.21.2.0/22
+          vip: 10.21.2.1
+          active_in_site: true
+        dmz:
+          vlan_id: 300
+          prefix: 10.21.6.0/24
+          vip: 10.21.6.1
+          active_in_site: true
+        mgmt:
+          vlan_id: 400
+          prefix: 10.21.0.0/25
+          vip: 10.21.0.126
+          active_in_site: true
+
+  fra-dc1:
+    supernet: 10.30.0.0/16
+    asn: 65030
+    compliance_note: "TRADING_VRF (VLAN 100) is PROHIBITED in Frankfurt per regulatory policy"
+    subnets:
+      management:
+        prefix: 10.30.0.0/25
+        vlan: 400
+        gateway: 10.30.0.126
+      loopbacks:
+        prefix: 10.30.255.0/24
+        allocations:
+          spine-fra-01:  10.30.255.1/32
+          spine-fra-02:  10.30.255.2/32
+          leaf-fra-01:   10.30.255.11/32
+          leaf-fra-02:   10.30.255.12/32
+          border-fra-01: 10.30.255.20/32
+      fabric_p2p:
+        prefix: 10.30.100.0/24
+        links:
+          spine01_leaf01:   10.30.100.0/31
+          spine01_leaf02:   10.30.100.2/31
+          spine02_leaf01:   10.30.100.8/31
+          spine02_leaf02:   10.30.100.10/31
+          spine01_border01: 10.30.100.16/31
+          spine02_border01: 10.30.100.18/31
+      vlans:
+        # VLAN 100 TRADING intentionally omitted — regulatory prohibition
+        corporate:
+          vlan_id: 200
+          prefix: 10.30.2.0/22
+          vip: 10.30.2.1
+          active_in_site: true
+        dmz:
+          vlan_id: 300
+          prefix: 10.30.6.0/24
+          vip: 10.30.6.1
+          active_in_site: true
+        mgmt:
+          vlan_id: 400
+          prefix: 10.30.0.0/25
+          vip: 10.30.0.126
+          active_in_site: true
+
+# ──────────────────────────────────────────────────────────────
+# Branch IPAM  (10.100.0.0/14)
+# /29 per branch WAN prefix (8 addresses: .0=net, .1=branch, .2=DC peer, .7=bcast)
+# Branch LAN is the same /29 — a separate LAN prefix is not allocated at branch level
+# ──────────────────────────────────────────────────────────────
+branches:
+  supernet: 10.100.0.0/14
+
+  uk:
+    region: emea-lon
+    supernet: 10.100.0.0/16
+    prefix_length: 29          # /29 per branch WAN link
+    offset: 8                  # consecutive /29s
+    uplink_dc: lon-dc1
+    uplink_border: border-lon-01
+    branches:
+      branch-lon-01: { wan_prefix: 10.100.0.0/29,  wan_ip: 10.100.0.1, uplink_peer_ip: 10.100.0.2,  lan_prefix: 10.100.0.0/29,  mgmt_ip: 10.100.0.1 }
+      branch-lon-02: { wan_prefix: 10.100.0.8/29,  wan_ip: 10.100.0.9, uplink_peer_ip: 10.100.0.10, lan_prefix: 10.100.0.8/29,  mgmt_ip: 10.100.0.9 }
+      branch-lon-03: { wan_prefix: 10.100.0.16/29, wan_ip: 10.100.0.17, uplink_peer_ip: 10.100.0.18, lan_prefix: 10.100.0.16/29, mgmt_ip: 10.100.0.17 }
+      branch-lon-04: { wan_prefix: 10.100.0.24/29, wan_ip: 10.100.0.25, uplink_peer_ip: 10.100.0.26, lan_prefix: 10.100.0.24/29, mgmt_ip: 10.100.0.25 }
+      branch-lon-05: { wan_prefix: 10.100.0.32/29, wan_ip: 10.100.0.33, uplink_peer_ip: 10.100.0.34, lan_prefix: 10.100.0.32/29, mgmt_ip: 10.100.0.33 }
+      branch-lon-06: { wan_prefix: 10.100.0.40/29, wan_ip: 10.100.0.41, uplink_peer_ip: 10.100.0.42, lan_prefix: 10.100.0.40/29, mgmt_ip: 10.100.0.41 }
+      branch-lon-07: { wan_prefix: 10.100.0.48/29, wan_ip: 10.100.0.49, uplink_peer_ip: 10.100.0.50, lan_prefix: 10.100.0.48/29, mgmt_ip: 10.100.0.49 }
+      branch-lon-08: { wan_prefix: 10.100.0.56/29, wan_ip: 10.100.0.57, uplink_peer_ip: 10.100.0.58, lan_prefix: 10.100.0.56/29, mgmt_ip: 10.100.0.57 }
+      branch-lon-09: { wan_prefix: 10.100.0.64/29, wan_ip: 10.100.0.65, uplink_peer_ip: 10.100.0.66, lan_prefix: 10.100.0.64/29, mgmt_ip: 10.100.0.65 }
+      branch-lon-10: { wan_prefix: 10.100.0.72/29, wan_ip: 10.100.0.73, uplink_peer_ip: 10.100.0.74, lan_prefix: 10.100.0.72/29, mgmt_ip: 10.100.0.73 }
+      branch-lon-11: { wan_prefix: 10.100.0.80/29, wan_ip: 10.100.0.81, uplink_peer_ip: 10.100.0.82, lan_prefix: 10.100.0.80/29, mgmt_ip: 10.100.0.81 }
+      branch-lon-12: { wan_prefix: 10.100.0.88/29, wan_ip: 10.100.0.89, uplink_peer_ip: 10.100.0.90, lan_prefix: 10.100.0.88/29, mgmt_ip: 10.100.0.89 }
+
+  us:
+    region: americas-nyc
+    supernet: 10.101.0.0/16
+    prefix_length: 29
+    offset: 8
+    uplink_dc: nyc-dc1
+    uplink_border: border-nyc-01
+    branches:
+      branch-nyc-01: { wan_prefix: 10.101.0.0/29,  wan_ip: 10.101.0.1, uplink_peer_ip: 10.101.0.2,  lan_prefix: 10.101.0.0/29,  mgmt_ip: 10.101.0.1 }
+      branch-nyc-02: { wan_prefix: 10.101.0.8/29,  wan_ip: 10.101.0.9, uplink_peer_ip: 10.101.0.10, lan_prefix: 10.101.0.8/29,  mgmt_ip: 10.101.0.9 }
+      branch-nyc-03: { wan_prefix: 10.101.0.16/29, wan_ip: 10.101.0.17, uplink_peer_ip: 10.101.0.18, lan_prefix: 10.101.0.16/29, mgmt_ip: 10.101.0.17 }
+      branch-nyc-04: { wan_prefix: 10.101.0.24/29, wan_ip: 10.101.0.25, uplink_peer_ip: 10.101.0.26, lan_prefix: 10.101.0.24/29, mgmt_ip: 10.101.0.25 }
+      branch-nyc-05: { wan_prefix: 10.101.0.32/29, wan_ip: 10.101.0.33, uplink_peer_ip: 10.101.0.34, lan_prefix: 10.101.0.32/29, mgmt_ip: 10.101.0.33 }
+      branch-nyc-06: { wan_prefix: 10.101.0.40/29, wan_ip: 10.101.0.41, uplink_peer_ip: 10.101.0.42, lan_prefix: 10.101.0.40/29, mgmt_ip: 10.101.0.41 }
+      branch-nyc-07: { wan_prefix: 10.101.0.48/29, wan_ip: 10.101.0.49, uplink_peer_ip: 10.101.0.50, lan_prefix: 10.101.0.48/29, mgmt_ip: 10.101.0.49 }
+      branch-nyc-08: { wan_prefix: 10.101.0.56/29, wan_ip: 10.101.0.57, uplink_peer_ip: 10.101.0.58, lan_prefix: 10.101.0.56/29, mgmt_ip: 10.101.0.57 }
+
+  apac:
+    region: apac
+    supernet: 10.102.0.0/16
+    prefix_length: 29
+    offset: 8
+    uplink_dc: sin-dc1
+    uplink_border: border-sin-01
+    branches:
+      branch-sin-01: { wan_prefix: 10.102.0.0/29,  wan_ip: 10.102.0.1, uplink_peer_ip: 10.102.0.2,  lan_prefix: 10.102.0.0/29,  mgmt_ip: 10.102.0.1 }
+      branch-sin-02: { wan_prefix: 10.102.0.8/29,  wan_ip: 10.102.0.9, uplink_peer_ip: 10.102.0.10, lan_prefix: 10.102.0.8/29,  mgmt_ip: 10.102.0.9 }
+      branch-sin-03: { wan_prefix: 10.102.0.16/29, wan_ip: 10.102.0.17, uplink_peer_ip: 10.102.0.18, lan_prefix: 10.102.0.16/29, mgmt_ip: 10.102.0.17 }
+      branch-sin-04: { wan_prefix: 10.102.0.24/29, wan_ip: 10.102.0.25, uplink_peer_ip: 10.102.0.26, lan_prefix: 10.102.0.24/29, mgmt_ip: 10.102.0.25 }
+      branch-sin-05: { wan_prefix: 10.102.0.32/29, wan_ip: 10.102.0.33, uplink_peer_ip: 10.102.0.34, lan_prefix: 10.102.0.32/29, mgmt_ip: 10.102.0.33 }
+      branch-sin-06: { wan_prefix: 10.102.0.40/29, wan_ip: 10.102.0.41, uplink_peer_ip: 10.102.0.42, lan_prefix: 10.102.0.40/29, mgmt_ip: 10.102.0.41 }
+
+  eu:
+    region: eu-fra
+    supernet: 10.103.0.0/16
+    prefix_length: 29
+    offset: 8
+    uplink_dc: fra-dc1
+    uplink_border: border-fra-01
+    compliance_note: "EU branches inherit Frankfurt TRADING restriction — CORPORATE and MGMT only"
+    branches:
+      branch-fra-01: { wan_prefix: 10.103.0.0/29,  wan_ip: 10.103.0.1, uplink_peer_ip: 10.103.0.2,  lan_prefix: 10.103.0.0/29,  mgmt_ip: 10.103.0.1 }
+      branch-fra-02: { wan_prefix: 10.103.0.8/29,  wan_ip: 10.103.0.9, uplink_peer_ip: 10.103.0.10, lan_prefix: 10.103.0.8/29,  mgmt_ip: 10.103.0.9 }
+      branch-fra-03: { wan_prefix: 10.103.0.16/29, wan_ip: 10.103.0.17, uplink_peer_ip: 10.103.0.18, lan_prefix: 10.103.0.16/29, mgmt_ip: 10.103.0.17 }
+      branch-fra-04: { wan_prefix: 10.103.0.24/29, wan_ip: 10.103.0.25, uplink_peer_ip: 10.103.0.26, lan_prefix: 10.103.0.24/29, mgmt_ip: 10.103.0.25 }

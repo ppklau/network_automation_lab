@@ -1,0 +1,234 @@
+---
+# ACME Investments — US Branch Devices
+# 8 branches connecting to nyc-dc1 via border-nyc-01 (eBGP)
+# Branches only carry CORPORATE and MGMT zones — no TRADING, no DMZ
+# branch-nyc-01 is lab_state: active; all others sot_only
+# Last reviewed: 2026-03-01
+
+region: americas-nyc
+uplink_dc: nyc-dc1
+uplink_border: border-nyc-01
+platform: frr
+image: frrouting/frr:9.1.0
+hardware_model: "FRR Virtual Router (branch CPE)"
+eol_date: "2028-06-30"
+compliance_tags: [sox, sec]
+security_zones: [CORPORATE, MGMT_ZONE]
+
+branches:
+
+  - hostname: branch-nyc-01
+    fqdn: branch-nyc-01.americas.acme-investments.internal
+    lab_state: active     # Instantiated in containerlab
+    serial: BRNNYC2401001
+    site_code: branch-nyc-01
+    asn: 65120
+    office_type: trading
+    location:
+      city: New York
+      address: "200 Liberty Street, New York, NY 10281"
+      country: US
+    management_ip: 10.101.0.1/29
+    wan_prefix: 10.101.0.0/29
+    wan_ip: 10.101.0.1
+    uplink_peer_ip: 10.101.0.2
+    lan_prefix: 10.101.0.0/29
+    interfaces:
+      eth0:
+        description: "OOB management"
+        ip: 10.101.0.1/29
+      eth1:
+        description: "WAN uplink -> border-nyc-01 [eBGP AS65120<->AS65010]"
+        ip: 10.101.0.1/29
+        peer_device: border-nyc-01
+        peer_ip: 10.101.0.2
+      eth2:
+        description: "LAN — branch office network"
+        ip: 10.101.0.1/29
+    bgp:
+      local_as: 65120
+      router_id: 10.101.0.1
+      neighbors:
+        - peer_ip: 10.101.0.2
+          remote_as: 65010
+          description: "eBGP -> border-nyc-01"
+          md5_password_ref: bgp_md5_branch_nyc_01
+          route_map_out: RM_BRANCH_OUT
+      networks_advertised:
+        - prefix: 10.101.0.0/29
+          description: "Branch LAN"
+
+  - hostname: branch-nyc-02
+    fqdn: branch-nyc-02.americas.acme-investments.internal
+    lab_state: sot_only
+    serial: BRNNYC2401002
+    site_code: branch-nyc-02
+    asn: 65121
+    office_type: corporate
+    location:
+      city: Boston
+      address: "100 Summer Street, Boston, MA 02110"
+      country: US
+    management_ip: 10.101.0.9/29
+    wan_prefix: 10.101.0.8/29
+    wan_ip: 10.101.0.9
+    uplink_peer_ip: 10.101.0.10
+    lan_prefix: 10.101.0.8/29
+    bgp:
+      local_as: 65121
+      router_id: 10.101.0.9
+      neighbors:
+        - peer_ip: 10.101.0.10
+          remote_as: 65010
+          description: "eBGP -> border-nyc-01"
+          md5_password_ref: bgp_md5_branch_nyc_02
+
+  - hostname: branch-nyc-03
+    fqdn: branch-nyc-03.americas.acme-investments.internal
+    lab_state: sot_only
+    serial: BRNNYC2401003
+    site_code: branch-nyc-03
+    asn: 65122
+    office_type: corporate
+    location:
+      city: Chicago
+      address: "190 South LaSalle Street, Chicago, IL 60603"
+      country: US
+    management_ip: 10.101.0.17/29
+    wan_prefix: 10.101.0.16/29
+    wan_ip: 10.101.0.17
+    uplink_peer_ip: 10.101.0.18
+    lan_prefix: 10.101.0.16/29
+    bgp:
+      local_as: 65122
+      router_id: 10.101.0.17
+      neighbors:
+        - peer_ip: 10.101.0.18
+          remote_as: 65010
+          description: "eBGP -> border-nyc-01"
+          md5_password_ref: bgp_md5_branch_nyc_03
+
+  - hostname: branch-nyc-04
+    fqdn: branch-nyc-04.americas.acme-investments.internal
+    lab_state: sot_only
+    serial: BRNNYC2401004
+    site_code: branch-nyc-04
+    asn: 65123
+    office_type: corporate
+    location:
+      city: San Francisco
+      address: "345 California Street, San Francisco, CA 94104"
+      country: US
+    management_ip: 10.101.0.25/29
+    wan_prefix: 10.101.0.24/29
+    wan_ip: 10.101.0.25
+    uplink_peer_ip: 10.101.0.26
+    lan_prefix: 10.101.0.24/29
+    bgp:
+      local_as: 65123
+      router_id: 10.101.0.25
+      neighbors:
+        - peer_ip: 10.101.0.26
+          remote_as: 65010
+          description: "eBGP -> border-nyc-01"
+          md5_password_ref: bgp_md5_branch_nyc_04
+
+  - hostname: branch-nyc-05
+    fqdn: branch-nyc-05.americas.acme-investments.internal
+    lab_state: sot_only
+    serial: BRNNYC2401005
+    site_code: branch-nyc-05
+    asn: 65124
+    office_type: regional
+    location:
+      city: Houston
+      address: "700 Louisiana Street, Houston, TX 77002"
+      country: US
+    management_ip: 10.101.0.33/29
+    wan_prefix: 10.101.0.32/29
+    wan_ip: 10.101.0.33
+    uplink_peer_ip: 10.101.0.34
+    lan_prefix: 10.101.0.32/29
+    bgp:
+      local_as: 65124
+      router_id: 10.101.0.33
+      neighbors:
+        - peer_ip: 10.101.0.34
+          remote_as: 65010
+          description: "eBGP -> border-nyc-01"
+          md5_password_ref: bgp_md5_branch_nyc_05
+
+  - hostname: branch-nyc-06
+    fqdn: branch-nyc-06.americas.acme-investments.internal
+    lab_state: sot_only
+    serial: BRNNYC2401006
+    site_code: branch-nyc-06
+    asn: 65125
+    office_type: corporate
+    location:
+      city: Atlanta
+      address: "191 Peachtree Street NE, Atlanta, GA 30303"
+      country: US
+    management_ip: 10.101.0.41/29
+    wan_prefix: 10.101.0.40/29
+    wan_ip: 10.101.0.41
+    uplink_peer_ip: 10.101.0.42
+    lan_prefix: 10.101.0.40/29
+    bgp:
+      local_as: 65125
+      router_id: 10.101.0.41
+      neighbors:
+        - peer_ip: 10.101.0.42
+          remote_as: 65010
+          description: "eBGP -> border-nyc-01"
+          md5_password_ref: bgp_md5_branch_nyc_06
+
+  - hostname: branch-nyc-07
+    fqdn: branch-nyc-07.americas.acme-investments.internal
+    lab_state: sot_only
+    serial: BRNNYC2401007
+    site_code: branch-nyc-07
+    asn: 65126
+    office_type: regional
+    location:
+      city: Miami
+      address: "200 South Biscayne Boulevard, Miami, FL 33131"
+      country: US
+    management_ip: 10.101.0.49/29
+    wan_prefix: 10.101.0.48/29
+    wan_ip: 10.101.0.49
+    uplink_peer_ip: 10.101.0.50
+    lan_prefix: 10.101.0.48/29
+    bgp:
+      local_as: 65126
+      router_id: 10.101.0.49
+      neighbors:
+        - peer_ip: 10.101.0.50
+          remote_as: 65010
+          description: "eBGP -> border-nyc-01"
+          md5_password_ref: bgp_md5_branch_nyc_07
+
+  - hostname: branch-nyc-08
+    fqdn: branch-nyc-08.americas.acme-investments.internal
+    lab_state: sot_only
+    serial: BRNNYC2401008
+    site_code: branch-nyc-08
+    asn: 65127
+    office_type: corporate
+    location:
+      city: Seattle
+      address: "1201 Third Avenue, Seattle, WA 98101"
+      country: US
+    management_ip: 10.101.0.57/29
+    wan_prefix: 10.101.0.56/29
+    wan_ip: 10.101.0.57
+    uplink_peer_ip: 10.101.0.58
+    lan_prefix: 10.101.0.56/29
+    bgp:
+      local_as: 65127
+      router_id: 10.101.0.57
+      neighbors:
+        - peer_ip: 10.101.0.58
+          remote_as: 65010
+          description: "eBGP -> border-nyc-01"
+          md5_password_ref: bgp_md5_branch_nyc_08

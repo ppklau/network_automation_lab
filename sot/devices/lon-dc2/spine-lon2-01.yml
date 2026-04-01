@@ -1,0 +1,111 @@
+---
+# ACME Investments — Device: spine-lon2-01
+# Role: Spine / BGP Route Reflector — London DC2
+# lab_state: sot_only (not instantiated in containerlab)
+# Last reviewed: 2026-03-01
+
+hostname: spine-lon2-01
+fqdn: spine-lon2-01.lon-dc2.acme-investments.internal
+role: spine
+platform: arista_eos
+image: ceos:4.32.2F
+hardware_model: DCS-7050CX3-32S
+serial: ACE2402001A
+eol_date: "2029-12-31"
+lab_state: sot_only
+
+site: lon-dc2
+region: emea-lon
+compliance_tags: [mifid2, fca, gdpr_applicable, uk_gdpr]
+security_zones: [MGMT_ZONE]
+
+management:
+  interface: Management0
+  ip: 10.2.0.1/25
+  gateway: 10.2.0.126
+  vrf: MGMT
+
+loopback:
+  interface: Loopback0
+  ip: 10.2.255.1/32
+
+ntp_source_interface: Loopback0
+logging_source_interface: Loopback0
+
+interfaces:
+  - name: Ethernet1
+    description: "P2P -> leaf-lon2-01 Ethernet1"
+    ip: 10.2.100.0/31
+    peer_device: leaf-lon2-01
+    peer_interface: Ethernet1
+    mtu: 9214
+
+  - name: Ethernet2
+    description: "P2P -> leaf-lon2-02 Ethernet1"
+    ip: 10.2.100.2/31
+    peer_device: leaf-lon2-02
+    peer_interface: Ethernet1
+    mtu: 9214
+
+  - name: Ethernet3
+    description: "P2P -> leaf-lon2-03 Ethernet1"
+    ip: 10.2.100.4/31
+    peer_device: leaf-lon2-03
+    peer_interface: Ethernet1
+    mtu: 9214
+
+  - name: Ethernet4
+    description: "P2P -> leaf-lon2-04 Ethernet1"
+    ip: 10.2.100.6/31
+    peer_device: leaf-lon2-04
+    peer_interface: Ethernet1
+    mtu: 9214
+
+  - name: Ethernet5
+    description: "P2P -> border-lon2-01 Ethernet1"
+    ip: 10.2.100.16/31
+    peer_device: border-lon2-01
+    peer_interface: Ethernet1
+    mtu: 9214
+
+bgp:
+  local_as: 65002
+  router_id: 10.2.255.1
+  role: route_reflector
+  neighbors:
+    - peer_ip: 10.2.255.2
+      remote_as: 65002
+      description: "iBGP peer -> spine-lon2-02"
+      update_source: Loopback0
+      route_reflector_client: false
+      md5_password_ref: bgp_md5_lon_dc2_fabric
+    - peer_ip: 10.2.255.11
+      remote_as: 65002
+      description: "iBGP RR client -> leaf-lon2-01"
+      update_source: Loopback0
+      route_reflector_client: true
+      md5_password_ref: bgp_md5_lon_dc2_fabric
+    - peer_ip: 10.2.255.12
+      remote_as: 65002
+      description: "iBGP RR client -> leaf-lon2-02"
+      update_source: Loopback0
+      route_reflector_client: true
+      md5_password_ref: bgp_md5_lon_dc2_fabric
+    - peer_ip: 10.2.255.13
+      remote_as: 65002
+      description: "iBGP RR client -> leaf-lon2-03"
+      update_source: Loopback0
+      route_reflector_client: true
+      md5_password_ref: bgp_md5_lon_dc2_fabric
+    - peer_ip: 10.2.255.14
+      remote_as: 65002
+      description: "iBGP RR client -> leaf-lon2-04"
+      update_source: Loopback0
+      route_reflector_client: true
+      md5_password_ref: bgp_md5_lon_dc2_fabric
+    - peer_ip: 10.2.255.20
+      remote_as: 65002
+      description: "iBGP RR client -> border-lon2-01"
+      update_source: Loopback0
+      route_reflector_client: true
+      md5_password_ref: bgp_md5_lon_dc2_fabric

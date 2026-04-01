@@ -1,0 +1,203 @@
+---
+# ACME Investments — Device: spine-lon-01
+# Role: Spine switch / BGP Route Reflector — London DC1
+# Platform: Arista cEOS
+# Lab state: active (fully instantiated in containerlab)
+# Last reviewed: 2026-03-01
+
+hostname: spine-lon-01
+fqdn: spine-lon-01.lon-dc1.acme-investments.internal
+role: spine
+platform: arista_eos
+image: ceos:4.32.2F
+hardware_model: DCS-7050CX3-32S
+serial: ACE2401001A
+eol_date: "2029-12-31"
+
+site: lon-dc1
+region: emea-lon
+lab_state: active
+
+compliance_tags: [mifid2, fca, gdpr_applicable, uk_gdpr]
+security_zones: [MGMT_ZONE]   # spines only carry fabric — zone SVIs live on leaves
+
+# ──────────────────────────────────────────
+# Management
+# ──────────────────────────────────────────
+management:
+  interface: Management0
+  ip: 10.1.0.1/25
+  gateway: 10.1.0.126
+  vrf: MGMT
+
+# ──────────────────────────────────────────
+# Loopback
+# ──────────────────────────────────────────
+loopback:
+  interface: Loopback0
+  ip: 10.1.255.1/32
+  description: "Router-ID and BGP next-hop"
+
+ntp_source_interface: Loopback0
+logging_source_interface: Loopback0
+snmp_source_interface: Loopback0
+
+# ──────────────────────────────────────────
+# VRFs
+# ──────────────────────────────────────────
+vrfs:
+  - name: MGMT
+    description: "Out-of-band management VRF"
+    rd: "65001:999"
+
+# ──────────────────────────────────────────
+# Interfaces
+# ──────────────────────────────────────────
+interfaces:
+  - name: Ethernet1
+    description: "P2P -> leaf-lon-01 Ethernet1 [fabric]"
+    ip: 10.1.100.0/31       # spine=.0, leaf=.1
+    peer_device: leaf-lon-01
+    peer_interface: Ethernet1
+    mtu: 9214
+    speed: 100G
+    vrf: default
+
+  - name: Ethernet2
+    description: "P2P -> leaf-lon-02 Ethernet1 [fabric]"
+    ip: 10.1.100.2/31       # spine=.2, leaf=.3
+    peer_device: leaf-lon-02
+    peer_interface: Ethernet1
+    mtu: 9214
+    speed: 100G
+    vrf: default
+
+  - name: Ethernet3
+    description: "P2P -> leaf-lon-03 Ethernet1 [fabric]"
+    ip: 10.1.100.4/31       # spine=.4, leaf=.5
+    peer_device: leaf-lon-03
+    peer_interface: Ethernet1
+    mtu: 9214
+    speed: 100G
+    vrf: default
+
+  - name: Ethernet4
+    description: "P2P -> leaf-lon-04 Ethernet1 [fabric]"
+    ip: 10.1.100.6/31       # spine=.6, leaf=.7
+    peer_device: leaf-lon-04
+    peer_interface: Ethernet1
+    mtu: 9214
+    speed: 100G
+    vrf: default
+
+  - name: Ethernet5
+    description: "P2P -> border-lon-01 Ethernet1 [fabric]"
+    ip: 10.1.100.16/31      # spine=.16, border=.17
+    peer_device: border-lon-01
+    peer_interface: Ethernet1
+    mtu: 9214
+    speed: 100G
+    vrf: default
+
+  - name: Loopback0
+    description: "Router-ID / BGP next-hop"
+    ip: 10.1.255.1/32
+    vrf: default
+
+  - name: Management0
+    description: "OOB management"
+    ip: 10.1.0.1/25
+    vrf: MGMT
+
+# ──────────────────────────────────────────
+# BGP Configuration
+# ──────────────────────────────────────────
+bgp:
+  local_as: 65001
+  router_id: 10.1.255.1
+  role: route_reflector        # spine-lon-01 is one of two RRs for lon-dc1
+
+  # iBGP — spine01 is RR; clients are all leaves and border
+  # spine01 <-> spine02 are non-RR-client iBGP peers
+  neighbors:
+    - peer_ip: 10.1.255.2
+      remote_as: 65001
+      description: "iBGP peer -> spine-lon-02 (non-RR-client peer between RRs)"
+      update_source: Loopback0
+      route_reflector_client: false   # peer between RRs — not a client
+      md5_password_ref: bgp_md5_lon_dc1_fabric
+      address_families:
+        - afi: ipv4
+          safi: unicast
+          activate: true
+
+    - peer_ip: 10.1.255.11
+      remote_as: 65001
+      description: "iBGP RR client -> leaf-lon-01"
+      update_source: Loopback0
+      route_reflector_client: true
+      md5_password_ref: bgp_md5_lon_dc1_fabric
+      address_families:
+        - afi: ipv4
+          safi: unicast
+          activate: true
+
+    - peer_ip: 10.1.255.12
+      remote_as: 65001
+      description: "iBGP RR client -> leaf-lon-02"
+      update_source: Loopback0
+      route_reflector_client: true
+      md5_password_ref: bgp_md5_lon_dc1_fabric
+      address_families:
+        - afi: ipv4
+          safi: unicast
+          activate: true
+
+    - peer_ip: 10.1.255.13
+      remote_as: 65001
+      description: "iBGP RR client -> leaf-lon-03"
+      update_source: Loopback0
+      route_reflector_client: true
+      md5_password_ref: bgp_md5_lon_dc1_fabric
+      address_families:
+        - afi: ipv4
+          safi: unicast
+          activate: true
+
+    - peer_ip: 10.1.255.14
+      remote_as: 65001
+      description: "iBGP RR client -> leaf-lon-04"
+      update_source: Loopback0
+      route_reflector_client: true
+      md5_password_ref: bgp_md5_lon_dc1_fabric
+      address_families:
+        - afi: ipv4
+          safi: unicast
+          activate: true
+
+    - peer_ip: 10.1.255.20
+      remote_as: 65001
+      description: "iBGP RR client -> border-lon-01"
+      update_source: Loopback0
+      route_reflector_client: true
+      md5_password_ref: bgp_md5_lon_dc1_fabric
+      address_families:
+        - afi: ipv4
+          safi: unicast
+          activate: true
+
+  address_family_defaults:
+    ipv4_unicast:
+      maximum_paths: 4
+      bestpath_ecmp_fast: true
+
+  networks_advertised:
+    - prefix: 10.1.255.1/32
+      description: "Loopback — always advertise for reachability"
+
+  timers:
+    keepalive: 30
+    hold_time: 90
+
+  graceful_restart: true
+  log_neighbor_changes: true

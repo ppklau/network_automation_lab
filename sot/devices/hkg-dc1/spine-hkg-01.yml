@@ -1,0 +1,70 @@
+---
+hostname: spine-hkg-01
+fqdn: spine-hkg-01.hkg-dc1.acme-investments.internal
+role: spine
+platform: arista_eos
+image: ceos:4.32.2F
+hardware_model: DCS-7050CX3-32S
+serial: ACE2421001A
+eol_date: "2029-12-31"
+lab_state: sot_only
+site: hkg-dc1
+region: apac
+compliance_tags: [mas_trm, hkma_cfi, apac_data_residency]
+security_zones: [MGMT_ZONE]
+management:
+  interface: Management0
+  ip: 10.21.0.1/25
+  gateway: 10.21.0.126
+  vrf: MGMT
+loopback:
+  interface: Loopback0
+  ip: 10.21.255.1/32
+interfaces:
+  - name: Ethernet1
+    description: "P2P -> leaf-hkg-01 Ethernet1"
+    ip: 10.21.100.0/31
+    peer_device: leaf-hkg-01
+    peer_interface: Ethernet1
+    mtu: 9214
+  - name: Ethernet2
+    description: "P2P -> leaf-hkg-02 Ethernet1"
+    ip: 10.21.100.2/31
+    peer_device: leaf-hkg-02
+    peer_interface: Ethernet1
+    mtu: 9214
+  - name: Ethernet5
+    description: "P2P -> border-hkg-01 Ethernet1"
+    ip: 10.21.100.16/31
+    peer_device: border-hkg-01
+    peer_interface: Ethernet1
+    mtu: 9214
+bgp:
+  local_as: 65021
+  router_id: 10.21.255.1
+  role: route_reflector
+  neighbors:
+    - peer_ip: 10.21.255.2
+      remote_as: 65021
+      description: "iBGP peer -> spine-hkg-02"
+      update_source: Loopback0
+      route_reflector_client: false
+      md5_password_ref: bgp_md5_hkg_dc1_fabric
+    - peer_ip: 10.21.255.11
+      remote_as: 65021
+      description: "iBGP RR client -> leaf-hkg-01"
+      update_source: Loopback0
+      route_reflector_client: true
+      md5_password_ref: bgp_md5_hkg_dc1_fabric
+    - peer_ip: 10.21.255.12
+      remote_as: 65021
+      description: "iBGP RR client -> leaf-hkg-02"
+      update_source: Loopback0
+      route_reflector_client: true
+      md5_password_ref: bgp_md5_hkg_dc1_fabric
+    - peer_ip: 10.21.255.20
+      remote_as: 65021
+      description: "iBGP RR client -> border-hkg-01"
+      update_source: Loopback0
+      route_reflector_client: true
+      md5_password_ref: bgp_md5_hkg_dc1_fabric

@@ -1,0 +1,241 @@
+---
+# ACME Investments — Device: leaf-lon-02
+# Role: Leaf switch / BGP RR client — London DC1
+# VRRP active for CORPORATE VLAN 200 (priority 110)
+# VRRP standby for TRADING VLAN 100 (priority 90)
+# Platform: Arista cEOS
+# Lab state: active
+# Last reviewed: 2026-03-01
+
+hostname: leaf-lon-02
+fqdn: leaf-lon-02.lon-dc1.acme-investments.internal
+role: leaf
+platform: arista_eos
+image: ceos:4.32.2F
+hardware_model: DCS-7050TX3-48C8
+serial: ACE2401012B
+eol_date: "2029-06-30"
+
+site: lon-dc1
+region: emea-lon
+lab_state: active
+
+compliance_tags: [mifid2, fca, gdpr_applicable, uk_gdpr]
+security_zones: [TRADING, CORPORATE, MGMT_ZONE]
+
+management:
+  interface: Management0
+  ip: 10.1.0.12/25
+  gateway: 10.1.0.126
+  vrf: MGMT
+
+loopback:
+  interface: Loopback0
+  ip: 10.1.255.12/32
+  description: "Router-ID and BGP next-hop"
+
+ntp_source_interface: Loopback0
+logging_source_interface: Loopback0
+snmp_source_interface: Loopback0
+
+vrfs:
+  - name: MGMT
+    description: "Out-of-band management"
+    rd: "65001:999"
+  - name: TRADING_VRF
+    description: "Equities/FX trading systems"
+    rd: "65001:100"
+    route_target_import: "65001:100"
+    route_target_export: "65001:100"
+  - name: CORPORATE_VRF
+    description: "Corporate workstations and servers"
+    rd: "65001:200"
+    route_target_import: "65001:200"
+    route_target_export: "65001:200"
+  - name: MGMT_VRF
+    description: "Network device management data plane"
+    rd: "65001:400"
+    route_target_import: "65001:400"
+    route_target_export: "65001:400"
+
+vlans:
+  - vlan_id: 100
+    name: TRADING
+    vrf: TRADING_VRF
+    svi_ip: 10.1.1.3/24       # leaf-lon-02 SVI (.3; VIP is .1)
+    active: true
+
+  - vlan_id: 200
+    name: CORPORATE
+    vrf: CORPORATE_VRF
+    svi_ip: 10.1.2.4/22       # leaf-lon-02 SVI (.4; VIP is .1)
+    active: true
+
+  - vlan_id: 400
+    name: MGMT
+    vrf: MGMT_VRF
+    svi_ip: 10.1.0.4/25
+    active: true
+
+interfaces:
+  - name: Ethernet1
+    description: "P2P -> spine-lon-01 Ethernet2 [fabric]"
+    ip: 10.1.100.3/31         # leaf=.3, spine=.2
+    peer_device: spine-lon-01
+    peer_interface: Ethernet2
+    mtu: 9214
+    speed: 100G
+    vrf: default
+
+  - name: Ethernet2
+    description: "P2P -> spine-lon-02 Ethernet2 [fabric]"
+    ip: 10.1.100.11/31        # leaf=.11, spine=.10
+    peer_device: spine-lon-02
+    peer_interface: Ethernet2
+    mtu: 9214
+    speed: 100G
+    vrf: default
+
+  - name: Ethernet3
+    description: "Server access port — TRADING VLAN 100"
+    mode: access
+    access_vlan: 100
+    peer_device: srv-trading-03
+    peer_interface: eth0
+    mtu: 9214
+    speed: 10G
+
+  - name: Ethernet4
+    description: "Server access port — TRADING VLAN 100"
+    mode: access
+    access_vlan: 100
+    peer_device: srv-trading-04
+    peer_interface: eth0
+    mtu: 9214
+    speed: 10G
+
+  - name: Ethernet5
+    description: "Server trunk — CORPORATE+MGMT (VLANs 200,400)"
+    mode: trunk
+    trunk_vlans: [200, 400]
+    peer_device: srv-corp-03
+    peer_interface: eth0
+    mtu: 9214
+    speed: 10G
+
+  - name: Ethernet6
+    description: "Server trunk — CORPORATE+MGMT (VLANs 200,400)"
+    mode: trunk
+    trunk_vlans: [200, 400]
+    peer_device: srv-corp-04
+    peer_interface: eth0
+    mtu: 9214
+    speed: 10G
+
+  - name: Vlan100
+    description: "SVI TRADING — leaf-lon-02 standby gateway"
+    ip: 10.1.1.3/24
+    vrf: TRADING_VRF
+    vrrp_group: 10
+
+  - name: Vlan200
+    description: "SVI CORPORATE — leaf-lon-02 active gateway"
+    ip: 10.1.2.4/22
+    vrf: CORPORATE_VRF
+    vrrp_group: 20
+
+  - name: Vlan400
+    description: "SVI MGMT"
+    ip: 10.1.0.4/25
+    vrf: MGMT_VRF
+    vrrp_group: 40
+
+  - name: Loopback0
+    description: "Router-ID / BGP next-hop"
+    ip: 10.1.255.12/32
+    vrf: default
+
+  - name: Management0
+    description: "OOB management"
+    ip: 10.1.0.12/25
+    vrf: MGMT
+
+vrrp:
+  - group: 10
+    vlan: 100
+    vrf: TRADING_VRF
+    virtual_ip: 10.1.1.1
+    priority: 90              # STANDBY for TRADING — leaf-lon-01 is active
+    preempt: true
+    preempt_delay_seconds: 60
+    advertisement_interval_ms: 1000
+
+  - group: 20
+    vlan: 200
+    vrf: CORPORATE_VRF
+    virtual_ip: 10.1.2.1
+    priority: 110             # ACTIVE for CORPORATE on leaf-lon-02
+    preempt: true
+    preempt_delay_seconds: 60
+    advertisement_interval_ms: 1000
+    track:
+      - interface: Ethernet1
+        decrement: 20
+      - interface: Ethernet2
+        decrement: 20
+
+  - group: 40
+    vlan: 400
+    vrf: MGMT_VRF
+    virtual_ip: 10.1.0.126
+    priority: 80
+    preempt: true
+    preempt_delay_seconds: 60
+
+bgp:
+  local_as: 65001
+  router_id: 10.1.255.12
+  role: rr_client
+
+  neighbors:
+    - peer_ip: 10.1.255.1
+      remote_as: 65001
+      description: "iBGP RR -> spine-lon-01"
+      update_source: Loopback0
+      route_reflector_client: false
+      md5_password_ref: bgp_md5_lon_dc1_fabric
+      address_families:
+        - afi: ipv4
+          safi: unicast
+          activate: true
+
+    - peer_ip: 10.1.255.2
+      remote_as: 65001
+      description: "iBGP RR -> spine-lon-02"
+      update_source: Loopback0
+      route_reflector_client: false
+      md5_password_ref: bgp_md5_lon_dc1_fabric
+      address_families:
+        - afi: ipv4
+          safi: unicast
+          activate: true
+
+  networks_advertised:
+    - prefix: 10.1.255.12/32
+      description: "Loopback"
+    - prefix: 10.1.1.0/24
+      description: "TRADING SVI"
+      vrf: TRADING_VRF
+    - prefix: 10.1.2.0/22
+      description: "CORPORATE SVI"
+      vrf: CORPORATE_VRF
+    - prefix: 10.1.0.0/25
+      description: "MGMT SVI"
+      vrf: MGMT_VRF
+
+  timers:
+    keepalive: 30
+    hold_time: 90
+
+  graceful_restart: true
+  log_neighbor_changes: true

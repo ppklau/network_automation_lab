@@ -1,0 +1,227 @@
+---
+# ACME Investments — Regulatory Compliance Tags & Requirements
+# Defines per-region regulatory obligations, data residency rules,
+# audit retention requirements, and change freeze windows
+# Reviewed by: Legal & Compliance, 2026-03-01
+
+# ──────────────────────────────────────────────────────────────
+# Regulatory Frameworks Applied
+# ──────────────────────────────────────────────────────────────
+frameworks:
+  mifid2:
+    full_name: "Markets in Financial Instruments Directive II"
+    jurisdiction: [EU, UK_post_Brexit]
+    regulator: [ESMA, FCA]
+    applies_to_regions: [emea-lon, eu-fra]
+    key_requirements:
+      - Best execution reporting
+      - Transaction reporting (T+1)
+      - Order record keeping (5 years)
+      - Clock synchronisation to UTC±100μs (trading systems)
+      - Algorithmic trading controls
+
+  fca:
+    full_name: "Financial Conduct Authority (UK)"
+    jurisdiction: [UK]
+    regulator: FCA
+    applies_to_regions: [emea-lon]
+    key_requirements:
+      - SYSC (Senior Managers and Certification Regime)
+      - Operational resilience (PS21/3)
+      - Cyber resilience reporting
+      - Material outsourcing notification
+
+  gdpr:
+    full_name: "General Data Protection Regulation"
+    jurisdiction: [EU, UK_GDPR]
+    regulator: [ICO_UK, BaFin_Germany]
+    applies_to_regions: [emea-lon, eu-fra]
+    key_requirements:
+      - Data residency — personal data must not leave EU/UK without adequacy decision
+      - Right to erasure — audit log anonymisation after retention period
+      - DPA documentation
+      - Breach notification within 72 hours
+
+  sox:
+    full_name: "Sarbanes-Oxley Act"
+    jurisdiction: [US]
+    regulator: [SEC, PCAOB]
+    applies_to_regions: [americas-nyc]
+    key_requirements:
+      - Section 404 — internal controls over financial reporting
+      - Audit trail integrity — tamper-evident logs
+      - Change management controls
+      - Access segregation
+
+  sec:
+    full_name: "Securities and Exchange Commission Regulations"
+    jurisdiction: [US]
+    regulator: SEC
+    applies_to_regions: [americas-nyc]
+    key_requirements:
+      - Reg SCI — System Compliance and Integrity
+      - Trading system availability SLA (99.999%)
+      - Incident reporting within 24 hours
+      - Business continuity testing annually
+
+  mas:
+    full_name: "Monetary Authority of Singapore"
+    jurisdiction: [Singapore]
+    regulator: MAS
+    applies_to_regions: [apac]
+    key_requirements:
+      - Technology Risk Management Guidelines (TRM)
+      - Cyber Hygiene Notice (MAS-TRMG)
+      - Annual penetration testing
+      - Incident reporting within 1 hour for P1 incidents
+
+  hkma:
+    full_name: "Hong Kong Monetary Authority"
+    jurisdiction: [HongKong]
+    regulator: HKMA
+    applies_to_regions: [apac]
+    key_requirements:
+      - Supervisory Policy Manual TM-G-1
+      - Cyber fortification initiative (CFI)
+      - Red team exercises (iCAST)
+
+  bafin:
+    full_name: "Bundesanstalt für Finanzdienstleistungsaufsicht"
+    jurisdiction: [Germany]
+    regulator: BaFin
+    applies_to_regions: [eu-fra]
+    key_requirements:
+      - MaRisk — minimum requirements for risk management
+      - BAIT — supervisory requirements for IT in financial institutions
+      - No trading-system processing in Frankfurt (FRA DC is regulatory/reporting only)
+      - Data sovereignty — regulated data must remain in Germany
+
+# ──────────────────────────────────────────────────────────────
+# Per-Region Regulatory Profile
+# ──────────────────────────────────────────────────────────────
+regional_profiles:
+
+  emea-lon:
+    region_code: emea-lon
+    primary_jurisdiction: UK
+    compliance_tags: [mifid2, fca, gdpr_applicable, uk_gdpr]
+    data_residency:
+      personal_data_permitted: true
+      data_must_stay_in: [UK, EU]  # adequacy decision applies post-Brexit
+      cross_border_transfer_requires: adequacy_or_scc
+    audit_log_retention_years: 7   # MiFID II requires 5yr; FCA SYSC requires 7yr — use max
+    clock_sync_requirement_us: 100 # MiFID II RTS 25 — UTC synchronisation within 100 microseconds for gated clocks
+    change_freeze_windows:
+      - name: "Year-end financial close"
+        start: "12-20"
+        end: "01-05"
+        timezone: Europe/London
+        change_types_frozen: [infrastructure, major]
+        emergency_only: true
+        approver: "CTO + Head of Compliance"
+      - name: "UK Budget Day"
+        description: "Annual UK budget — heightened trading activity"
+        recurring: "variable — check HMT calendar"
+        change_types_frozen: [infrastructure, major]
+    incident_notification:
+      fca_reportable_threshold: "P1 incidents affecting FCA-regulated services"
+      notification_deadline_hours: 4
+      contact: compliance@acme-investments.com
+
+  americas-nyc:
+    region_code: americas-nyc
+    primary_jurisdiction: US
+    compliance_tags: [sox, sec, reg_sci]
+    data_residency:
+      personal_data_permitted: true
+      data_must_stay_in: [US]
+      cross_border_transfer_requires: standard_contractual_clauses
+    audit_log_retention_years: 7   # SEC Rule 17a-4 requires 6yr; SOX requires 7yr
+    change_freeze_windows:
+      - name: "US financial quarter-end"
+        description: "Last 3 trading days of each quarter"
+        recurring: quarterly
+        months: [3, 6, 9, 12]
+        change_types_frozen: [infrastructure]
+      - name: "US holiday trading restrictions"
+        description: "Thanksgiving, Christmas, New Year"
+        change_types_frozen: [infrastructure, major]
+    incident_notification:
+      sec_reportable_threshold: "P1 incidents affecting SEC-registered activities"
+      notification_deadline_hours: 24
+
+  apac:
+    region_code: apac
+    primary_jurisdiction: Singapore
+    compliance_tags: [mas_trm, hkma_cfi, apac_data_residency]
+    data_residency:
+      personal_data_permitted: true
+      data_must_stay_in: [Singapore, HongKong]
+      cross_border_transfer_requires: pdpa_consent_or_scc
+    audit_log_retention_years: 5   # MAS TRM requirement
+    change_freeze_windows:
+      - name: "Chinese New Year"
+        description: "Heightened trading in APAC markets"
+        recurring: annual
+        change_types_frozen: [infrastructure]
+      - name: "APAC quarter-end"
+        recurring: quarterly
+        change_types_frozen: [infrastructure]
+    incident_notification:
+      mas_reportable_threshold: "P1 incidents per MAS TRM — report within 1 hour"
+      notification_deadline_hours: 1
+
+  eu-fra:
+    region_code: eu-fra
+    primary_jurisdiction: Germany
+    compliance_tags: [mifid2, bafin, gdpr_applicable, eu_gdpr, gdpr_strict]
+    data_residency:
+      personal_data_permitted: true
+      data_must_stay_in: [EU]  # strict EU residency — Germany preferred
+      cross_border_transfer_requires: adequacy_decision_or_scc
+      german_data_sovereignty: required  # BaFin BAIT requirement
+    trading_zone_prohibited: true  # CRITICAL: no TRADING VRF in Frankfurt
+    audit_log_retention_years: 10  # BaFin MaRisk requires 10yr for some records
+    change_freeze_windows:
+      - name: "EU quarter-end"
+        recurring: quarterly
+        change_types_frozen: [infrastructure, major]
+      - name: "German banking holidays"
+        description: "Good Friday, Christmas Eve (German banking custom)"
+        change_types_frozen: [infrastructure, major]
+    incident_notification:
+      bafin_reportable_threshold: "Significant operational incidents per AT 7.2"
+      notification_deadline_hours: 2
+
+# ──────────────────────────────────────────────────────────────
+# Device Compliance Tag Mapping
+# ──────────────────────────────────────────────────────────────
+device_compliance_tags:
+  # Applied automatically based on region + site type
+  dc_lon:
+    tags: [mifid2, fca, gdpr_applicable, uk_gdpr, sox_adjacent]
+    site_types: [lon-dc1, lon-dc2]
+
+  dc_nyc:
+    tags: [sox, sec, reg_sci]
+    site_types: [nyc-dc1, nyc-dc2]
+
+  dc_apac:
+    tags: [mas_trm, hkma_cfi, apac_data_residency]
+    site_types: [sin-dc1, hkg-dc1]
+
+  dc_fra:
+    tags: [mifid2, bafin, gdpr_applicable, eu_gdpr, gdpr_strict, no_trading_zone]
+    site_types: [fra-dc1]
+
+  branches_uk:
+    tags: [fca, uk_gdpr]
+
+  branches_us:
+    tags: [sox, sec]
+
+  branches_apac:
+    tags: [mas_trm]
+
+  branches_eu:
+    tags: [bafin, eu_gdpr, no_trading_zone]

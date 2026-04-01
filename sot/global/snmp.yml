@@ -1,0 +1,111 @@
+---
+# ACME Investments — SNMP Configuration
+# SNMPv3 only — SNMPv1/v2c disabled on all devices
+# Credentials stored in Vault; only refs included here
+# Last reviewed: 2026-03-01
+
+snmp_version: v3
+
+# ──────────────────────────────────────────
+# SNMPv3 Users
+# ──────────────────────────────────────────
+users:
+  - username: acme_monitoring
+    auth_protocol: SHA
+    auth_key_ref: snmp_auth_key_monitoring      # Vault: secret/network/snmp/monitoring_auth
+    priv_protocol: AES128
+    priv_key_ref: snmp_priv_key_monitoring      # Vault: secret/network/snmp/monitoring_priv
+    access_level: read_only
+    description: "Primary monitoring user — used by Prometheus SNMP exporter and SolarWinds"
+
+  - username: acme_ops
+    auth_protocol: SHA
+    auth_key_ref: snmp_auth_key_ops
+    priv_protocol: AES128
+    priv_key_ref: snmp_priv_key_ops
+    access_level: read_write
+    description: "Operations user — change control required for write access"
+
+  - username: acme_audit
+    auth_protocol: SHA
+    auth_key_ref: snmp_auth_key_audit
+    priv_protocol: AES128
+    priv_key_ref: snmp_priv_key_audit
+    access_level: read_only
+    description: "Audit/compliance user — used by compliance tooling for config audits"
+
+# ──────────────────────────────────────────
+# SNMP Trap Targets
+# ──────────────────────────────────────────
+trap_targets:
+  - name: snmp-trap-collector-lon
+    ip: 10.1.0.60
+    port: 162
+    version: v3
+    username: acme_monitoring
+    auth_protocol: SHA
+    auth_key_ref: snmp_auth_key_monitoring
+    priv_protocol: AES128
+    priv_key_ref: snmp_priv_key_monitoring
+    regions_served: [emea-lon, eu-fra]
+
+  - name: snmp-trap-collector-nyc
+    ip: 10.10.0.60
+    port: 162
+    version: v3
+    username: acme_monitoring
+    auth_protocol: SHA
+    auth_key_ref: snmp_auth_key_monitoring
+    priv_protocol: AES128
+    priv_key_ref: snmp_priv_key_monitoring
+    regions_served: [americas-nyc]
+
+  - name: snmp-trap-collector-sin
+    ip: 10.20.0.60
+    port: 162
+    version: v3
+    username: acme_monitoring
+    auth_protocol: SHA
+    auth_key_ref: snmp_auth_key_monitoring
+    priv_protocol: AES128
+    priv_key_ref: snmp_priv_key_monitoring
+    regions_served: [apac]
+
+# ──────────────────────────────────────────
+# SNMP Views & Access (applied globally)
+# ──────────────────────────────────────────
+views:
+  - name: ACME_READ_VIEW
+    oid_inclusions:
+      - 1.3.6.1.2.1        # MIB-II
+      - 1.3.6.1.4.1.30065  # Arista EOS MIB
+      - 1.3.6.1.4.1.14988  # FRR/Quagga MIB
+    oid_exclusions: []
+
+  - name: ACME_WRITE_VIEW
+    oid_inclusions:
+      - 1.3.6.1.2.1.1      # System MIB only — limited write scope
+    oid_exclusions: []
+
+# ──────────────────────────────────────────
+# Source interface for SNMP traps/informs
+# ──────────────────────────────────────────
+source_interface_by_role:
+  spine:   Loopback0
+  leaf:    Loopback0
+  border:  Loopback0
+  fw:      lo
+  branch:  lo
+
+# ──────────────────────────────────────────
+# Global SNMP settings
+# ──────────────────────────────────────────
+settings:
+  location_format: "{site_code}-{role}-{hostname}"
+  contact: "netops@acme-investments.com"
+  engine_id_format: "auto"        # platform generates from MAC/chassis serial
+  trap_link_up_down: true
+  trap_bgp_state_change: true
+  trap_ospf_state_change: false   # not running OSPF
+  inform_retries: 3
+  inform_timeout: 5               # seconds

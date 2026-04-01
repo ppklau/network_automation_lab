@@ -1,0 +1,193 @@
+---
+# ACME Investments — BGP ASN Pool Allocations
+# All ASNs are in the private 64512–65534 range (RFC 6996)
+# Managed by: Network Engineering, London HQ
+# Last reviewed: 2026-03-01
+
+asn_pools:
+
+  # ──────────────────────────────────────────
+  # Data Centre ASNs  (one per physical DC)
+  # ──────────────────────────────────────────
+  data_centres:
+    - site: lon-dc1
+      asn: 65001
+      description: "London Data Centre 1 — Primary HQ DC (fully active in lab)"
+      region: emea-lon
+      lab_instantiated: true
+
+    - site: lon-dc2
+      asn: 65002
+      description: "London Data Centre 2 — Secondary / DR DC"
+      region: emea-lon
+      lab_instantiated: false
+
+    - site: nyc-dc1
+      asn: 65010
+      description: "New York Data Centre 1 — Americas Primary"
+      region: americas-nyc
+      lab_instantiated: false  # border-nyc-01 stub only
+
+    - site: nyc-dc2
+      asn: 65011
+      description: "New York Data Centre 2 — Americas Secondary"
+      region: americas-nyc
+      lab_instantiated: false
+
+    - site: sin-dc1
+      asn: 65020
+      description: "Singapore Data Centre 1 — APAC Primary"
+      region: apac
+      lab_instantiated: false  # border-sin-01 stub only
+
+    - site: hkg-dc1
+      asn: 65021
+      description: "Hong Kong Data Centre 1 — APAC Secondary"
+      region: apac
+      lab_instantiated: false
+
+    - site: fra-dc1
+      asn: 65030
+      description: "Frankfurt Data Centre 1 — EU Regulatory (MiFID II / GDPR ring-fenced)"
+      region: eu-fra
+      lab_instantiated: false  # border-fra-01 stub only
+      compliance_note: "No TRADING_VRF permitted per regulatory isolation policy"
+
+  # ──────────────────────────────────────────
+  # Branch ASNs
+  # ──────────────────────────────────────────
+  branches:
+
+    uk_branches:
+      region: emea-lon
+      range_start: 65100
+      range_end: 65111
+      count: 12
+      uplink_peer_dc: lon-dc1
+      allocations:
+        - hostname: branch-lon-01
+          asn: 65100
+          lab_state: active
+        - hostname: branch-lon-02
+          asn: 65101
+          lab_state: sot_only
+        - hostname: branch-lon-03
+          asn: 65102
+          lab_state: sot_only
+        - hostname: branch-lon-04
+          asn: 65103
+          lab_state: sot_only
+        - hostname: branch-lon-05
+          asn: 65104
+          lab_state: sot_only
+        - hostname: branch-lon-06
+          asn: 65105
+          lab_state: sot_only
+        - hostname: branch-lon-07
+          asn: 65106
+          lab_state: sot_only
+        - hostname: branch-lon-08
+          asn: 65107
+          lab_state: sot_only
+        - hostname: branch-lon-09
+          asn: 65108
+          lab_state: sot_only
+        - hostname: branch-lon-10
+          asn: 65109
+          lab_state: sot_only
+        - hostname: branch-lon-11
+          asn: 65110
+          lab_state: sot_only
+        - hostname: branch-lon-12
+          asn: 65111
+          lab_state: sot_only
+
+    us_branches:
+      region: americas-nyc
+      range_start: 65120
+      range_end: 65127
+      count: 8
+      uplink_peer_dc: nyc-dc1
+      allocations:
+        - hostname: branch-nyc-01
+          asn: 65120
+          lab_state: active
+        - hostname: branch-nyc-02
+          asn: 65121
+          lab_state: sot_only
+        - hostname: branch-nyc-03
+          asn: 65122
+          lab_state: sot_only
+        - hostname: branch-nyc-04
+          asn: 65123
+          lab_state: sot_only
+        - hostname: branch-nyc-05
+          asn: 65124
+          lab_state: sot_only
+        - hostname: branch-nyc-06
+          asn: 65125
+          lab_state: sot_only
+        - hostname: branch-nyc-07
+          asn: 65126
+          lab_state: sot_only
+        - hostname: branch-nyc-08
+          asn: 65127
+          lab_state: sot_only
+
+    apac_branches:
+      region: apac
+      range_start: 65130
+      range_end: 65135
+      count: 6
+      uplink_peer_dc: sin-dc1
+      allocations:
+        - hostname: branch-sin-01
+          asn: 65130
+          lab_state: sot_only
+        - hostname: branch-sin-02
+          asn: 65131
+          lab_state: sot_only
+        - hostname: branch-sin-03
+          asn: 65132
+          lab_state: sot_only
+        - hostname: branch-sin-04
+          asn: 65133
+          lab_state: sot_only
+        - hostname: branch-sin-05
+          asn: 65134
+          lab_state: sot_only
+        - hostname: branch-sin-06
+          asn: 65135
+          lab_state: sot_only
+
+    eu_branches:
+      region: eu-fra
+      range_start: 65140
+      range_end: 65143
+      count: 4
+      uplink_peer_dc: fra-dc1
+      compliance_note: "EU branches inherit Frankfurt TRADING zone restriction"
+      allocations:
+        - hostname: branch-fra-01
+          asn: 65140
+          lab_state: sot_only
+        - hostname: branch-fra-02
+          asn: 65141
+          lab_state: sot_only
+        - hostname: branch-fra-03
+          asn: 65142
+          lab_state: sot_only
+        - hostname: branch-fra-04
+          asn: 65143
+          lab_state: sot_only
+
+  # ──────────────────────────────────────────
+  # Reserved / Future
+  # ──────────────────────────────────────────
+  reserved:
+    - range: "65150–65199"
+      purpose: "Future DC expansion"
+    - range: "65200–65299"
+      purpose: "Future branch expansion"
+    - range: "65500–65534"
+      purpose: "Lab/test ASNs — not to be used in production SoT"

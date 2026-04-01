@@ -1,0 +1,125 @@
+---
+# ACME Investments — Device: leaf-lon2-03
+# Role: Leaf / RR client — London DC2
+# lab_state: sot_only
+# Last reviewed: 2026-03-01
+
+hostname: leaf-lon2-03
+fqdn: leaf-lon2-03.lon-dc2.acme-investments.internal
+role: leaf
+platform: arista_eos
+image: ceos:4.32.2F
+hardware_model: DCS-7050TX3-48C8
+serial: ACE2402013B
+eol_date: "2029-06-30"
+lab_state: sot_only
+
+site: lon-dc2
+region: emea-lon
+compliance_tags: [mifid2, fca, gdpr_applicable, uk_gdpr]
+security_zones: [TRADING, CORPORATE, DMZ, MGMT_ZONE]
+
+management:
+  interface: Management0
+  ip: 10.2.0.13/25
+  gateway: 10.2.0.126
+  vrf: MGMT
+
+loopback:
+  interface: Loopback0
+  ip: 10.2.255.13/32
+
+vlans:
+  - vlan_id: 100
+    name: TRADING
+    vrf: TRADING_VRF
+    svi_ip: 10.2.1.4/24
+    active: true
+  - vlan_id: 200
+    name: CORPORATE
+    vrf: CORPORATE_VRF
+    svi_ip: 10.2.2.5/22
+    active: true
+  - vlan_id: 300
+    name: DMZ
+    vrf: DMZ_VRF
+    svi_ip: 10.2.6.2/24
+    active: true
+  - vlan_id: 400
+    name: MGMT
+    vrf: MGMT_VRF
+    svi_ip: 10.2.0.5/25
+    active: true
+
+interfaces:
+  - name: Ethernet1
+    description: "P2P -> spine-lon2-01 Ethernet3"
+    ip: 10.2.100.5/31
+    peer_device: spine-lon2-01
+    peer_interface: Ethernet3
+    mtu: 9214
+  - name: Ethernet2
+    description: "P2P -> spine-lon2-02 Ethernet3"
+    ip: 10.2.100.13/31
+    peer_device: spine-lon2-02
+    peer_interface: Ethernet3
+    mtu: 9214
+  - name: Ethernet3
+    description: "Server access — DMZ VLAN 300"
+    mode: access
+    access_vlan: 300
+    mtu: 9214
+  - name: Ethernet4
+    description: "fw-lon2-01 eth2 (internal-facing)"
+    peer_device: fw-lon2-01
+    peer_interface: eth2
+    mode: access
+    access_vlan: 300
+    mtu: 9214
+  - name: Ethernet5
+    description: "Server trunk — CORPORATE VLAN 200"
+    mode: access
+    access_vlan: 200
+    mtu: 9214
+
+vrrp:
+  - group: 10
+    vlan: 100
+    vrf: TRADING_VRF
+    virtual_ip: 10.2.1.1
+    priority: 80
+    preempt: true
+  - group: 20
+    vlan: 200
+    vrf: CORPORATE_VRF
+    virtual_ip: 10.2.2.1
+    priority: 80
+    preempt: true
+  - group: 30
+    vlan: 300
+    vrf: DMZ_VRF
+    virtual_ip: 10.2.6.1
+    priority: 110
+    preempt: true
+  - group: 40
+    vlan: 400
+    vrf: MGMT_VRF
+    virtual_ip: 10.2.0.126
+    priority: 90
+    preempt: true
+
+bgp:
+  local_as: 65002
+  router_id: 10.2.255.13
+  role: rr_client
+  neighbors:
+    - peer_ip: 10.2.255.1
+      remote_as: 65002
+      description: "iBGP RR -> spine-lon2-01"
+      update_source: Loopback0
+      md5_password_ref: bgp_md5_lon_dc2_fabric
+    - peer_ip: 10.2.255.2
+      remote_as: 65002
+      description: "iBGP RR -> spine-lon2-02"
+      update_source: Loopback0
+      md5_password_ref: bgp_md5_lon_dc2_fabric

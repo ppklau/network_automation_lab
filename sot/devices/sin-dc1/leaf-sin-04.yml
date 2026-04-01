@@ -1,0 +1,108 @@
+---
+hostname: leaf-sin-04
+fqdn: leaf-sin-04.sin-dc1.acme-investments.internal
+role: leaf
+platform: arista_eos
+image: ceos:4.32.2F
+hardware_model: DCS-7050TX3-48C8
+serial: ACE2420014B
+eol_date: "2029-06-30"
+lab_state: sot_only
+site: sin-dc1
+region: apac
+compliance_tags: [mas_trm, hkma_cfi, apac_data_residency]
+security_zones: [TRADING, CORPORATE, DMZ, MGMT_ZONE]
+management:
+  interface: Management0
+  ip: 10.20.0.14/25
+  gateway: 10.20.0.126
+  vrf: MGMT
+loopback:
+  interface: Loopback0
+  ip: 10.20.255.14/32
+vlans:
+  - vlan_id: 100
+    name: TRADING
+    vrf: TRADING_VRF
+    svi_ip: 10.20.1.5/24
+    active: true
+  - vlan_id: 200
+    name: CORPORATE
+    vrf: CORPORATE_VRF
+    svi_ip: 10.20.2.6/22
+    active: true
+  - vlan_id: 300
+    name: DMZ
+    vrf: DMZ_VRF
+    svi_ip: 10.20.6.3/24
+    active: true
+  - vlan_id: 400
+    name: MGMT
+    vrf: MGMT_VRF
+    svi_ip: 10.20.0.6/25
+    active: true
+interfaces:
+  - name: Ethernet1
+    description: "P2P -> spine-sin-01 Ethernet4"
+    ip: 10.20.100.7/31
+    peer_device: spine-sin-01
+    peer_interface: Ethernet4
+    mtu: 9214
+  - name: Ethernet2
+    description: "P2P -> spine-sin-02 Ethernet4"
+    ip: 10.20.100.15/31
+    peer_device: spine-sin-02
+    peer_interface: Ethernet4
+    mtu: 9214
+  - name: Ethernet3
+    description: "Server access — DMZ VLAN 300"
+    mode: access
+    access_vlan: 300
+    mtu: 9214
+  - name: Ethernet4
+    description: "fw-sin-01 eth3"
+    peer_device: fw-sin-01
+    peer_interface: eth3
+    mode: access
+    access_vlan: 400
+    mtu: 9214
+vrrp:
+  - group: 10
+    vlan: 100
+    vrf: TRADING_VRF
+    virtual_ip: 10.20.1.1
+    priority: 80
+    preempt: true
+  - group: 20
+    vlan: 200
+    vrf: CORPORATE_VRF
+    virtual_ip: 10.20.2.1
+    priority: 80
+    preempt: true
+  - group: 30
+    vlan: 300
+    vrf: DMZ_VRF
+    virtual_ip: 10.20.6.1
+    priority: 90
+    preempt: true
+  - group: 40
+    vlan: 400
+    vrf: MGMT_VRF
+    virtual_ip: 10.20.0.126
+    priority: 110
+    preempt: true
+bgp:
+  local_as: 65020
+  router_id: 10.20.255.14
+  role: rr_client
+  neighbors:
+    - peer_ip: 10.20.255.1
+      remote_as: 65020
+      description: "iBGP RR -> spine-sin-01"
+      update_source: Loopback0
+      md5_password_ref: bgp_md5_sin_dc1_fabric
+    - peer_ip: 10.20.255.2
+      remote_as: 65020
+      description: "iBGP RR -> spine-sin-02"
+      update_source: Loopback0
+      md5_password_ref: bgp_md5_sin_dc1_fabric

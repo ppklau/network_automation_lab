@@ -1,0 +1,81 @@
+---
+# ACME Investments — Device: spine-fra-01
+# Role: Spine / BGP Route Reflector — FRA DC1
+# lab_state: sot_only
+# CRITICAL: No TRADING zone at this site — see compliance/zone_policies.yml ZONE-001
+# Last reviewed: 2026-03-01
+
+hostname: spine-fra-01
+fqdn: spine-fra-01.fra-dc1.acme-investments.internal
+role: spine
+platform: arista_eos
+image: ceos:4.32.2F
+hardware_model: DCS-7050CX3-32S
+serial: ACE2430001A
+eol_date: "2029-12-31"
+lab_state: sot_only
+
+site: fra-dc1
+region: eu-fra
+compliance_tags: [mifid2, bafin, gdpr_applicable, eu_gdpr, gdpr_strict, no_trading_zone]
+security_zones: [MGMT_ZONE]   # TRADING zone intentionally absent
+
+management:
+  interface: Management0
+  ip: 10.30.0.1/25
+  gateway: 10.30.0.126
+  vrf: MGMT
+
+loopback:
+  interface: Loopback0
+  ip: 10.30.255.1/32
+
+interfaces:
+  - name: Ethernet1
+    description: "P2P -> leaf-fra-01 Ethernet1"
+    ip: 10.30.100.0/31
+    peer_device: leaf-fra-01
+    peer_interface: Ethernet1
+    mtu: 9214
+  - name: Ethernet2
+    description: "P2P -> leaf-fra-02 Ethernet1"
+    ip: 10.30.100.2/31
+    peer_device: leaf-fra-02
+    peer_interface: Ethernet1
+    mtu: 9214
+  - name: Ethernet5
+    description: "P2P -> border-fra-01 eth1"
+    ip: 10.30.100.16/31
+    peer_device: border-fra-01
+    peer_interface: eth1
+    mtu: 9214
+
+bgp:
+  local_as: 65030
+  router_id: 10.30.255.1
+  role: route_reflector
+  neighbors:
+    - peer_ip: 10.30.255.2
+      remote_as: 65030
+      description: "iBGP peer -> spine-fra-02"
+      update_source: Loopback0
+      route_reflector_client: false
+      md5_password_ref: bgp_md5_fra_dc1_fabric
+    - peer_ip: 10.30.255.11
+      remote_as: 65030
+      description: "iBGP RR client -> leaf-fra-01"
+      update_source: Loopback0
+      route_reflector_client: true
+      md5_password_ref: bgp_md5_fra_dc1_fabric
+    - peer_ip: 10.30.255.12
+      remote_as: 65030
+      description: "iBGP RR client -> leaf-fra-02"
+      update_source: Loopback0
+      route_reflector_client: true
+      md5_password_ref: bgp_md5_fra_dc1_fabric
+    - peer_ip: 10.30.255.20
+      remote_as: 65030
+      description: "iBGP RR client -> border-fra-01"
+      update_source: Loopback0
+      route_reflector_client: true
+      md5_password_ref: bgp_md5_fra_dc1_fabric

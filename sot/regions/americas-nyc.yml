@@ -1,0 +1,69 @@
+---
+# ACME Investments — Region: Americas New York
+# Americas hub — all US branches connect to NYC DC1
+# Last reviewed: 2026-03-01
+
+region:
+  name: "Americas New York"
+  code: americas-nyc
+  timezone: America/New_York
+  utc_offset: "-05:00"    # EST; EDT (-04:00) during summer
+  country: United States
+  city: New York
+
+  regulatory_scope:
+    frameworks: [sox, sec, reg_sci]
+    primary_regulator: SEC
+    secondary_regulators: [FINRA, CFTC, PCAOB]
+    compliance_tags: [sox, sec, reg_sci]
+    data_residency: [US]
+    trading_zone_permitted: true
+
+  data_centres:
+    - site_code: nyc-dc1
+      name: "New York Data Centre 1"
+      address: "111 8th Avenue, New York, NY 10011"
+      tier: "Tier IV"
+      primary: true
+      lab_instantiated: false   # border-nyc-01 stub active in lab
+      asn: 65010
+
+    - site_code: nyc-dc2
+      name: "New York Data Centre 2 (Secaucus)"
+      address: "Secaucus, NJ 07094"
+      tier: "Tier III+"
+      primary: false
+      lab_instantiated: false
+      asn: 65011
+
+  branch_count: 8
+  branch_prefix_pool: 10.101.0.0/16
+  branch_asn_range: "65120–65127"
+  branch_uplink_dc: nyc-dc1
+  branch_uplink_border: border-nyc-01
+
+  contacts:
+    network_lead: "nyc-neteng@acme-investments.com"
+    on_call: "+1-212-555-0100"
+    noc: "noc@acme-investments.com"
+    compliance: "compliance-us@acme-investments.com"
+
+  inter_region_links:
+    - peer_region: emea-lon
+      wan_prefix: 10.0.1.0/31
+      local_border: border-nyc-01
+      remote_border: border-lon-01
+      circuit_id: "LON-NYC-WAN-001"
+      provider: "Equinix Fabric"
+      bandwidth_gbps: 10
+
+  change_management:
+    change_freeze_windows:
+      - name: "US quarter-end"
+        recurring: quarterly
+        months: [3, 6, 9, 12]
+        last_n_trading_days: 3
+      - name: "US public holidays"
+        description: "Thanksgiving, Christmas, New Year"
+    change_window: "Sunday 02:00–06:00 ET"
+    approver_group: "nyc-netops-approvers"

@@ -1,0 +1,197 @@
+---
+# ACME Investments — Device: fw-lon-01
+# Role: Firewall (Linux + FRRouting) — London DC1
+# Provides inter-zone enforcement between TRADING/CORPORATE/DMZ/MGMT
+# eth0 = OOB management
+# eth1 = border-lon-01 Ethernet6 (DMZ external-facing)
+# eth2 = leaf-lon-03 Ethernet5 (internal-facing, TRADING+CORPORATE)
+# eth3 = leaf-lon-04 Ethernet5 (internal-facing, DMZ+MGMT)
+# Platform: FRRouting on Linux
+# Lab state: active
+# Last reviewed: 2026-03-01
+
+hostname: fw-lon-01
+fqdn: fw-lon-01.lon-dc1.acme-investments.internal
+role: firewall
+platform: frr
+image: frrouting/frr:9.1.0
+hardware_model: "Virtual Appliance (Linux KVM)"
+serial: FWLON2401030
+eol_date: "2028-12-31"
+
+site: lon-dc1
+region: emea-lon
+lab_state: active
+
+compliance_tags: [mifid2, fca, gdpr_applicable, uk_gdpr]
+security_zones: [TRADING, CORPORATE, DMZ, MGMT_ZONE]
+
+management:
+  interface: eth0
+  ip: 10.1.0.30/25
+  gateway: 10.1.0.126
+
+loopback:
+  interface: lo
+  ip: 10.1.255.30/32
+  description: "Firewall loopback — used as BGP router-id if needed"
+
+ntp_source_interface: lo
+logging_source_interface: lo
+snmp_source_interface: lo
+
+# ──────────────────────────────────────────
+# Interfaces
+# Note: FRR uses Linux kernel interface naming
+# ──────────────────────────────────────────
+interfaces:
+  - name: eth0
+    description: "OOB management — MGMT network 10.1.0.0/25"
+    ip: 10.1.0.30/25
+    gateway: 10.1.0.126
+    mtu: 1500
+    vrf: default              # Linux default namespace
+
+  - name: eth1
+    description: "-> border-lon-01 Ethernet6 [DMZ external boundary]"
+    ip: 10.1.6.254/24         # FW's DMZ-facing IP; VIP for DMZ is 10.1.6.1 on leaves
+    peer_device: border-lon-01
+    peer_interface: Ethernet6
+    mtu: 9000
+    speed: 10G
+    vrf: DMZ_VRF
+    zone: DMZ
+    security_policy: "DENY_ALL_DEFAULT; permit by explicit ruleset"
+
+  - name: eth2
+    description: "-> leaf-lon-03 Ethernet5 [internal-facing: TRADING+CORPORATE]"
+    ip: 10.1.1.254/24         # FW's TRADING-facing internal IP
+    peer_device: leaf-lon-03
+    peer_interface: Ethernet5
+    mtu: 9000
+    speed: 10G
+    vrf: TRADING_VRF
+    zone: TRADING
+    security_policy: "Trading zone — strict east/west enforcement"
+
+  - name: eth3
+    description: "-> leaf-lon-04 Ethernet5 [internal-facing: DMZ+MGMT]"
+    ip: 10.1.0.254/25         # FW's MGMT-zone-facing IP
+    peer_device: leaf-lon-04
+    peer_interface: Ethernet5
+    mtu: 9000
+    speed: 10G
+    vrf: MGMT_VRF
+    zone: MGMT_ZONE
+
+  - name: lo
+    description: "Loopback"
+    ip: 10.1.255.30/32
+
+# ──────────────────────────────────────────
+# Firewall Policy (high-level — rendered to iptables/nftables)
+# Full ruleset lives in sot/compliance/zone_policies.yml
+# ──────────────────────────────────────────
+firewall_policy:
+  default_action: deny
+  stateful: true
+  log_dropped: true
+  log_target: syslog
+
+  rules:
+    # TRADING -> Internet (dedicated path — not via shared DMZ)
+    - id: 100
+      name: TRADING_TO_MARKET_DATA
+      src_zone: TRADING
+      dst_zone: DMZ
+      src_prefix: 10.1.1.0/24
+      dst_prefix: any
+      protocol: tcp
+      ports: [443, 8443, 6000]   # HTTPS + market data feeds
+      action: permit
+      log: true
+
+    # CORPORATE -> Internet via proxy
+    - id: 200
+      name: CORPORATE_WEB_PROXY
+      src_zone: CORPORATE
+      dst_zone: DMZ
+      src_prefix: 10.1.2.0/22
+      dst_prefix: 10.1.6.0/24   # proxy servers in DMZ
+      protocol: tcp
+      ports: [3128, 8080]
+      action: permit
+      log: false
+
+    # DMZ -> CORPORATE (reverse proxy inbound)
+    - id: 300
+      name: REVERSE_PROXY_INBOUND
+      src_zone: DMZ
+      dst_zone: CORPORATE
+      src_prefix: 10.1.6.0/24
+      dst_prefix: 10.1.2.0/22
+      protocol: tcp
+      ports: [443]
+      action: permit
+      log: true
+
+    # MGMT -> Any (restricted management access)
+    - id: 400
+      name: MGMT_SSH_HTTPS
+      src_zone: MGMT_ZONE
+      dst_zone: any
+      src_prefix: 10.1.0.0/25
+      dst_prefix: any
+      protocol: tcp
+      ports: [22, 443]
+      action: permit
+      log: true
+
+    # TRADING <-> CORPORATE: DENY
+    - id: 900
+      name: DENY_TRADING_CORPORATE
+      src_zone: TRADING
+      dst_zone: CORPORATE
+      action: deny
+      log: true
+      comment: "Regulatory requirement — trading isolation"
+
+    - id: 901
+      name: DENY_CORPORATE_TRADING
+      src_zone: CORPORATE
+      dst_zone: TRADING
+      action: deny
+      log: true
+      comment: "Regulatory requirement — trading isolation"
+
+# ──────────────────────────────────────────
+# BGP (FRR)
+# fw-lon-01 runs BGP to redistribute routes between VRFs
+# It is NOT a full iBGP participant in the DC fabric
+# ──────────────────────────────────────────
+bgp:
+  local_as: 65001
+  router_id: 10.1.255.30
+  role: firewall_bgp
+
+  # BGP peers to border-lon-01 for DMZ route exchange
+  neighbors:
+    - peer_ip: 10.1.6.253          # border-lon-01 DMZ-facing address
+      remote_as: 65001
+      description: "iBGP to border-lon-01 for DMZ route exchange"
+      update_source: lo
+      md5_password_ref: bgp_md5_lon_dc1_fabric
+      address_families:
+        - afi: ipv4
+          safi: unicast
+          activate: true
+
+  networks_advertised:
+    - prefix: 10.1.6.0/24
+      description: "DMZ network — advertised to fabric"
+
+  timers:
+    keepalive: 30
+    hold_time: 90
+
+  log_neighbor_changes: true

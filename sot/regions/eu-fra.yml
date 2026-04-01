@@ -1,0 +1,77 @@
+---
+# ACME Investments — Region: EU Regulatory Frankfurt
+# Regulatory/reporting DC only — NO TRADING zone permitted
+# Serves GDPR data residency and MiFID II transaction reporting obligations
+# Last reviewed: 2026-03-01
+
+region:
+  name: "EU Regulatory Frankfurt"
+  code: eu-fra
+  timezone: Europe/Berlin
+  utc_offset: "+01:00"    # CET; CEST (+02:00) during summer
+  country: Germany
+  city: Frankfurt am Main
+
+  regulatory_scope:
+    frameworks: [mifid2, bafin, gdpr_applicable, eu_gdpr, gdpr_strict]
+    primary_regulator: BaFin
+    secondary_regulators: [ESMA, ECB, Bundesbank]
+    compliance_tags: [mifid2, bafin, gdpr_applicable, eu_gdpr, gdpr_strict, no_trading_zone]
+    data_residency: [EU, Germany_preferred]
+    trading_zone_permitted: false   # CRITICAL — BaFin/MaRisk prohibition
+
+  trading_zone_prohibition:
+    enforced: true
+    reason: >
+      BaFin BAIT and MaRisk requirements prohibit order processing and live
+      trading data handling at the Frankfurt regulatory DC. This site exists
+      solely for MiFID II transaction reporting, GDPR data residency
+      compliance, and EU regulatory connectivity.
+    audit_check_id: ZONE-001
+    severity: critical
+
+  data_centres:
+    - site_code: fra-dc1
+      name: "Frankfurt Data Centre 1"
+      address: "Kaiserleistrasse 10, Offenbach am Main, 63067"
+      tier: "Tier III+"
+      primary: true
+      lab_instantiated: false   # border-fra-01 stub active in lab
+      asn: 65030
+      vlans_prohibited: [100]   # VLAN 100 TRADING — explicit prohibition
+
+  branch_count: 4
+  branch_prefix_pool: 10.103.0.0/16
+  branch_asn_range: "65140–65143"
+  branch_uplink_dc: fra-dc1
+  branch_uplink_border: border-fra-01
+  branch_trading_zone_prohibited: true   # EU branches inherit the restriction
+
+  contacts:
+    network_lead: "fra-neteng@acme-investments.com"
+    on_call: "+49-69-0000-0000"
+    noc: "noc@acme-investments.com"
+    compliance: "compliance-eu@acme-investments.com"
+    data_protection_officer: "dpo@acme-investments.com"
+
+  inter_region_links:
+    - peer_region: emea-lon
+      wan_prefix: 10.0.3.0/31
+      local_border: border-fra-01
+      remote_border: border-lon-01
+      circuit_id: "LON-FRA-WAN-001"
+      provider: "Deutsche Telekom"
+      bandwidth_gbps: 10
+      policy_note: "TRADING prefixes must be filtered on both directions of this link"
+
+  change_management:
+    change_freeze_windows:
+      - name: "EU quarter-end"
+        recurring: quarterly
+      - name: "German banking holidays"
+        description: "Good Friday, Christmas Eve"
+      - name: "MiFID II reporting deadline"
+        description: "T+1 transaction report submission — no changes on reporting days"
+    change_window: "Saturday 23:00–Sunday 05:00 CET"
+    approver_group: "fra-netops-approvers"
+    additional_approver: "data-protection-officer"  # DPO sign-off required for data-plane changes

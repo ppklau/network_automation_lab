@@ -1,0 +1,110 @@
+---
+# ACME Investments — Site: New York DC1
+# Americas primary — border-nyc-01 stub active in lab
+# Last reviewed: 2026-03-01
+
+site:
+  name: "New York Data Centre 1"
+  code: nyc-dc1
+  short_code: nyc1
+  region: americas-nyc
+  address: "111 8th Avenue, New York, NY 10011, USA"
+  country: US
+  tier: "Tier IV"
+  lab_instantiated: false   # border-nyc-01 stub only
+
+  network_os_primary: arista_eos
+  asn: 65010
+  supernet: 10.10.0.0/16
+  device_count: 8
+
+  vlans:
+    - vlan_id: 100
+      name: TRADING
+      vrf: TRADING_VRF
+      prefix: 10.10.1.0/24
+      gateway_vip: 10.10.1.1
+      active: true
+
+    - vlan_id: 200
+      name: CORPORATE
+      vrf: CORPORATE_VRF
+      prefix: 10.10.2.0/22
+      gateway_vip: 10.10.2.1
+      active: true
+
+    - vlan_id: 300
+      name: DMZ
+      vrf: DMZ_VRF
+      prefix: 10.10.6.0/24
+      gateway_vip: 10.10.6.1
+      active: true
+
+    - vlan_id: 400
+      name: MGMT
+      vrf: MGMT_VRF
+      prefix: 10.10.0.0/25
+      gateway_vip: 10.10.0.126
+      active: true
+
+  zone_permissions:
+    TRADING:    true
+    CORPORATE:  true
+    DMZ:        true
+    MGMT_ZONE:  true
+
+  subnets:
+    management:     10.10.0.0/25
+    loopbacks:      10.10.255.0/24
+    fabric_p2p:     10.10.100.0/24
+    trading_svi:    10.10.1.0/24
+    corporate_svi:  10.10.2.0/22
+    dmz_svi:        10.10.6.0/24
+    mgmt_svi:       10.10.0.0/25
+
+  management_ips:
+    spine-nyc-01:   10.10.0.1
+    spine-nyc-02:   10.10.0.2
+    leaf-nyc-01:    10.10.0.11
+    leaf-nyc-02:    10.10.0.12
+    leaf-nyc-03:    10.10.0.13
+    leaf-nyc-04:    10.10.0.14
+    border-nyc-01:  10.10.0.20
+    fw-nyc-01:      10.10.0.30
+
+  devices:
+    - hostname: spine-nyc-01
+      role: spine
+      platform: arista_eos
+      lab_state: sot_only
+    - hostname: spine-nyc-02
+      role: spine
+      platform: arista_eos
+      lab_state: sot_only
+    - hostname: leaf-nyc-01
+      role: leaf
+      platform: arista_eos
+      lab_state: sot_only
+    - hostname: leaf-nyc-02
+      role: leaf
+      platform: arista_eos
+      lab_state: sot_only
+    - hostname: leaf-nyc-03
+      role: leaf
+      platform: arista_eos
+      lab_state: sot_only
+    - hostname: leaf-nyc-04
+      role: leaf
+      platform: arista_eos
+      lab_state: sot_only
+    - hostname: border-nyc-01
+      role: border
+      platform: frr          # FRR stub in containerlab
+      lab_state: active
+    - hostname: fw-nyc-01
+      role: firewall
+      platform: frr
+      lab_state: sot_only
+
+  compliance_tags: [sox, sec, reg_sci]
+  data_residency: US

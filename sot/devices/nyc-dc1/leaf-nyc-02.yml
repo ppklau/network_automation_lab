@@ -1,0 +1,112 @@
+---
+# ACME Investments — Device: leaf-nyc-02
+# Role: Leaf / RR client — NYC DC1
+# lab_state: sot_only
+# Last reviewed: 2026-03-01
+
+hostname: leaf-nyc-02
+fqdn: leaf-nyc-02.nyc-dc1.acme-investments.internal
+role: leaf
+platform: arista_eos
+image: ceos:4.32.2F
+hardware_model: DCS-7050TX3-48C8
+serial: ACE2410012B
+eol_date: "2029-06-30"
+lab_state: sot_only
+
+site: nyc-dc1
+region: americas-nyc
+compliance_tags: [sox, sec, reg_sci]
+security_zones: [TRADING, CORPORATE, MGMT_ZONE]
+
+management:
+  interface: Management0
+  ip: 10.10.0.12/25
+  gateway: 10.10.0.126
+  vrf: MGMT
+
+loopback:
+  interface: Loopback0
+  ip: 10.10.255.12/32
+
+vlans:
+  - vlan_id: 100
+    name: TRADING
+    vrf: TRADING_VRF
+    svi_ip: 10.10.1.3/24
+    active: true
+  - vlan_id: 200
+    name: CORPORATE
+    vrf: CORPORATE_VRF
+    svi_ip: 10.10.2.4/22
+    active: true
+  - vlan_id: 400
+    name: MGMT
+    vrf: MGMT_VRF
+    svi_ip: 10.10.0.4/25
+    active: true
+
+interfaces:
+  - name: Ethernet1
+    description: "P2P -> spine-nyc-01 Ethernet2"
+    ip: 10.10.100.3/31
+    peer_device: spine-nyc-01
+    peer_interface: Ethernet2
+    mtu: 9214
+  - name: Ethernet2
+    description: "P2P -> spine-nyc-02 Ethernet2"
+    ip: 10.10.100.11/31
+    peer_device: spine-nyc-02
+    peer_interface: Ethernet2
+    mtu: 9214
+  - name: Ethernet3
+    description: "Server access — TRADING VLAN 100"
+    mode: access
+    access_vlan: 100
+    mtu: 9214
+  - name: Ethernet4
+    description: "Server access — TRADING VLAN 100"
+    mode: access
+    access_vlan: 100
+    mtu: 9214
+  - name: Ethernet5
+    description: "Server trunk — CORPORATE+MGMT"
+    mode: trunk
+    trunk_vlans: [200, 400]
+    mtu: 9214
+
+vrrp:
+  - group: 10
+    vlan: 100
+    vrf: TRADING_VRF
+    virtual_ip: 10.10.1.1
+    priority: 90
+    preempt: true
+  - group: 20
+    vlan: 200
+    vrf: CORPORATE_VRF
+    virtual_ip: 10.10.2.1
+    priority: 110
+    preempt: true
+  - group: 40
+    vlan: 400
+    vrf: MGMT_VRF
+    virtual_ip: 10.10.0.126
+    priority: 80
+    preempt: true
+
+bgp:
+  local_as: 65010
+  router_id: 10.10.255.12
+  role: rr_client
+  neighbors:
+    - peer_ip: 10.10.255.1
+      remote_as: 65010
+      description: "iBGP RR -> spine-nyc-01"
+      update_source: Loopback0
+      md5_password_ref: bgp_md5_nyc_dc1_fabric
+    - peer_ip: 10.10.255.2
+      remote_as: 65010
+      description: "iBGP RR -> spine-nyc-02"
+      update_source: Loopback0
+      md5_password_ref: bgp_md5_nyc_dc1_fabric

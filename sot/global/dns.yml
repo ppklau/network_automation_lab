@@ -1,0 +1,97 @@
+---
+# ACME Investments — DNS Configuration
+# Primary DNS resolvers hosted at LON DC1 and NYC DC1
+# Secondary resolvers are anycast within each region
+# Last reviewed: 2026-03-01
+
+global_dns:
+  resolvers:
+    - ip: 10.1.0.51
+      hostname: dns1.acme-investments.internal
+      location: lon-dc1
+      role: primary
+
+    - ip: 10.10.0.51
+      hostname: dns2.acme-investments.internal
+      location: nyc-dc1
+      role: secondary
+
+  search_domains:
+    - acme-investments.internal
+    - dc.acme-investments.internal
+    - mgmt.acme-investments.internal
+
+  domain: acme-investments.internal
+
+# Per-region DNS settings
+regional_dns:
+
+  emea-lon:
+    resolvers:
+      - 10.1.0.51     # lon-dc1 primary
+      - 10.10.0.51    # nyc-dc1 secondary
+    search_domains:
+      - acme-investments.internal
+      - lon.acme-investments.internal
+      - emea.acme-investments.internal
+
+  americas-nyc:
+    resolvers:
+      - 10.10.0.51    # nyc-dc1 primary (local)
+      - 10.1.0.51     # lon-dc1 secondary
+    search_domains:
+      - acme-investments.internal
+      - nyc.acme-investments.internal
+      - americas.acme-investments.internal
+
+  apac:
+    resolvers:
+      - 10.1.0.51     # lon-dc1 primary (no local DNS in APAC)
+      - 10.10.0.51    # nyc-dc1 secondary
+    search_domains:
+      - acme-investments.internal
+      - sin.acme-investments.internal
+      - apac.acme-investments.internal
+    note: "DNS queries traverse WAN; cached locally by resolver on border router"
+
+  eu-fra:
+    resolvers:
+      - 10.1.0.51     # lon-dc1 primary
+      - 10.10.0.51    # nyc-dc1 secondary
+    search_domains:
+      - acme-investments.internal
+      - fra.acme-investments.internal
+      - eu.acme-investments.internal
+    note: "Frankfurt GDPR data residency: no personal data in DNS zone files for this region"
+
+# Internal zone definitions (authoritative)
+zones:
+  - zone: acme-investments.internal
+    type: primary
+    master: dns1.acme-investments.internal
+    slaves:
+      - dns2.acme-investments.internal
+
+  - zone: 1.10.in-addr.arpa       # 10.1.x.x — lon-dc1 reverse DNS
+    type: primary
+    master: dns1.acme-investments.internal
+
+  - zone: 10.10.in-addr.arpa      # 10.10.x.x — nyc-dc1 reverse DNS
+    type: primary
+    master: dns2.acme-investments.internal
+
+  - zone: 20.10.in-addr.arpa      # 10.20.x.x — sin-dc1
+    type: secondary
+    master: dns1.acme-investments.internal
+
+  - zone: 30.10.in-addr.arpa      # 10.30.x.x — fra-dc1
+    type: secondary
+    master: dns1.acme-investments.internal
+
+  - zone: 100.10.in-addr.arpa     # 10.100.x.x — UK branches
+    type: secondary
+    master: dns1.acme-investments.internal
+
+  - zone: 101.10.in-addr.arpa     # 10.101.x.x — US branches
+    type: secondary
+    master: dns2.acme-investments.internal

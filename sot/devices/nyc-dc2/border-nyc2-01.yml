@@ -1,0 +1,74 @@
+---
+# ACME Investments — Device: border-nyc2-01
+# Role: Border router — NYC DC2
+# lab_state: sot_only
+# Last reviewed: 2026-03-01
+
+hostname: border-nyc2-01
+fqdn: border-nyc2-01.nyc-dc2.acme-investments.internal
+role: border
+platform: arista_eos
+image: ceos:4.32.2F
+hardware_model: DCS-7050CX3-32S
+serial: ACE2411020C
+eol_date: "2029-12-31"
+lab_state: sot_only
+
+site: nyc-dc2
+region: americas-nyc
+compliance_tags: [sox, sec, reg_sci]
+security_zones: [TRADING, CORPORATE, DMZ, MGMT_ZONE]
+
+management:
+  interface: Management0
+  ip: 10.11.0.20/25
+  gateway: 10.11.0.126
+  vrf: MGMT
+
+loopback:
+  interface: Loopback0
+  ip: 10.11.255.20/32
+
+interfaces:
+  - name: Ethernet1
+    description: "P2P -> spine-nyc2-01 Ethernet5"
+    ip: 10.11.100.17/31
+    peer_device: spine-nyc2-01
+    peer_interface: Ethernet5
+    mtu: 9214
+  - name: Ethernet2
+    description: "P2P -> spine-nyc2-02 Ethernet5"
+    ip: 10.11.100.19/31
+    peer_device: spine-nyc2-02
+    peer_interface: Ethernet5
+    mtu: 9214
+  - name: Ethernet3
+    description: "Inter-DC -> border-nyc-01 [NYC1<->NYC2 eBGP AS65010<->AS65011]"
+    ip: 10.0.5.1/31            # nyc-dc2=.1, nyc-dc1=.0
+    peer_device: border-nyc-01
+    peer_interface: eth5
+    mtu: 9000
+    circuit_id: NYC-DC1-DC2-001
+
+bgp:
+  local_as: 65011
+  router_id: 10.11.255.20
+  role: rr_client
+  neighbors:
+    - peer_ip: 10.11.255.1
+      remote_as: 65011
+      description: "iBGP RR -> spine-nyc2-01"
+      update_source: Loopback0
+      md5_password_ref: bgp_md5_nyc_dc2_fabric
+    - peer_ip: 10.11.255.2
+      remote_as: 65011
+      description: "iBGP RR -> spine-nyc2-02"
+      update_source: Loopback0
+      md5_password_ref: bgp_md5_nyc_dc2_fabric
+    - peer_ip: 10.0.5.0
+      remote_as: 65010
+      description: "eBGP inter-DC -> border-nyc-01 [nyc-dc1]"
+      md5_password_ref: bgp_md5_interdc_nyc1_nyc2
+  aggregate_addresses:
+    - prefix: 10.11.0.0/16
+      summary_only: true

@@ -1,0 +1,86 @@
+---
+# ACME Investments — Region: EMEA London
+# Primary HQ region — London is the hub for all inter-region connectivity
+# Last reviewed: 2026-03-01
+
+region:
+  name: "EMEA London"
+  code: emea-lon
+  timezone: Europe/London
+  utc_offset: "+00:00"    # GMT; BST (+01:00) during summer (observed automatically)
+  country: United Kingdom
+  city: London
+
+  regulatory_scope:
+    frameworks: [mifid2, fca, uk_gdpr, sox_adjacent]
+    primary_regulator: FCA
+    secondary_regulators: [ICO, PRA]
+    compliance_tags: [mifid2, fca, gdpr_applicable, uk_gdpr]
+    data_residency: [UK, EU]
+    trading_zone_permitted: true
+
+  data_centres:
+    - site_code: lon-dc1
+      name: "London Data Centre 1"
+      address: "Canary Wharf, London E14"
+      tier: "Tier IV"
+      primary: true
+      lab_instantiated: true
+      asn: 65001
+
+    - site_code: lon-dc2
+      name: "London Data Centre 2"
+      address: "Docklands, London E16"
+      tier: "Tier III+"
+      primary: false
+      lab_instantiated: false
+      asn: 65002
+
+  branch_count: 12
+  branch_prefix_pool: 10.100.0.0/16
+  branch_asn_range: "65100–65111"
+  branch_uplink_dc: lon-dc1
+  branch_uplink_border: border-lon-01
+
+  contacts:
+    network_lead: "london-neteng@acme-investments.com"
+    on_call: "+44-20-7946-0000"
+    noc: "noc@acme-investments.com"
+    compliance: "compliance@acme-investments.com"
+
+  inter_region_links:
+    - peer_region: americas-nyc
+      wan_prefix: 10.0.1.0/31
+      local_border: border-lon-01
+      remote_border: border-nyc-01
+      circuit_id: "LON-NYC-WAN-001"
+      provider: "Equinix Fabric"
+      bandwidth_gbps: 10
+
+    - peer_region: apac
+      wan_prefix: 10.0.2.0/31
+      local_border: border-lon-01
+      remote_border: border-sin-01
+      circuit_id: "LON-SIN-WAN-001"
+      provider: "Tata Communications"
+      bandwidth_gbps: 10
+
+    - peer_region: eu-fra
+      wan_prefix: 10.0.3.0/31
+      local_border: border-lon-01
+      remote_border: border-fra-01
+      circuit_id: "LON-FRA-WAN-001"
+      provider: "Deutsche Telekom"
+      bandwidth_gbps: 10
+
+  change_management:
+    change_freeze_windows:
+      - name: "Year-end financial close"
+        start: "12-20"
+        end: "01-05"
+        timezone: Europe/London
+      - name: "UK Budget Day"
+        description: "Annual UK budget — see HMT calendar"
+        recurring: annual
+    change_window: "Saturday 22:00–Sunday 06:00 GMT"
+    approver_group: "lon-netops-approvers"

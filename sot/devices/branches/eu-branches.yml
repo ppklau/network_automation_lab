@@ -1,0 +1,125 @@
+---
+# ACME Investments — EU Branch Devices
+# 4 branches connecting to fra-dc1 via border-fra-01 (eBGP)
+# All sot_only — no EU branch stubs in containerlab
+# CRITICAL: EU branches inherit Frankfurt TRADING zone prohibition
+# Branches carry CORPORATE and MGMT zones ONLY — no TRADING, no DMZ
+# Last reviewed: 2026-03-01
+
+region: eu-fra
+uplink_dc: fra-dc1
+uplink_border: border-fra-01
+platform: frr
+image: frrouting/frr:9.1.0
+hardware_model: "FRR Virtual Router (branch CPE)"
+eol_date: "2028-06-30"
+compliance_tags: [bafin, eu_gdpr, no_trading_zone]
+# TRADING zone is PROHIBITED — EU branches inherit Frankfurt restriction
+security_zones: [CORPORATE, MGMT_ZONE]
+trading_zone_prohibited: true
+
+branches:
+
+  - hostname: branch-fra-01
+    fqdn: branch-fra-01.eu.acme-investments.internal
+    lab_state: sot_only
+    serial: BRNFRA2401001
+    site_code: branch-fra-01
+    asn: 65140
+    office_type: corporate
+    location:
+      city: Frankfurt
+      address: "Bockenheimer Landstrasse 24, 60323 Frankfurt am Main"
+      country: Germany
+    management_ip: 10.103.0.1/29
+    wan_prefix: 10.103.0.0/29
+    wan_ip: 10.103.0.1
+    uplink_peer_ip: 10.103.0.2
+    lan_prefix: 10.103.0.0/29
+    bgp:
+      local_as: 65140
+      router_id: 10.103.0.1
+      neighbors:
+        - peer_ip: 10.103.0.2
+          remote_as: 65030
+          description: "eBGP -> border-fra-01 [EU Regulatory DC]"
+          md5_password_ref: bgp_md5_branch_fra_01
+      compliance_note: "No TRADING routes permitted — CORPORATE and MGMT only"
+    networks_advertised:
+      - prefix: 10.103.0.0/29
+        description: "Branch LAN — CORPORATE only"
+
+  - hostname: branch-fra-02
+    fqdn: branch-fra-02.eu.acme-investments.internal
+    lab_state: sot_only
+    serial: BRNFRA2401002
+    site_code: branch-fra-02
+    asn: 65141
+    office_type: corporate
+    location:
+      city: Paris
+      address: "1 Boulevard Haussmann, 75009 Paris"
+      country: France
+    management_ip: 10.103.0.9/29
+    wan_prefix: 10.103.0.8/29
+    wan_ip: 10.103.0.9
+    uplink_peer_ip: 10.103.0.10
+    lan_prefix: 10.103.0.8/29
+    bgp:
+      local_as: 65141
+      router_id: 10.103.0.9
+      neighbors:
+        - peer_ip: 10.103.0.10
+          remote_as: 65030
+          description: "eBGP -> border-fra-01"
+          md5_password_ref: bgp_md5_branch_fra_02
+
+  - hostname: branch-fra-03
+    fqdn: branch-fra-03.eu.acme-investments.internal
+    lab_state: sot_only
+    serial: BRNFRA2401003
+    site_code: branch-fra-03
+    asn: 65142
+    office_type: regional
+    location:
+      city: Amsterdam
+      address: "Rokin 55, 1012 KK Amsterdam"
+      country: Netherlands
+    management_ip: 10.103.0.17/29
+    wan_prefix: 10.103.0.16/29
+    wan_ip: 10.103.0.17
+    uplink_peer_ip: 10.103.0.18
+    lan_prefix: 10.103.0.16/29
+    bgp:
+      local_as: 65142
+      router_id: 10.103.0.17
+      neighbors:
+        - peer_ip: 10.103.0.18
+          remote_as: 65030
+          description: "eBGP -> border-fra-01"
+          md5_password_ref: bgp_md5_branch_fra_03
+
+  - hostname: branch-fra-04
+    fqdn: branch-fra-04.eu.acme-investments.internal
+    lab_state: sot_only
+    serial: BRNFRA2401004
+    site_code: branch-fra-04
+    asn: 65143
+    office_type: corporate
+    location:
+      city: Zurich
+      address: "Bahnhofstrasse 45, 8001 Zürich"
+      country: Switzerland
+    management_ip: 10.103.0.25/29
+    wan_prefix: 10.103.0.24/29
+    wan_ip: 10.103.0.25
+    uplink_peer_ip: 10.103.0.26
+    lan_prefix: 10.103.0.24/29
+    bgp:
+      local_as: 65143
+      router_id: 10.103.0.25
+      neighbors:
+        - peer_ip: 10.103.0.26
+          remote_as: 65030
+          description: "eBGP -> border-fra-01"
+          md5_password_ref: bgp_md5_branch_fra_04

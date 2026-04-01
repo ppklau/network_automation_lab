@@ -1,0 +1,75 @@
+---
+# ACME Investments — NTP Configuration
+# All devices synchronise to internal stratum-1 servers
+# Authentication uses MD5 key refs (actual keys stored in Vault)
+# Last reviewed: 2026-03-01
+
+global_ntp:
+  # Stratum-1 servers hosted at London DC1 and NYC DC1
+  servers:
+    - hostname: ntp.acme-investments.internal
+      ip: 10.1.0.50
+      stratum: 1
+      location: lon-dc1
+      preferred: true
+      auth_key_ref: ntp_key_primary      # Vault path: secret/network/ntp/primary
+
+    - hostname: ntp2.acme-investments.internal
+      ip: 10.10.0.50
+      stratum: 1
+      location: nyc-dc1
+      preferred: false
+      auth_key_ref: ntp_key_secondary    # Vault path: secret/network/ntp/secondary
+
+    - hostname: pool.ntp.org
+      ip: null                           # resolved via DNS
+      stratum: 2
+      preferred: false
+      auth_key_ref: null                 # public server — no auth
+      description: "Backup internet NTP pool — use only if internal servers unreachable"
+
+  authentication:
+    enabled: true
+    algorithm: md5
+    trusted_keys:
+      - key_id: 1
+        key_ref: ntp_key_primary
+      - key_id: 2
+        key_ref: ntp_key_secondary
+
+  # Source interface used for NTP packets — loopback for stability
+  source_interface_by_role:
+    spine:   Loopback0
+    leaf:    Loopback0
+    border:  Loopback0
+    fw:      lo            # Linux/FRR devices use lo
+    branch:  lo
+
+# Per-region overrides (if a region needs a closer server)
+regional_ntp:
+
+  emea-lon:
+    timezone: Europe/London
+    primary_server: ntp.acme-investments.internal     # local to LON DC1
+    secondary_server: ntp2.acme-investments.internal
+    backup_server: pool.ntp.org
+
+  americas-nyc:
+    timezone: America/New_York
+    primary_server: ntp2.acme-investments.internal    # NYC stratum-1 is primary locally
+    secondary_server: ntp.acme-investments.internal
+    backup_server: pool.ntp.org
+
+  apac:
+    timezone: Asia/Singapore
+    primary_server: ntp.acme-investments.internal
+    secondary_server: ntp2.acme-investments.internal
+    backup_server: pool.ntp.org
+    note: "No local stratum-1 in APAC; cross-region WAN adds ~150ms jitter (acceptable)"
+
+  eu-fra:
+    timezone: Europe/Berlin
+    primary_server: ntp.acme-investments.internal
+    secondary_server: ntp2.acme-investments.internal
+    backup_server: pool.ntp.org
+    note: "Frankfurt follows EU timezone (CET/CEST)"

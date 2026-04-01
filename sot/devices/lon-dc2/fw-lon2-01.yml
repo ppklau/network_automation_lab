@@ -1,0 +1,72 @@
+---
+# ACME Investments — Device: fw-lon2-01
+# Role: Firewall (Linux/FRR) — London DC2
+# lab_state: sot_only
+# Last reviewed: 2026-03-01
+
+hostname: fw-lon2-01
+fqdn: fw-lon2-01.lon-dc2.acme-investments.internal
+role: firewall
+platform: frr
+image: frrouting/frr:9.1.0
+hardware_model: "Virtual Appliance (Linux KVM)"
+serial: FWLON2402030
+eol_date: "2028-12-31"
+lab_state: sot_only
+
+site: lon-dc2
+region: emea-lon
+compliance_tags: [mifid2, fca, gdpr_applicable, uk_gdpr]
+security_zones: [TRADING, CORPORATE, DMZ, MGMT_ZONE]
+
+management:
+  interface: eth0
+  ip: 10.2.0.30/25
+  gateway: 10.2.0.126
+
+loopback:
+  interface: lo
+  ip: 10.2.255.30/32
+
+interfaces:
+  - name: eth0
+    description: "OOB management"
+    ip: 10.2.0.30/25
+  - name: eth1
+    description: "-> border-lon2-01 Ethernet6 [DMZ external]"
+    ip: 10.2.6.254/24
+    peer_device: border-lon2-01
+    peer_interface: Ethernet6
+    mtu: 9000
+    zone: DMZ
+  - name: eth2
+    description: "-> leaf-lon2-03 Ethernet4 [internal TRADING/CORPORATE]"
+    ip: 10.2.1.254/24
+    peer_device: leaf-lon2-03
+    peer_interface: Ethernet4
+    mtu: 9000
+    zone: TRADING
+  - name: eth3
+    description: "-> leaf-lon2-04 Ethernet4 [internal MGMT]"
+    ip: 10.2.0.254/25
+    peer_device: leaf-lon2-04
+    peer_interface: Ethernet4
+    mtu: 9000
+    zone: MGMT_ZONE
+  - name: lo
+    ip: 10.2.255.30/32
+
+firewall_policy:
+  default_action: deny
+  stateful: true
+  policy_set: acme_dc_firewall_policy_v3  # same policy set as lon-dc1
+
+bgp:
+  local_as: 65002
+  router_id: 10.2.255.30
+  role: firewall_bgp
+  neighbors:
+    - peer_ip: 10.2.6.253
+      remote_as: 65002
+      description: "iBGP to border-lon2-01 for DMZ routing"
+      md5_password_ref: bgp_md5_lon_dc2_fabric

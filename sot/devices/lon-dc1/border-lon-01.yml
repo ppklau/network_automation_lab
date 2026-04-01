@@ -1,0 +1,395 @@
+---
+# ACME Investments — Device: border-lon-01
+# Role: Border router — London DC1
+# iBGP RR client to lon-dc1 spines
+# eBGP to: border-nyc-01 (WAN), border-sin-01 (WAN), border-fra-01 (WAN)
+# eBGP to: all UK branch routers (branch-lon-01 through branch-lon-12)
+# Platform: Arista cEOS
+# Lab state: active
+# Last reviewed: 2026-03-01
+
+hostname: border-lon-01
+fqdn: border-lon-01.lon-dc1.acme-investments.internal
+role: border
+platform: arista_eos
+image: ceos:4.32.2F
+hardware_model: DCS-7050CX3-32S
+serial: ACE2401020C
+eol_date: "2029-12-31"
+
+site: lon-dc1
+region: emea-lon
+lab_state: active
+
+compliance_tags: [mifid2, fca, gdpr_applicable, uk_gdpr]
+security_zones: [TRADING, CORPORATE, DMZ, MGMT_ZONE]
+
+management:
+  interface: Management0
+  ip: 10.1.0.20/25
+  gateway: 10.1.0.126
+  vrf: MGMT
+
+loopback:
+  interface: Loopback0
+  ip: 10.1.255.20/32
+  description: "Router-ID — used as BGP update-source for iBGP"
+
+ntp_source_interface: Loopback0
+logging_source_interface: Loopback0
+snmp_source_interface: Loopback0
+
+vrfs:
+  - name: MGMT
+    description: "Out-of-band management"
+    rd: "65001:999"
+  - name: TRADING_VRF
+    description: "Equities/FX trading"
+    rd: "65001:100"
+    route_target_import: "65001:100"
+    route_target_export: "65001:100"
+  - name: CORPORATE_VRF
+    description: "Corporate"
+    rd: "65001:200"
+    route_target_import: "65001:200"
+    route_target_export: "65001:200"
+  - name: DMZ_VRF
+    description: "DMZ"
+    rd: "65001:300"
+    route_target_import: "65001:300"
+    route_target_export: "65001:300"
+  - name: MGMT_VRF
+    description: "Network management"
+    rd: "65001:400"
+    route_target_import: "65001:400"
+    route_target_export: "65001:400"
+
+interfaces:
+  - name: Ethernet1
+    description: "P2P -> spine-lon-01 Ethernet5 [fabric]"
+    ip: 10.1.100.17/31        # border=.17, spine=.16
+    peer_device: spine-lon-01
+    peer_interface: Ethernet5
+    mtu: 9214
+    speed: 100G
+    vrf: default
+
+  - name: Ethernet2
+    description: "P2P -> spine-lon-02 Ethernet5 [fabric]"
+    ip: 10.1.100.19/31        # border=.19, spine=.18
+    peer_device: spine-lon-02
+    peer_interface: Ethernet5
+    mtu: 9214
+    speed: 100G
+    vrf: default
+
+  - name: Ethernet3
+    description: "WAN -> border-nyc-01 [LON<->NYC eBGP AS65001<->AS65010]"
+    ip: 10.0.1.0/31           # london=.0, nyc=.1
+    peer_device: border-nyc-01
+    peer_interface: eth1       # FRR stub uses eth1 for WAN
+    mtu: 9000
+    speed: 10G
+    vrf: default
+    circuit_id: LON-NYC-WAN-001
+    provider: "Equinix Fabric"
+
+  - name: Ethernet4
+    description: "WAN -> border-sin-01 [LON<->SIN eBGP AS65001<->AS65020]"
+    ip: 10.0.2.0/31           # london=.0, sin=.1
+    peer_device: border-sin-01
+    peer_interface: eth1
+    mtu: 9000
+    speed: 10G
+    vrf: default
+    circuit_id: LON-SIN-WAN-001
+    provider: "Tata Communications"
+
+  - name: Ethernet5
+    description: "WAN -> border-fra-01 [LON<->FRA eBGP AS65001<->AS65030]"
+    ip: 10.0.3.0/31           # london=.0, fra=.1
+    peer_device: border-fra-01
+    peer_interface: eth1
+    mtu: 9000
+    speed: 10G
+    vrf: default
+    circuit_id: LON-FRA-WAN-001
+    provider: "Deutsche Telekom"
+
+  - name: Ethernet6
+    description: "-> fw-lon-01 eth1 [DMZ zone boundary]"
+    ip: null                   # L2 hand-off into firewall; FW has IP on eth1
+    mode: access
+    access_vlan: 300
+    peer_device: fw-lon-01
+    peer_interface: eth1
+    mtu: 9000
+    speed: 10G
+
+  # Sub-interfaces for branch eBGP sessions (one per UK branch)
+  # In production these would be on a dedicated branch aggregation interface
+  # For the lab, modelled as logical sub-interfaces on Ethernet7
+  - name: Ethernet7
+    description: "Branch aggregation uplink — UK branches eBGP"
+    ip: null                  # sub-interfaces carry the actual IPs
+    mtu: 9000
+    speed: 10G
+
+  - name: "Ethernet7.100"
+    description: "branch-lon-01 eBGP uplink [AS65100]"
+    ip: 10.100.0.2/29         # border peer IP for branch-lon-01
+    peer_device: branch-lon-01
+    peer_interface: eth1
+    vrf: default
+    encapsulation: dot1q
+    vlan: 100
+
+  - name: "Ethernet7.101"
+    description: "branch-lon-02 eBGP uplink [AS65101]"
+    ip: 10.100.0.10/29
+    peer_device: branch-lon-02
+    peer_interface: eth1
+    vrf: default
+    encapsulation: dot1q
+    vlan: 101
+
+  - name: Loopback0
+    description: "Router-ID"
+    ip: 10.1.255.20/32
+    vrf: default
+
+  - name: Management0
+    description: "OOB management"
+    ip: 10.1.0.20/25
+    vrf: MGMT
+
+bgp:
+  local_as: 65001
+  router_id: 10.1.255.20
+  role: rr_client
+
+  neighbors:
+    # ── iBGP to Route Reflectors ───────────────────
+    - peer_ip: 10.1.255.1
+      remote_as: 65001
+      description: "iBGP RR -> spine-lon-01"
+      update_source: Loopback0
+      route_reflector_client: false
+      md5_password_ref: bgp_md5_lon_dc1_fabric
+      address_families:
+        - afi: ipv4
+          safi: unicast
+          activate: true
+
+    - peer_ip: 10.1.255.2
+      remote_as: 65001
+      description: "iBGP RR -> spine-lon-02"
+      update_source: Loopback0
+      route_reflector_client: false
+      md5_password_ref: bgp_md5_lon_dc1_fabric
+      address_families:
+        - afi: ipv4
+          safi: unicast
+          activate: true
+
+    # ── eBGP Inter-Region ──────────────────────────
+    - peer_ip: 10.0.1.1
+      remote_as: 65010
+      description: "eBGP WAN -> border-nyc-01 [Americas]"
+      ebgp_multihop: false
+      md5_password_ref: bgp_md5_wan_lon_nyc
+      route_map_in: RM_INTERDC_LON_NYC_IN
+      route_map_out: RM_INTERDC_LON_NYC_OUT
+      address_families:
+        - afi: ipv4
+          safi: unicast
+          activate: true
+      timers:
+        keepalive: 30
+        hold_time: 90
+
+    - peer_ip: 10.0.2.1
+      remote_as: 65020
+      description: "eBGP WAN -> border-sin-01 [APAC]"
+      ebgp_multihop: false
+      md5_password_ref: bgp_md5_wan_lon_sin
+      route_map_in: RM_INTERDC_LON_SIN_IN
+      route_map_out: RM_INTERDC_LON_SIN_OUT
+      address_families:
+        - afi: ipv4
+          safi: unicast
+          activate: true
+      timers:
+        keepalive: 30
+        hold_time: 90
+
+    - peer_ip: 10.0.3.1
+      remote_as: 65030
+      description: "eBGP WAN -> border-fra-01 [EU Regulatory — TRADING filtered]"
+      ebgp_multihop: false
+      md5_password_ref: bgp_md5_wan_lon_fra
+      route_map_in: RM_INTERDC_LON_FRA_IN
+      route_map_out: RM_INTERDC_LON_FRA_OUT
+      address_families:
+        - afi: ipv4
+          safi: unicast
+          activate: true
+      timers:
+        keepalive: 30
+        hold_time: 90
+
+    # ── eBGP UK Branches ──────────────────────────
+    - peer_ip: 10.100.0.1
+      remote_as: 65100
+      description: "eBGP branch -> branch-lon-01 (LAB ACTIVE)"
+      md5_password_ref: bgp_md5_branch_lon_01
+      route_map_in: RM_BRANCH_IN
+      route_map_out: RM_BRANCH_OUT
+      address_families:
+        - afi: ipv4
+          safi: unicast
+          activate: true
+
+    - peer_ip: 10.100.0.9
+      remote_as: 65101
+      description: "eBGP branch -> branch-lon-02"
+      md5_password_ref: bgp_md5_branch_lon_02
+      route_map_in: RM_BRANCH_IN
+      route_map_out: RM_BRANCH_OUT
+      address_families:
+        - afi: ipv4
+          safi: unicast
+          activate: true
+
+    - peer_ip: 10.100.0.17
+      remote_as: 65102
+      description: "eBGP branch -> branch-lon-03"
+      md5_password_ref: bgp_md5_branch_lon_03
+      route_map_in: RM_BRANCH_IN
+      route_map_out: RM_BRANCH_OUT
+      address_families:
+        - afi: ipv4
+          safi: unicast
+          activate: true
+
+    - peer_ip: 10.100.0.25
+      remote_as: 65103
+      description: "eBGP branch -> branch-lon-04"
+      md5_password_ref: bgp_md5_branch_lon_04
+      route_map_in: RM_BRANCH_IN
+      route_map_out: RM_BRANCH_OUT
+      address_families:
+        - afi: ipv4
+          safi: unicast
+          activate: true
+
+    - peer_ip: 10.100.0.33
+      remote_as: 65104
+      description: "eBGP branch -> branch-lon-05"
+      md5_password_ref: bgp_md5_branch_lon_05
+      route_map_in: RM_BRANCH_IN
+      route_map_out: RM_BRANCH_OUT
+      address_families:
+        - afi: ipv4
+          safi: unicast
+          activate: true
+
+    - peer_ip: 10.100.0.41
+      remote_as: 65105
+      description: "eBGP branch -> branch-lon-06"
+      md5_password_ref: bgp_md5_branch_lon_06
+      route_map_in: RM_BRANCH_IN
+      route_map_out: RM_BRANCH_OUT
+      address_families:
+        - afi: ipv4
+          safi: unicast
+          activate: true
+
+    - peer_ip: 10.100.0.49
+      remote_as: 65106
+      description: "eBGP branch -> branch-lon-07"
+      md5_password_ref: bgp_md5_branch_lon_07
+      route_map_in: RM_BRANCH_IN
+      route_map_out: RM_BRANCH_OUT
+      address_families:
+        - afi: ipv4
+          safi: unicast
+          activate: true
+
+    - peer_ip: 10.100.0.57
+      remote_as: 65107
+      description: "eBGP branch -> branch-lon-08"
+      md5_password_ref: bgp_md5_branch_lon_08
+      route_map_in: RM_BRANCH_IN
+      route_map_out: RM_BRANCH_OUT
+      address_families:
+        - afi: ipv4
+          safi: unicast
+          activate: true
+
+    - peer_ip: 10.100.0.65
+      remote_as: 65108
+      description: "eBGP branch -> branch-lon-09"
+      md5_password_ref: bgp_md5_branch_lon_09
+      route_map_in: RM_BRANCH_IN
+      route_map_out: RM_BRANCH_OUT
+      address_families:
+        - afi: ipv4
+          safi: unicast
+          activate: true
+
+    - peer_ip: 10.100.0.73
+      remote_as: 65109
+      description: "eBGP branch -> branch-lon-10"
+      md5_password_ref: bgp_md5_branch_lon_10
+      route_map_in: RM_BRANCH_IN
+      route_map_out: RM_BRANCH_OUT
+      address_families:
+        - afi: ipv4
+          safi: unicast
+          activate: true
+
+    - peer_ip: 10.100.0.81
+      remote_as: 65110
+      description: "eBGP branch -> branch-lon-11"
+      md5_password_ref: bgp_md5_branch_lon_11
+      route_map_in: RM_BRANCH_IN
+      route_map_out: RM_BRANCH_OUT
+      address_families:
+        - afi: ipv4
+          safi: unicast
+          activate: true
+
+    - peer_ip: 10.100.0.89
+      remote_as: 65111
+      description: "eBGP branch -> branch-lon-12"
+      md5_password_ref: bgp_md5_branch_lon_12
+      route_map_in: RM_BRANCH_IN
+      route_map_out: RM_BRANCH_OUT
+      address_families:
+        - afi: ipv4
+          safi: unicast
+          activate: true
+
+  networks_advertised:
+    - prefix: 10.1.255.20/32
+      description: "Loopback"
+    - prefix: 10.1.0.0/16
+      description: "LON DC1 aggregate — summarised outbound to WAN"
+    - prefix: 10.100.0.0/16
+      description: "UK branch aggregate — summarised outbound to WAN"
+
+  aggregate_addresses:
+    - prefix: 10.1.0.0/16
+      summary_only: true
+      description: "Aggregate LON DC1 — suppress more-specifics on WAN"
+    - prefix: 10.100.0.0/16
+      summary_only: true
+      description: "Aggregate UK branches — suppress /29s on WAN"
+
+  timers:
+    keepalive: 30
+    hold_time: 90
+
+  graceful_restart: true
+  log_neighbor_changes: true

@@ -1,0 +1,162 @@
+---
+# ACME Investments — Device: border-sin-01
+# Role: Border router (FRR stub) — SIN DC1
+# lab_state: ACTIVE — FRR node instantiated in containerlab as regional stub
+# eBGP peer to border-lon-01 on WAN link 10.0.2.0/31
+# Last reviewed: 2026-03-01
+
+hostname: border-sin-01
+fqdn: border-sin-01.sin-dc1.acme-investments.internal
+role: border
+platform: frr
+image: frrouting/frr:9.1.0
+hardware_model: "FRR Virtual Router (containerlab stub)"
+serial: FRRSIN2420020
+eol_date: "2028-12-31"
+
+site: sin-dc1
+region: apac
+lab_state: active   # This node IS instantiated in containerlab
+
+compliance_tags: [mas_trm, hkma_cfi, apac_data_residency]
+security_zones: [TRADING, CORPORATE, DMZ, MGMT_ZONE]
+
+management:
+  interface: eth0
+  ip: 10.20.0.20/25
+  gateway: 10.20.0.126
+
+loopback:
+  interface: lo
+  ip: 10.20.255.20/32
+
+interfaces:
+  - name: eth0
+    description: "OOB management"
+    ip: 10.20.0.20/25
+    mtu: 1500
+
+  - name: eth1
+    description: "WAN -> border-lon-01 Ethernet4 [eBGP AS65020<->AS65001]"
+    ip: 10.0.2.1/31            # sin=.1, london=.0
+    peer_device: border-lon-01
+    peer_interface: Ethernet4
+    mtu: 9000
+    circuit_id: LON-SIN-WAN-001
+
+  - name: eth2
+    description: "Fabric -> spine-sin-01 Ethernet5 (sot_only)"
+    ip: 10.20.100.17/31
+    peer_device: spine-sin-01
+    peer_interface: Ethernet5
+    mtu: 9214
+
+  - name: eth3
+    description: "Fabric -> spine-sin-02 Ethernet5 (sot_only)"
+    ip: 10.20.100.19/31
+    peer_device: spine-sin-02
+    peer_interface: Ethernet5
+    mtu: 9214
+
+  - name: eth4
+    description: "APAC inter-DC -> border-hkg-01 [SIN<->HKG eBGP AS65020<->AS65021]"
+    ip: 10.0.6.0/31            # sin=.0, hkg=.1
+    peer_device: border-hkg-01
+    peer_interface: eth1
+    mtu: 9000
+    circuit_id: SIN-HKG-DC-001
+
+  - name: lo
+    description: "Loopback"
+    ip: 10.20.255.20/32
+
+bgp:
+  local_as: 65020
+  router_id: 10.20.255.20
+  role: rr_client
+
+  neighbors:
+    - peer_ip: 10.20.255.1
+      remote_as: 65020
+      description: "iBGP RR -> spine-sin-01"
+      update_source: lo
+      md5_password_ref: bgp_md5_sin_dc1_fabric
+
+    - peer_ip: 10.20.255.2
+      remote_as: 65020
+      description: "iBGP RR -> spine-sin-02"
+      update_source: lo
+      md5_password_ref: bgp_md5_sin_dc1_fabric
+
+    - peer_ip: 10.0.2.0
+      remote_as: 65001
+      description: "eBGP WAN -> border-lon-01 [EMEA HQ]"
+      md5_password_ref: bgp_md5_wan_lon_sin
+      route_map_in: RM_INTERDC_LON_SIN_IN
+      route_map_out: RM_INTERDC_LON_SIN_OUT
+      timers:
+        keepalive: 30
+        hold_time: 90
+
+    - peer_ip: 10.0.6.1
+      remote_as: 65021
+      description: "eBGP inter-DC -> border-hkg-01 [HKG]"
+      md5_password_ref: bgp_md5_interdc_sin_hkg
+
+    - peer_ip: 10.102.0.1
+      remote_as: 65130
+      description: "eBGP branch -> branch-sin-01"
+      md5_password_ref: bgp_md5_branch_sin_01
+      route_map_in: RM_BRANCH_IN
+      route_map_out: RM_BRANCH_OUT
+
+    - peer_ip: 10.102.0.9
+      remote_as: 65131
+      description: "eBGP branch -> branch-sin-02"
+      md5_password_ref: bgp_md5_branch_sin_02
+      route_map_in: RM_BRANCH_IN
+      route_map_out: RM_BRANCH_OUT
+
+    - peer_ip: 10.102.0.17
+      remote_as: 65132
+      description: "eBGP branch -> branch-sin-03"
+      md5_password_ref: bgp_md5_branch_sin_03
+      route_map_in: RM_BRANCH_IN
+      route_map_out: RM_BRANCH_OUT
+
+    - peer_ip: 10.102.0.25
+      remote_as: 65133
+      description: "eBGP branch -> branch-sin-04"
+      md5_password_ref: bgp_md5_branch_sin_04
+      route_map_in: RM_BRANCH_IN
+      route_map_out: RM_BRANCH_OUT
+
+    - peer_ip: 10.102.0.33
+      remote_as: 65134
+      description: "eBGP branch -> branch-sin-05"
+      md5_password_ref: bgp_md5_branch_sin_05
+      route_map_in: RM_BRANCH_IN
+      route_map_out: RM_BRANCH_OUT
+
+    - peer_ip: 10.102.0.41
+      remote_as: 65135
+      description: "eBGP branch -> branch-sin-06"
+      md5_password_ref: bgp_md5_branch_sin_06
+      route_map_in: RM_BRANCH_IN
+      route_map_out: RM_BRANCH_OUT
+
+  networks_advertised:
+    - prefix: 10.20.255.20/32
+    - prefix: 10.20.0.0/16
+    - prefix: 10.102.0.0/16
+
+  aggregate_addresses:
+    - prefix: 10.20.0.0/16
+      summary_only: true
+    - prefix: 10.102.0.0/16
+      summary_only: true
+
+  timers:
+    keepalive: 30
+    hold_time: 90
+  log_neighbor_changes: true

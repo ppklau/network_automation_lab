@@ -1,0 +1,77 @@
+---
+# ACME Investments — Region: APAC (Singapore / Hong Kong)
+# APAC hub — Singapore is primary; Hong Kong is secondary
+# Last reviewed: 2026-03-01
+
+region:
+  name: "APAC"
+  code: apac
+  timezone: Asia/Singapore    # SGT UTC+8; primary DC
+  utc_offset: "+08:00"
+  countries: [Singapore, HongKong]
+  cities: [Singapore, "Hong Kong"]
+
+  regulatory_scope:
+    frameworks: [mas_trm, hkma_cfi, apac_data_residency]
+    primary_regulators:
+      singapore: MAS
+      hong_kong: HKMA
+    compliance_tags: [mas_trm, hkma_cfi, apac_data_residency]
+    data_residency: [Singapore, HongKong]
+    trading_zone_permitted: true
+
+  data_centres:
+    - site_code: sin-dc1
+      name: "Singapore Data Centre 1"
+      address: "Tanjong Pagar, Singapore 088529"
+      tier: "Tier IV"
+      primary: true
+      lab_instantiated: false   # border-sin-01 stub active in lab
+      asn: 65020
+
+    - site_code: hkg-dc1
+      name: "Hong Kong Data Centre 1"
+      address: "Tseung Kwan O Industrial Estate, Hong Kong"
+      tier: "Tier III+"
+      primary: false
+      lab_instantiated: false
+      asn: 65021
+
+  branch_count: 6
+  branch_prefix_pool: 10.102.0.0/16
+  branch_asn_range: "65130–65135"
+  branch_uplink_dc: sin-dc1
+  branch_uplink_border: border-sin-01
+
+  contacts:
+    network_lead: "apac-neteng@acme-investments.com"
+    on_call: "+65-6800-0000"
+    noc: "noc@acme-investments.com"
+    compliance: "compliance-apac@acme-investments.com"
+
+  inter_region_links:
+    - peer_region: emea-lon
+      wan_prefix: 10.0.2.0/31
+      local_border: border-sin-01
+      remote_border: border-lon-01
+      circuit_id: "LON-SIN-WAN-001"
+      provider: "Tata Communications"
+      bandwidth_gbps: 10
+
+    - peer_dc_internal: hkg-dc1
+      wan_prefix: 10.0.6.0/31
+      local_border: border-sin-01
+      remote_border: border-hkg-01
+      circuit_id: "SIN-HKG-DC-001"
+      provider: "NTT Singapore"
+      bandwidth_gbps: 10
+
+  change_management:
+    change_freeze_windows:
+      - name: "Chinese New Year"
+        recurring: annual
+        description: "Lunar New Year — heightened APAC market activity"
+      - name: "APAC quarter-end"
+        recurring: quarterly
+    change_window: "Saturday 22:00–Sunday 04:00 SGT"
+    approver_group: "apac-netops-approvers"
