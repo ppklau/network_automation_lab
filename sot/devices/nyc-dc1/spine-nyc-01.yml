@@ -18,6 +18,7 @@ site: nyc-dc1
 region: americas-nyc
 compliance_tags: [sox, sec, reg_sci]
 security_zones: [MGMT_ZONE]
+intent_refs: [INTENT-005, INTENT-008, INTENT-011]
 
 management:
   interface: Management0

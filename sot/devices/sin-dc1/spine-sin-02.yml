@@ -18,6 +18,7 @@ site: sin-dc1
 region: apac
 compliance_tags: [mas_trm, hkma_cfi, apac_data_residency]
 security_zones: [MGMT_ZONE]
+intent_refs: [INTENT-005, INTENT-008, INTENT-011]
 
 management:
   interface: Management0

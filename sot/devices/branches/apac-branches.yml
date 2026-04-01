@@ -14,6 +14,7 @@ hardware_model: "FRR Virtual Router (branch CPE)"
 eol_date: "2028-06-30"
 compliance_tags: [mas_trm]
 security_zones: [CORPORATE, MGMT_ZONE]
+intent_refs: [INTENT-005, INTENT-006, INTENT-007, INTENT-010, INTENT-011]
 
 branches:
 

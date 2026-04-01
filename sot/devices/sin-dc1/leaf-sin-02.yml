@@ -12,6 +12,7 @@ site: sin-dc1
 region: apac
 compliance_tags: [mas_trm, hkma_cfi, apac_data_residency]
 security_zones: [TRADING, CORPORATE, MGMT_ZONE]
+intent_refs: [INTENT-001, INTENT-002, INTENT-005, INTENT-008, INTENT-011]
 management:
   interface: Management0
   ip: 10.20.0.12/25

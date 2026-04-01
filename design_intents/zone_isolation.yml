@@ -1,0 +1,467 @@
+---
+# ACME Investments — Design Intents: Zone Isolation
+# Layer 2 of the Intent-Based Networking (IBN) model
+#
+# This file defines the architectural decisions that implement the
+# zone isolation business requirements. It is the translation layer
+# between business language (requirements/) and operational values
+# (sot/ device files with intent_refs).
+#
+# Intents defined here:
+#   INTENT-001  No reachability TRADING_VRF → CORPORATE_VRF
+#   INTENT-002  No reachability TRADING_VRF → DMZ_VRF
+#
+# Traceability:
+#   REQ-007 → INTENT-001 → ZONE-003 audit check + test_trading_to_corporate_denied
+#   REQ-008 → INTENT-002 → ZONE-003 audit check + test_trading_to_dmz_denied
+#
+# Each intent specifies:
+#   requirement_refs   — Layer 1 requirements this intent satisfies
+#   enforcement_layers — how the intent is enforced (multiple layers)
+#   assertion_type     — batfish_check, sot_check, or both
+#   batfish_check      — specification for the Batfish test
+#   sot_checks         — what the SoT must contain for this intent to hold
+#   violation          — severity, response, and notification
+#
+# Reviewed by: Head of Network Operations, CISO — 2026-03-01
+
+intents:
+
+  # ──────────────────────────────────────────────────────────────────
+  # INTENT-001: No reachability TRADING_VRF → CORPORATE_VRF
+  #
+  # Architectural decision: VRF separation at Layer 3 is the primary
+  # enforcement mechanism. Firewall policy is supplementary. Both
+  # must be present; neither alone is sufficient.
+  # ──────────────────────────────────────────────────────────────────
+
+  - id: INTENT-001
+    title: "TRADING_VRF must have no reachability to CORPORATE_VRF"
+    requirement_refs: [REQ-007]
+    regulatory_refs: [MIFID2-001, MIFID2-002, FCA-005, REGSCI-003]
+    related_intents: [INTENT-002, INTENT-003]
+
+    description: >
+      No IP packet originating from within TRADING_VRF (VLAN 100,
+      10.x.1.0/24 subnets) may reach any host in CORPORATE_VRF
+      (VLAN 200, 10.x.2.0/22 subnets) in any DC, in either direction.
+      This prohibition must hold:
+        (a) without traversal of any device boundary,
+        (b) regardless of the Layer 4 protocol or port,
+        (c) in both the data plane and the management plane.
+      The prohibition is enforced at two independent layers — VRF
+      routing separation (primary) and firewall zone policy
+      (supplementary) — so that failure of either layer alone does
+      not create a reachable path.
+
+    rationale: >
+      MiFID II Article 17 and FCA MAR 7A require operational separation
+      of trading infrastructure from non-trading systems. If a corporate
+      workstation could reach a trading system — even to ping it — that
+      constitutes a reachability path that regulators treat as a
+      segregation failure. VRF separation is more reliable than ACL-
+      or firewall-only enforcement because it prevents route exchange
+      at the control plane, not just packet forwarding at the data plane.
+
+    sites_in_scope:
+      # Sites where both TRADING_VRF and CORPORATE_VRF exist
+      # Frankfurt is excluded because TRADING_VRF is prohibited there entirely (→ INTENT-003)
+      - lon-dc1
+      - lon-dc2
+      - nyc-dc1
+      - nyc-dc2
+      - sin-dc1
+      - hkg-dc1
+
+    enforcement_layers:
+
+      - layer: vrf_routing
+        description: >
+          TRADING_VRF and CORPORATE_VRF are distinct VRF instances on
+          every DC spine, leaf, and border device. They have separate
+          routing tables with no route leaking between them. The VRF
+          RDs (65001:100 for TRADING, 65001:200 for CORPORATE) have
+          non-overlapping route targets — no RT import policy allows
+          cross-VRF route exchange.
+        sot_enforcement:
+          - "Each device file: vrfs list must contain TRADING_VRF and CORPORATE_VRF as separate entries"
+          - "TRADING_VRF: route_target_import: 65001:100 — only imports its own routes"
+          - "CORPORATE_VRF: route_target_import: 65001:200 — only imports its own routes"
+          - "No device file may have a static route from TRADING_VRF to CORPORATE_VRF prefix space"
+        primary: true
+
+      - layer: firewall_zone_policy
+        description: >
+          Each DC site firewall enforces the inter-zone access matrix.
+          TRADING to CORPORATE is DENIED in both directions. The firewall
+          policy is independent of the VRF routing layer — it catches
+          any traffic that might have traversed an unintended path
+          (e.g., a misconfigured route leak).
+        sot_enforcement:
+          - "sot/compliance/zone_policies.yml — inter_zone_access TRADING to_CORPORATE: denied"
+          - "sot/compliance/zone_policies.yml — inter_zone_access CORPORATE to_TRADING: denied"
+          - "Each site firewall_policy entry: audit_logging: enabled"
+        primary: false
+
+      - layer: vlan_prohibition_frankfurt
+        description: >
+          At Frankfurt (fra-dc1), the TRADING zone VLAN (VLAN 100) must
+          be absent from all device VLAN databases and VRF configurations.
+          This is a SoT-level check — the configuration must not contain
+          VLAN 100 or TRADING_VRF in any form. It is verified both by
+          the SoT schema (schema/device.schema.json) and by the Batfish
+          snapshot (which would show VLAN 100 if present).
+        sot_enforcement:
+          - "sot/compliance/zone_policies.yml — ZONE-001 audit_check: vlan_absent vlan_id=100 target=fra-dc1"
+          - "sot/devices/fra-dc1/ — no device file may have vlans containing id: 100"
+          - "sot/devices/fra-dc1/ — security_zones must not include TRADING"
+          - "sot/sites/fra-dc1.yml — vlans_prohibited must include 100"
+        sites_in_scope: [fra-dc1]
+        primary: true
+
+    assertion_type: batfish_check
+
+    batfish_check:
+      test_file: "batfish/tests/test_zone_isolation.py"
+
+      assertions:
+
+        - id: BA-001
+          function: "test_trading_to_corporate_denied"
+          description: >
+            Assert that no IP flow can travel from any source IP in
+            TRADING_VRF address space to any destination IP in
+            CORPORATE_VRF address space, on any port, via any path
+            in the network model.
+          pybatfish_api: "reachability"
+          parameters:
+            headers:
+              srcIps: "10.1.1.0/24, 10.2.1.0/24, 10.10.1.0/24, 10.11.1.0/24, 10.20.1.0/24, 10.21.1.0/24"
+              dstIps: "10.1.2.0/22, 10.2.2.0/22, 10.10.2.0/22, 10.11.2.0/22, 10.20.2.0/22, 10.21.2.0/22"
+              ipProtocols: ["TCP", "UDP", "ICMP"]
+            pathConstraints:
+              startLocation: "TRADING_VRF"
+            actions: ["DENIED"]
+          expected_result: >
+            All flows must be DENIED. Any flow that reaches PERMITTED
+            or FORWARDED is a test failure and a compliance violation.
+          failure_action: "BLOCK pipeline — do not proceed to render or push stage"
+
+        - id: BA-002
+          function: "test_corporate_to_trading_denied"
+          description: >
+            Assert that no IP flow can travel from CORPORATE_VRF address
+            space to TRADING_VRF address space (reverse direction check).
+          pybatfish_api: "reachability"
+          parameters:
+            headers:
+              srcIps: "10.1.2.0/22, 10.2.2.0/22, 10.10.2.0/22, 10.11.2.0/22, 10.20.2.0/22, 10.21.2.0/22"
+              dstIps: "10.1.1.0/24, 10.2.1.0/24, 10.10.1.0/24, 10.11.1.0/24, 10.20.1.0/24, 10.21.1.0/24"
+              ipProtocols: ["TCP", "UDP", "ICMP"]
+            actions: ["DENIED"]
+          expected_result: "All flows DENIED"
+          failure_action: "BLOCK pipeline"
+
+        - id: BA-003
+          function: "test_vrf_route_leak_trading_to_corporate"
+          description: >
+            Assert that no route from TRADING_VRF prefix space appears
+            in the CORPORATE_VRF routing table on any device, and vice
+            versa. This tests the control plane (routing table), not
+            just the data plane (forwarding).
+          pybatfish_api: "routes"
+          parameters:
+            vrfs: ["TRADING_VRF", "CORPORATE_VRF"]
+          expected_result: >
+            No device has a route to a CORPORATE_VRF prefix (10.x.2.0/22)
+            in its TRADING_VRF table, and no device has a route to a
+            TRADING_VRF prefix (10.x.1.0/24) in its CORPORATE_VRF table.
+          failure_action: "BLOCK pipeline"
+
+        - id: BA-004
+          function: "test_no_trading_vlan_frankfurt"
+          description: >
+            Assert that VLAN 100 does not appear in the VLAN database
+            of any fra-dc1 device in the Batfish network model.
+          pybatfish_api: "switchedVlanProperties"
+          parameters:
+            nodes: "border-fra-01, spine-fra-01, spine-fra-02, leaf-fra-01, leaf-fra-02, fw-fra-01"
+          expected_result: "VLAN 100 is absent from all listed nodes"
+          failure_action: "BLOCK pipeline — critical regulatory violation"
+
+    sot_checks:
+      # These are the SoT-level assertions run by scripts/validate_sot.py
+      # They run before Batfish (in the validate stage) as a fast pre-check
+
+      - id: SC-001
+        description: "All in-scope devices must have TRADING_VRF and CORPORATE_VRF as separate VRF entries"
+        check_type: field_presence
+        target_devices: "all devices at sites in sites_in_scope"
+        field_path: "vrfs[*].name"
+        must_contain: ["TRADING_VRF", "CORPORATE_VRF"]
+        must_not_share: true  # they must be separate entries, not the same VRF
+
+      - id: SC-002
+        description: "TRADING_VRF route targets must not overlap with CORPORATE_VRF route targets"
+        check_type: field_value_disjoint
+        field_a: "vrfs[name=TRADING_VRF].route_target_import"
+        field_b: "vrfs[name=CORPORATE_VRF].route_target_import"
+        target_devices: "all devices at sites in sites_in_scope"
+
+      - id: SC-003
+        description: "Frankfurt devices must not have VLAN 100 in any vlans list"
+        check_type: field_absence
+        target_sites: [fra-dc1]
+        field_path: "vlans[*].id"
+        must_not_contain: [100]
+        severity: critical
+
+      - id: SC-004
+        description: "Frankfurt devices must not have TRADING or TRADING_VRF in security_zones"
+        check_type: field_absence
+        target_sites: [fra-dc1]
+        field_path: "security_zones"
+        must_not_contain: ["TRADING", "TRADING_VRF"]
+        severity: critical
+
+    violation:
+      severity: critical
+      pipeline_action: block
+      notify:
+        - compliance@acme-investments.com
+        - ciso@acme-investments.com
+        - netops@acme-investments.com
+      escalation: >
+        If a violation is detected in production (not in pipeline pre-check),
+        it must be treated as a P1 incident. Network operations must be
+        notified immediately. The compliance team must be informed within
+        1 hour for FCA reporting assessment (FCA-001: 4-hour notification
+        window for P1 incidents affecting FCA-regulated services).
+      remediation: >
+        1. Identify the source of the route leak or VLAN misconfiguration.
+        2. Do not attempt a manual fix — raise a pipeline MR with the
+           corrected SoT values.
+        3. Run pipeline validate and intent-check stages.
+        4. Push with emergency approval (CTO + Head of Compliance).
+        5. Verify Batfish assertions pass post-push.
+        6. Document the incident and remediation in the audit artefact.
+
+  # ──────────────────────────────────────────────────────────────────
+  # INTENT-002: No reachability TRADING_VRF → DMZ_VRF
+  #
+  # Architectural decision: Same dual-layer enforcement as INTENT-001.
+  # The DMZ hosts internet-facing systems. TRADING→DMZ reachability
+  # would expose trading infrastructure to internet-adjacent attack paths.
+  # ──────────────────────────────────────────────────────────────────
+
+  - id: INTENT-002
+    title: "TRADING_VRF must have no reachability to DMZ_VRF"
+    requirement_refs: [REQ-008]
+    regulatory_refs: [MIFID2-001, FCA-005, REGSCI-003]
+    related_intents: [INTENT-001, INTENT-003]
+
+    description: >
+      No IP packet originating from within TRADING_VRF may reach any
+      host in DMZ_VRF (VLAN 300, 10.x.6.0/24 subnets), and no IP
+      packet from DMZ_VRF may reach any host in TRADING_VRF. Trading
+      systems have a dedicated internet breakout (separate firewall,
+      dedicated cross-connect for market data) that does not traverse
+      the shared DMZ. The shared DMZ firewall must have no policy
+      permitting any TRADING_VRF source or destination.
+
+    rationale: >
+      The DMZ hosts internet-facing and partner-connected services.
+      If TRADING_VRF had reachability to the DMZ, a compromise of
+      any DMZ system — including partner connectivity endpoints —
+      could provide a lateral movement path into trading
+      infrastructure. Unlike the CORPORATE→TRADING risk (data
+      exfiltration), a DMZ→TRADING compromise risk is primarily
+      one of integrity: an attacker could manipulate order routing
+      or market data feeds.
+
+    sites_in_scope:
+      - lon-dc1
+      - lon-dc2
+      - nyc-dc1
+      - nyc-dc2
+      - sin-dc1
+      - hkg-dc1
+    # Note: fra-dc1 excluded because TRADING_VRF does not exist there (INTENT-003)
+
+    enforcement_layers:
+
+      - layer: vrf_routing
+        description: >
+          DMZ_VRF (route target 65001:300) has no route import policy
+          that would import routes from TRADING_VRF (65001:100).
+          TRADING_VRF has no route import policy for DMZ_VRF.
+          No static routes bridge these VRFs on any device.
+        sot_enforcement:
+          - "DMZ_VRF: route_target_import: 65001:300 — only imports its own routes"
+          - "TRADING_VRF: route_target_import: 65001:100 — only imports its own routes"
+          - "No static route from TRADING_VRF prefix space to DMZ_VRF prefix space"
+        primary: true
+
+      - layer: firewall_zone_policy
+        description: >
+          Firewall inter-zone policy explicitly denies TRADING→DMZ
+          and DMZ→TRADING in both directions. The notes in
+          zone_policies.yml record that trading internet breakout
+          uses a dedicated firewall separate from the shared DMZ
+          firewall — the shared DMZ firewall has no TRADING zone
+          interface or policy.
+        sot_enforcement:
+          - "sot/compliance/zone_policies.yml — inter_zone_access TRADING to_DMZ: denied"
+          - "sot/compliance/zone_policies.yml — TRADING notes: dedicated internet breakout"
+          - "Firewall devices: zones_handled must not include both TRADING and DMZ on the same policy set"
+        primary: false
+
+    assertion_type: batfish_check
+
+    batfish_check:
+      test_file: "batfish/tests/test_zone_isolation.py"
+
+      assertions:
+
+        - id: BA-005
+          function: "test_trading_to_dmz_denied"
+          description: >
+            Assert that no IP flow can travel from TRADING_VRF address
+            space to DMZ_VRF address space on any port or protocol.
+          pybatfish_api: "reachability"
+          parameters:
+            headers:
+              srcIps: "10.1.1.0/24, 10.2.1.0/24, 10.10.1.0/24, 10.11.1.0/24, 10.20.1.0/24, 10.21.1.0/24"
+              dstIps: "10.1.6.0/24, 10.2.6.0/24, 10.10.6.0/24, 10.11.6.0/24, 10.20.6.0/24, 10.21.6.0/24"
+              ipProtocols: ["TCP", "UDP", "ICMP"]
+            actions: ["DENIED"]
+          expected_result: "All flows DENIED"
+          failure_action: "BLOCK pipeline"
+
+        - id: BA-006
+          function: "test_dmz_to_trading_denied"
+          description: >
+            Assert that no IP flow can travel from DMZ_VRF address
+            space to TRADING_VRF address space (reverse direction).
+          pybatfish_api: "reachability"
+          parameters:
+            headers:
+              srcIps: "10.1.6.0/24, 10.2.6.0/24, 10.10.6.0/24, 10.11.6.0/24, 10.20.6.0/24, 10.21.6.0/24"
+              dstIps: "10.1.1.0/24, 10.2.1.0/24, 10.10.1.0/24, 10.11.1.0/24, 10.20.1.0/24, 10.21.1.0/24"
+              ipProtocols: ["TCP", "UDP", "ICMP"]
+            actions: ["DENIED"]
+          expected_result: "All flows DENIED"
+          failure_action: "BLOCK pipeline"
+
+        - id: BA-007
+          function: "test_vrf_route_leak_trading_to_dmz"
+          description: >
+            Assert that no route from TRADING_VRF prefix space appears
+            in the DMZ_VRF routing table on any device, and vice versa.
+          pybatfish_api: "routes"
+          parameters:
+            vrfs: ["TRADING_VRF", "DMZ_VRF"]
+          expected_result: >
+            No device has a route to a DMZ_VRF prefix (10.x.6.0/24)
+            in its TRADING_VRF table, and no device has a route to a
+            TRADING_VRF prefix (10.x.1.0/24) in its DMZ_VRF table.
+          failure_action: "BLOCK pipeline"
+
+        - id: BA-008
+          function: "test_shared_dmz_firewall_no_trading_interface"
+          description: >
+            Assert that the shared DC firewall (fw-lon-01, fw-nyc-01,
+            fw-sin-01, fw-hkg-01) does not have any interface in
+            TRADING_VRF. The TRADING zone dedicated firewall is a
+            separate device not modelled in the main DC fabric.
+          pybatfish_api: "interfaceProperties"
+          parameters:
+            nodes: "fw-lon-01, fw-nyc-01, fw-sin-01, fw-hkg-01"
+            properties: ["VRF"]
+          expected_result: "No interface on listed firewalls is in TRADING_VRF"
+          failure_action: "BLOCK pipeline"
+
+    sot_checks:
+
+      - id: SC-005
+        description: "DMZ_VRF route targets must not overlap with TRADING_VRF route targets"
+        check_type: field_value_disjoint
+        field_a: "vrfs[name=TRADING_VRF].route_target_import"
+        field_b: "vrfs[name=DMZ_VRF].route_target_import"
+        target_devices: "all devices at sites in sites_in_scope"
+
+      - id: SC-006
+        description: "DC firewalls must not list both TRADING and DMZ in zones_handled"
+        check_type: field_mutual_exclusion
+        target_devices: "fw-lon-01, fw-lon2-01, fw-nyc-01, fw-sin-01, fw-hkg-01"
+        field_path: "zones_handled"
+        mutually_exclusive: ["TRADING", "DMZ"]
+        severity: critical
+
+    violation:
+      severity: critical
+      pipeline_action: block
+      notify:
+        - compliance@acme-investments.com
+        - ciso@acme-investments.com
+        - netops@acme-investments.com
+      escalation: >
+        Treat as P1 incident. Same escalation path as INTENT-001 violation.
+      remediation: >
+        Same process as INTENT-001 remediation. Identify VRF misconfiguration
+        or unexpected firewall policy, correct via pipeline MR, obtain
+        emergency approval, verify Batfish assertions.
+
+# ──────────────────────────────────────────────────────────────────
+# Design Notes — Zone Isolation Architecture
+# ──────────────────────────────────────────────────────────────────
+
+design_notes:
+
+  dual_layer_rationale: >
+    Zone isolation is enforced at two independent layers (VRF routing +
+    firewall policy). This is a deliberate design decision, not redundancy.
+    Each layer catches a different class of failure:
+      - VRF separation prevents control-plane route exchange. It makes
+        cross-zone reachability structurally impossible in normal operation.
+      - Firewall policy provides defence-in-depth for data-plane anomalies
+        (e.g., a misconfigured static route, or a routing bug that
+        temporarily creates a cross-VRF path).
+    Batfish models the data plane, so its reachability assertions validate
+    both layers simultaneously. The SoT checks validate the control-plane
+    configuration before Batfish even runs.
+
+  why_not_acl_only: >
+    ACL-only zone isolation (a deny ACL on VLAN interfaces without VRF
+    separation) has been rejected for ACME's architecture. Regulators —
+    particularly the FCA and MAS — increasingly distinguish between
+    "logical separation" (ACLs on shared infrastructure) and "network
+    segmentation" (separate routing domains). VRF-based separation is
+    treated as stronger evidence of isolation in regulatory inspections.
+    The operational risk of ACL-bypass paths (e.g., via management plane,
+    routing protocol adjacencies) is also higher than with VRF separation.
+
+  frankfurt_special_case: >
+    Frankfurt (fra-dc1) satisfies INTENT-001 and INTENT-002 by a stronger
+    method: the TRADING_VRF does not exist at that site at all. This is
+    enforced by ZONE-001 (VLAN 100 absent), SC-003, SC-004, and validated
+    by Batfish assertion BA-004. Frankfurt's full isolation — including BGP
+    TRADING community filtering — is specified in INTENT-003 and INTENT-004
+    (see design_intents/routing_policy.yml).
+
+  mgmt_zone_access: >
+    The MGMT_ZONE is permitted conditional access to TRADING_VRF for
+    monitoring and configuration (SSH, SNMP, syslog — ports 22, 443,
+    161, 514). This is intentional and documented in zone_policies.yml
+    inter_zone_access.MGMT_ZONE. The access is source-restricted to jump
+    hosts in MGMT_ZONE and requires MFA. This does not violate INTENT-001
+    or INTENT-002 — those intents cover TRADING↔CORPORATE and
+    TRADING↔DMZ only, not MGMT_ZONE access.
+
+  sot_annotation_requirement: >
+    All spine, leaf, border, and firewall device files at sites in
+    sites_in_scope must carry intent_refs: [INTENT-001, INTENT-002]
+    once the SoT annotation pass (Phase 1, final item) is complete.
+    This creates the full traceability link from Layer 3 back to Layer 2.
+    See the SoT annotation pass item in PLAN.md for the full list of
+    files to annotate.

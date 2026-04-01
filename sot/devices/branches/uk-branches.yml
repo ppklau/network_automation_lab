@@ -15,6 +15,7 @@ hardware_model: "FRR Virtual Router (branch CPE)"
 eol_date: "2028-06-30"
 compliance_tags: [fca, uk_gdpr]
 security_zones: [CORPORATE, MGMT_ZONE]   # branches never carry TRADING or DMZ
+intent_refs: [INTENT-005, INTENT-006, INTENT-007, INTENT-010, INTENT-011]
 
 branches:
 

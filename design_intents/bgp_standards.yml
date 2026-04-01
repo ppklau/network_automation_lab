@@ -1,0 +1,665 @@
+---
+# ACME Investments — Design Intents: BGP Standards
+# Layer 2 of the Intent-Based Networking (IBN) model
+#
+# This file defines the architectural standards for all BGP sessions
+# in the ACME network. It covers authentication, routing policy
+# discipline, and prefix advertisement controls.
+#
+# Intents defined here:
+#   INTENT-005  MD5 authentication on all BGP sessions
+#   INTENT-006  Explicit route-maps on all eBGP sessions (in + out)
+#   INTENT-007  Branch routers advertise only their assigned /29 prefix
+#
+# Traceability:
+#   REQ-012 → INTENT-005 → md5_password_ref on all neighbor entries
+#   REQ-013 → INTENT-006 → route_map_in + route_map_out on all eBGP neighbors
+#   REQ-014 → INTENT-007 → RM_BRANCH_IN deny + single /29 in networks_advertised
+#
+# BGP session topology (for scope clarity):
+#
+#   iBGP fabric sessions:
+#     spine-lon-01 ↔ spine-lon-02          (RR peer, same AS 65001)
+#     spine-lon-01 → leaf-lon-01..04       (RR → RR client)
+#     spine-lon-01 → border-lon-01         (RR → RR client)
+#     [same pattern repeated at each DC]
+#
+#   eBGP inter-DC sessions (WAN):
+#     border-lon-01 ↔ border-nyc-01        (AS65001 ↔ AS65010)
+#     border-lon-01 ↔ border-sin-01        (AS65001 ↔ AS65020)
+#     border-lon-01 ↔ border-fra-01        (AS65001 ↔ AS65030)
+#
+#   eBGP branch sessions:
+#     border-lon-01 ↔ branch-lon-01..12   (AS65001 ↔ AS65100–65111)
+#     border-nyc-01 ↔ branch-nyc-01..08   (AS65010 ↔ AS65120–65127)
+#     border-sin-01 ↔ branch-sin-01..06   (AS65020 ↔ AS65130–65135)
+#     border-fra-01 ↔ branch-fra-01..04   (AS65030 ↔ AS65140–65143)
+#
+# Reviewed by: Head of Network Operations, CISO — 2026-03-01
+
+intents:
+
+  # ──────────────────────────────────────────────────────────────────
+  # INTENT-005: MD5 authentication on all BGP sessions
+  #
+  # Architectural decision: MD5 is applied at the TCP layer using
+  # RFC 2385. Keys are stored in the vault and referenced by name
+  # in the SoT. Key rotation is a separate operational procedure
+  # that does not require a full pipeline run (vault rotation only).
+  # ──────────────────────────────────────────────────────────────────
+
+  - id: INTENT-005
+    title: "All BGP sessions must use MD5 TCP authentication"
+    requirement_refs: [REQ-012]
+    regulatory_refs: [FCA-002, MAS-002, GDPR-001]
+    related_intents: [INTENT-006, INTENT-007]
+
+    description: >
+      Every BGP neighbour relationship — iBGP within the DC fabric,
+      eBGP inter-region WAN sessions, and eBGP branch sessions — must
+      be configured with MD5 TCP session authentication (RFC 2385).
+      The MD5 shared secret must be stored in the secrets vault and
+      referenced in the device SoT by a named key reference
+      (md5_password_ref). A null or missing md5_password_ref is a
+      configuration error that must block the pipeline. Plain-text
+      passwords embedded directly in device files are prohibited.
+
+    rationale: >
+      BGP session hijacking via forged TCP RST segments or injected
+      BGP UPDATE messages is a documented and exploited attack vector.
+      RFC 4272 (BGP Security Vulnerabilities Analysis) identifies
+      unauthenticated TCP sessions as the primary BGP attack surface.
+      In a financial network where BGP path manipulation could redirect
+      order flow or market data to adversary-controlled infrastructure,
+      MD5 authentication is a baseline control — not an optional
+      hardening measure.
+
+    session_scope:
+      ibgp_fabric:
+        description: "iBGP sessions within each DC fabric"
+        key_naming_convention: "bgp_md5_{site}_fabric"
+        examples:
+          - "bgp_md5_lon_dc1_fabric — spine-lon-01, spine-lon-02, all leaves, border-lon-01"
+          - "bgp_md5_nyc_dc1_fabric — spine-nyc-01, spine-nyc-02, all leaves, border-nyc-01"
+          - "bgp_md5_sin_dc1_fabric — spine-sin-01, spine-sin-02, all leaves, border-sin-01"
+          - "bgp_md5_fra_dc1_fabric — spine-fra-01, spine-fra-02, border-fra-01"
+        key_per_session: false   # one key per DC fabric shared by all iBGP sessions in that DC
+
+      ebgp_wan:
+        description: "eBGP sessions between DC border routers (inter-region WAN)"
+        key_naming_convention: "bgp_md5_wan_{site1}_{site2}"
+        examples:
+          - "bgp_md5_wan_lon_nyc — border-lon-01 ↔ border-nyc-01"
+          - "bgp_md5_wan_lon_sin — border-lon-01 ↔ border-sin-01"
+          - "bgp_md5_wan_lon_fra — border-lon-01 ↔ border-fra-01"
+        key_per_session: true    # unique key per WAN link — compromise of one does not affect others
+
+      ebgp_branch:
+        description: "eBGP sessions between DC border routers and branch CPE routers"
+        key_naming_convention: "bgp_md5_branch_{hostname}"
+        examples:
+          - "bgp_md5_branch_lon_01 — border-lon-01 ↔ branch-lon-01 (AS65100)"
+          - "bgp_md5_branch_nyc_01 — border-nyc-01 ↔ branch-nyc-01 (AS65120)"
+        key_per_session: true    # unique key per branch — branch compromise does not affect others
+
+    enforcement:
+      sot_field: "bgp.neighbors[*].md5_password_ref"
+      rule: "Must be non-null on every neighbor entry — no exceptions"
+      key_format: "Vault reference string (e.g., bgp_md5_lon_dc1_fabric) — not the key value itself"
+      plain_text_keys_prohibited: true
+      key_rotation_procedure: >
+        Key rotation is performed via vault. The SoT md5_password_ref
+        field does not change — only the vault secret value changes.
+        After rotation, a pipeline run is required to push the new
+        session password to devices. BGP sessions will briefly
+        drop during key replacement; BFD will detect this within 3
+        keepalive intervals (90 seconds). Schedule during a change window.
+
+    assertion_type: batfish_check
+
+    batfish_check:
+      test_file: "batfish/tests/test_bgp_standards.py"
+
+      assertions:
+
+        - id: BA-101
+          function: "test_md5_on_all_ibgp_sessions"
+          description: >
+            Assert that every iBGP session in the network model has
+            MD5 authentication configured. Checks both ends of each
+            session — a session where only one end has MD5 is a
+            misconfiguration that will cause the session not to
+            establish, but must still be caught.
+          pybatfish_api: "bgpSessionCompatibility"
+          parameters:
+            type: "IBGP"
+          expected_result: >
+            All iBGP sessions have status UNIQUE_MATCH with
+            md5Authentication: true on both peers. Any session
+            with md5Authentication: false or md5Authentication: null
+            on either end is a test failure.
+          failure_action: "BLOCK pipeline"
+
+        - id: BA-102
+          function: "test_md5_on_all_ebgp_wan_sessions"
+          description: >
+            Assert that every eBGP inter-region WAN session has MD5
+            authentication configured on both endpoints.
+          pybatfish_api: "bgpSessionCompatibility"
+          parameters:
+            type: "EBGP_SINGLEHOP"
+            nodes: "border-lon-01, border-nyc-01, border-sin-01, border-fra-01"
+          expected_result: >
+            All inter-DC eBGP sessions show md5Authentication: true
+            on both peers.
+          failure_action: "BLOCK pipeline"
+
+        - id: BA-103
+          function: "test_md5_on_all_ebgp_branch_sessions"
+          description: >
+            Assert that every eBGP branch session has MD5 authentication
+            on both the DC border end and the branch CPE end.
+          pybatfish_api: "bgpSessionCompatibility"
+          parameters:
+            type: "EBGP_SINGLEHOP"
+            remoteAsns: "65100-65143"   # all branch ASN range
+          expected_result: >
+            All branch eBGP sessions show md5Authentication: true
+            on both peers.
+          failure_action: "BLOCK pipeline"
+
+    sot_checks:
+
+      - id: SC-101
+        description: "All BGP neighbor entries must have a non-null md5_password_ref"
+        check_type: field_non_null
+        target_devices: all
+        field_path: "bgp.neighbors[*].md5_password_ref"
+        severity: critical
+
+      - id: SC-102
+        description: "md5_password_ref values must match the vault key naming convention"
+        check_type: field_regex
+        target_devices: all
+        field_path: "bgp.neighbors[*].md5_password_ref"
+        pattern: "^bgp_md5_(wan_|branch_|[a-z]+_dc[0-9]+_fabric)"
+        severity: high
+
+      - id: SC-103
+        description: "No BGP neighbor entry may have an inline password field (security control)"
+        check_type: field_absence
+        target_devices: all
+        field_path: "bgp.neighbors[*].md5_password"
+        must_be_absent: true
+        severity: critical
+        rationale: "Inline passwords in SoT would be committed to git — vault refs only"
+
+    violation:
+      severity: critical
+      pipeline_action: block
+      notify:
+        - ciso@acme-investments.com
+        - netops@acme-investments.com
+      remediation: >
+        1. Identify the neighbor entry with missing or null md5_password_ref.
+        2. Add the appropriate vault key reference to the device SoT file.
+        3. Ensure the matching key exists in the vault.
+        4. Run pipeline — validate and intent-check stages must pass.
+        5. Push with standard approval.
+
+  # ──────────────────────────────────────────────────────────────────
+  # INTENT-006: Explicit route-maps on all eBGP sessions (in + out)
+  #
+  # Architectural decision: implicit BGP policy (accept all / deny all
+  # by default) is prohibited on eBGP sessions. Every eBGP session
+  # must have an explicit, named route-map applied in both directions.
+  # Route-maps are defined in sot/bgp/route_policies.yml.
+  # ──────────────────────────────────────────────────────────────────
+
+  - id: INTENT-006
+    title: "All eBGP sessions must have explicit route-maps applied inbound and outbound"
+    requirement_refs: [REQ-013]
+    regulatory_refs: [REGSCI-003]
+    related_intents: [INTENT-005, INTENT-007, INTENT-003, INTENT-004]
+
+    description: >
+      Every external BGP (eBGP) session — inter-region WAN and branch —
+      must reference a named route-map in both the inbound (route_map_in)
+      and outbound (route_map_out) direction. Route-maps must be defined
+      in sot/bgp/route_policies.yml before being referenced in device
+      files. A neighbor entry with a null or missing route_map_in or
+      route_map_out is a policy violation that must block the pipeline.
+      iBGP sessions between route reflectors and their clients use
+      RM_IBGP_RR_TO_CLIENTS for the RR-to-client direction; the
+      client-to-RR direction uses an implicit accept (acceptable for
+      iBGP where prefix scope is already controlled by eBGP ingress).
+
+    rationale: >
+      Unfiltered eBGP sessions accept all received routes and advertise
+      all local routes by default. This creates several risks:
+        (a) An unexpected prefix from a WAN peer could alter traffic paths
+            for thousands of users without any alert.
+        (b) An internal prefix (e.g., a loopback from TRADING_VRF) could
+            be advertised to an external peer inadvertently.
+        (c) A branch advertising a spoofed or hijacked prefix could
+            attract traffic from other branches or DCs to an
+            adversary-controlled path.
+      Explicit route-maps make the permitted set of prefixes a
+      positive, reviewable list. They are also the mechanism by which
+      TRADING zone compliance is enforced at the BGP layer (INTENT-003,
+      INTENT-004) — the Frankfurt-specific deny rules are embedded in
+      route-maps.
+
+    route_map_assignments:
+      # Each eBGP session type has a defined route-map pair
+      # All maps defined in sot/bgp/route_policies.yml
+
+      inter_dc_wan:
+        - session: "border-lon-01 ↔ border-nyc-01"
+          route_map_in: RM_INTERDC_LON_NYC_IN
+          route_map_out: RM_INTERDC_LON_NYC_OUT
+          notes: "Accepts DC aggregates + US branch prefixes; sets origin community"
+
+        - session: "border-lon-01 ↔ border-sin-01"
+          route_map_in: RM_INTERDC_LON_SIN_IN
+          route_map_out: RM_INTERDC_LON_SIN_OUT
+          notes: "Accepts DC aggregates + APAC branch prefixes"
+
+        - session: "border-lon-01 ↔ border-fra-01"
+          route_map_in: RM_INTERDC_LON_FRA_IN
+          route_map_out: RM_INTERDC_LON_FRA_OUT
+          notes: >
+            CRITICAL: RM_INTERDC_LON_FRA_IN denies any prefix carrying
+            ZONE_TRADING community (65001:200) at seq 5.
+            RM_INTERDC_LON_FRA_OUT denies PL_TRADING_PREFIXES at seq 5
+            and strips ZONE_TRADING community at seq 10.
+            These are the BGP-layer enforcement of INTENT-003/INTENT-004.
+
+      branch:
+        - session: "border-* ↔ branch-*"
+          route_map_in: RM_BRANCH_IN
+          route_map_out: RM_BRANCH_OUT
+          notes: >
+            RM_BRANCH_IN: permits only prefixes matching the regional
+            branch prefix lists (PL_UK_BRANCHES, PL_US_BRANCHES, etc.),
+            sets local-preference 100, tags with BRANCH_AGGREGATE community.
+            Hard deny at seq 20 rejects anything not in the permitted list.
+            RM_BRANCH_OUT: advertises DC aggregates and loopbacks only;
+            no more-specific DC subnets, no WAN P2P links.
+
+    enforcement:
+      sot_fields:
+        - "bgp.neighbors[*].route_map_in — must be non-null on all eBGP neighbors"
+        - "bgp.neighbors[*].route_map_out — must be non-null on all eBGP neighbors"
+      scope: "eBGP sessions only (remote_as != local_as)"
+      route_map_must_exist_in: "sot/bgp/route_policies.yml"
+
+    assertion_type: batfish_check
+
+    batfish_check:
+      test_file: "batfish/tests/test_bgp_standards.py"
+
+      assertions:
+
+        - id: BA-104
+          function: "test_route_maps_on_all_ebgp_sessions"
+          description: >
+            Assert that every eBGP session in the network model has
+            an import routing policy (route-map in) and an export
+            routing policy (route-map out) applied. Sessions without
+            both policies are a test failure.
+          pybatfish_api: "bgpEdges"
+          parameters:
+            type: "EBGP"
+          expected_result: >
+            Every eBGP edge has non-null importPolicy and exportPolicy.
+            Any edge with a null policy in either direction fails.
+          failure_action: "BLOCK pipeline"
+
+        - id: BA-105
+          function: "test_no_default_route_advertised_to_branches"
+          description: >
+            Assert that no DC border router originates or forwards a
+            default route (0.0.0.0/0) toward any branch router. Branches
+            must rely on their DC aggregate routes for upstream connectivity,
+            not a default route. A default route from the DC to a branch
+            would allow the branch to send arbitrary traffic upstream,
+            bypassing prefix filtering.
+          pybatfish_api: "routes"
+          parameters:
+            network: "0.0.0.0/0"
+            nodes: "branch-lon-01, branch-nyc-01, border-lon-01, border-nyc-01, border-sin-01, border-fra-01"
+          expected_result: >
+            No route to 0.0.0.0/0 appears in the BGP RIB of any
+            border router with a next-hop pointing toward a branch
+            network (10.100.x.x, 10.101.x.x, 10.102.x.x, 10.103.x.x).
+            No branch router has 0.0.0.0/0 in its BGP RIB via eBGP.
+          failure_action: "BLOCK pipeline"
+
+        - id: BA-106
+          function: "test_fra_route_maps_deny_trading_community"
+          description: >
+            Assert that the route-map applied inbound on border-fra-01
+            from border-lon-01 contains an explicit deny for prefixes
+            carrying the ZONE_TRADING community (65001:200).
+            Also asserts the outbound map from border-fra-01 does not
+            permit any prefix tagged with ZONE_TRADING.
+          pybatfish_api: "testRoutePolicies"
+          parameters:
+            nodes: ["border-fra-01", "border-lon-01"]
+            policies: ["RM_INTERDC_LON_FRA_IN", "RM_INTERDC_LON_FRA_OUT"]
+            inputRoute:
+              network: "10.1.1.0/24"
+              communities: ["65001:200"]   # ZONE_TRADING
+          expected_result: >
+            Route with ZONE_TRADING community (65001:200) is DENIED
+            by both RM_INTERDC_LON_FRA_IN and RM_INTERDC_LON_FRA_OUT.
+            Action must be DENY at seq 5 of each route-map.
+          failure_action: "BLOCK pipeline — critical regulatory compliance check"
+
+    sot_checks:
+
+      - id: SC-104
+        description: "All eBGP neighbor entries must have non-null route_map_in"
+        check_type: field_non_null
+        target_devices: all
+        scope: "neighbors where remote_as != local_as"
+        field_path: "bgp.neighbors[?remote_as!=bgp.local_as].route_map_in"
+        severity: critical
+
+      - id: SC-105
+        description: "All eBGP neighbor entries must have non-null route_map_out"
+        check_type: field_non_null
+        target_devices: all
+        scope: "neighbors where remote_as != local_as"
+        field_path: "bgp.neighbors[?remote_as!=bgp.local_as].route_map_out"
+        severity: critical
+
+      - id: SC-106
+        description: "All referenced route-map names must exist in sot/bgp/route_policies.yml"
+        check_type: cross_reference
+        source_field: "bgp.neighbors[*].route_map_in + bgp.neighbors[*].route_map_out"
+        reference_file: "sot/bgp/route_policies.yml"
+        reference_field: "route_maps[*] (key names)"
+        severity: critical
+        rationale: "A device referencing an undefined route-map will default to deny-all on some platforms and accept-all on others — both are dangerous"
+
+    violation:
+      severity: critical
+      pipeline_action: block
+      notify:
+        - netops@acme-investments.com
+        - ciso@acme-investments.com
+      remediation: >
+        1. Identify the eBGP neighbor entry missing route_map_in or route_map_out.
+        2. Assign the appropriate route-map from route_policies.yml.
+        3. If no appropriate route-map exists, define one in route_policies.yml first.
+        4. Run pipeline — both validate and intent-check stages must pass.
+        5. Push with standard approval.
+
+  # ──────────────────────────────────────────────────────────────────
+  # INTENT-007: Branch routers advertise only their assigned /29 prefix
+  #
+  # Architectural decision: each branch has exactly one /29 allocated
+  # from the regional supernet. The border router enforces this via
+  # an inbound route-map (RM_BRANCH_IN) that permits only prefixes
+  # matching the regional branch prefix-list, with a hard deny at
+  # the end. The branch SoT must contain exactly one /29 in
+  # networks_advertised.
+  # ──────────────────────────────────────────────────────────────────
+
+  - id: INTENT-007
+    title: "Branch routers must advertise only their single assigned /29 prefix"
+    requirement_refs: [REQ-014]
+    regulatory_refs: [FCA-002]
+    related_intents: [INTENT-005, INTENT-006, INTENT-010]
+
+    description: >
+      Each branch router is allocated exactly one /29 prefix from its
+      regional branch supernet:
+        UK branches:   10.100.0.0/16 — each branch gets one /29
+        US branches:   10.101.0.0/16 — each branch gets one /29
+        APAC branches: 10.102.0.0/16 — each branch gets one /29
+        EU branches:   10.103.0.0/16 — each branch gets one /29
+      The branch router may only originate this single /29 in BGP.
+      It must not advertise: a default route (0.0.0.0/0), a more-
+      specific prefix (longer than /29), a prefix from another
+      branch's allocation, any DC prefix space, or any WAN
+      infrastructure address. These restrictions are enforced on
+      the branch router (via networks_advertised containing exactly
+      one /29) and on the DC border router (via RM_BRANCH_IN which
+      has a hard deny at seq 20 for anything not in the regional
+      branch prefix-list).
+
+    rationale: >
+      A branch advertising an unexpected prefix could cause traffic
+      to be mis-routed. Specific risks:
+        (a) A branch advertising another branch's /29 would attract
+            that branch's traffic to the wrong site (traffic hijack).
+        (b) A branch advertising a DC aggregate (/16) would create a
+            routing loop or black hole for DC-to-internet traffic.
+        (c) A branch advertising a default route would cause upstream
+            devices to forward arbitrary internet-bound traffic through
+            the branch WAN link — congesting it and bypassing DC
+            security controls.
+      Dual enforcement (branch SoT + border inbound route-map) means
+      that even if a branch device is misconfigured or compromised,
+      the border router will reject the unexpected advertisement.
+
+    prefix_allocation_rules:
+      supernets:
+        uk:   "10.100.0.0/16"
+        us:   "10.101.0.0/16"
+        apac: "10.102.0.0/16"
+        eu:   "10.103.0.0/16"
+      prefix_length: "/29"   # exactly /29 — no shorter, no longer
+      allocation_authority: "Network Engineering — tracked in sot/global/ipam.yml"
+      uniqueness_required: true   # no two branches may share a /29
+
+    enforcement:
+
+      - layer: branch_sot
+        description: >
+          Each branch device SoT record must have exactly one entry
+          in networks_advertised, containing the assigned /29.
+          No additional prefixes may appear. The prefix must fall
+          within the correct regional supernet for that branch.
+        sot_enforcement:
+          - "branches[*].networks_advertised must contain exactly one entry"
+          - "networks_advertised[0].prefix must be a /29 within the regional supernet"
+          - "prefix must match the branch's wan_prefix field"
+
+      - layer: border_inbound_policy
+        description: >
+          RM_BRANCH_IN on all DC border routers permits only prefixes
+          matching one of the four regional branch prefix-lists
+          (PL_UK_BRANCHES, PL_US_BRANCHES, PL_APAC_BRANCHES,
+          PL_EU_BRANCHES). Anything not matching these lists is
+          denied at seq 20. This provides enforcement independent
+          of the branch device configuration — even a compromised
+          or misconfigured branch cannot inject an unexpected prefix
+          into the DC routing table.
+        sot_enforcement:
+          - "sot/bgp/route_policies.yml — RM_BRANCH_IN seq 10: permit regional prefix-lists"
+          - "sot/bgp/route_policies.yml — RM_BRANCH_IN seq 20: deny (catch-all)"
+          - "All branch eBGP neighbors on border devices: route_map_in: RM_BRANCH_IN"
+
+    assertion_type: batfish_check
+
+    batfish_check:
+      test_file: "batfish/tests/test_bgp_standards.py"
+
+      assertions:
+
+        - id: BA-107
+          function: "test_branch_advertises_only_assigned_slash29"
+          description: >
+            For each branch node in the network model, assert that the
+            BGP RIB on the parent DC border router contains exactly one
+            prefix learned from that branch's ASN, and that prefix is
+            a /29 within the correct regional supernet.
+          pybatfish_api: "routes"
+          parameters:
+            protocols: ["bgp"]
+            nodes: "border-lon-01, border-nyc-01, border-sin-01, border-fra-01"
+          expected_result: >
+            For each branch ASN (65100–65143):
+              - Exactly one prefix is learned from that ASN.
+              - The prefix is a /29 (prefix length == 29).
+              - UK branches (65100–65111): prefix in 10.100.0.0/16.
+              - US branches (65120–65127): prefix in 10.101.0.0/16.
+              - APAC branches (65130–65135): prefix in 10.102.0.0/16.
+              - EU branches (65140–65143): prefix in 10.103.0.0/16.
+              - No branch ASN originates a prefix of any other length.
+          failure_action: "BLOCK pipeline"
+
+        - id: BA-108
+          function: "test_no_branch_originates_default_route"
+          description: >
+            Assert that no prefix 0.0.0.0/0 is originated by any
+            branch ASN (65100–65143) and that no branch router has
+            a BGP network statement for 0.0.0.0/0.
+          pybatfish_api: "routes"
+          parameters:
+            network: "0.0.0.0/0"
+            protocols: ["bgp"]
+          expected_result: >
+            0.0.0.0/0 does not appear in the BGP RIB of any border
+            router with a next-hop in branch prefix space. No branch
+            ASN appears in the AS path of any route to 0.0.0.0/0.
+          failure_action: "BLOCK pipeline"
+
+        - id: BA-109
+          function: "test_no_branch_originates_dc_prefix"
+          description: >
+            Assert that no branch router originates a prefix from DC
+            address space (10.1.0.0/16 through 10.30.0.0/16) or from
+            another branch's regional supernet.
+          pybatfish_api: "routes"
+          parameters:
+            protocols: ["bgp"]
+            networks: ["10.1.0.0/16", "10.10.0.0/16", "10.20.0.0/16", "10.30.0.0/16"]
+          expected_result: >
+            No DC aggregate prefix has a branch ASN (65100–65143) as
+            the originating AS in the BGP RIB of any device.
+          failure_action: "BLOCK pipeline"
+
+        - id: BA-110
+          function: "test_branch_prefix_uniqueness"
+          description: >
+            Assert that no two branches advertise the same /29 prefix.
+            Duplicate prefix advertisements from different branch ASNs
+            would indicate an IP address conflict in the SoT.
+          pybatfish_api: "routes"
+          parameters:
+            protocols: ["bgp"]
+            nodeRegex: "border-.*"
+          expected_result: >
+            Each /29 prefix in 10.100-103.0.0/16 appears at most once
+            in the BGP RIB, originated by exactly one branch ASN.
+          failure_action: "BLOCK pipeline"
+
+    sot_checks:
+
+      - id: SC-107
+        description: "Each branch must have exactly one entry in networks_advertised"
+        check_type: list_length_exact
+        target_devices: all_branches
+        field_path: "bgp.networks_advertised"
+        expected_length: 1
+        severity: high
+
+      - id: SC-108
+        description: "Branch networks_advertised prefix must be a /29"
+        check_type: prefix_length_exact
+        target_devices: all_branches
+        field_path: "bgp.networks_advertised[0].prefix"
+        expected_prefix_length: 29
+        severity: critical
+
+      - id: SC-109
+        description: "Branch /29 must fall within the correct regional supernet"
+        check_type: prefix_within_supernet
+        target_devices: all_branches
+        field_path: "bgp.networks_advertised[0].prefix"
+        supernet_map:
+          emea-lon:    "10.100.0.0/16"
+          americas-nyc: "10.101.0.0/16"
+          apac:        "10.102.0.0/16"
+          eu-fra:      "10.103.0.0/16"
+        key_field: "region"
+        severity: critical
+
+      - id: SC-110
+        description: "No two branch devices may share the same /29 prefix"
+        check_type: global_uniqueness
+        target_devices: all_branches
+        field_path: "bgp.networks_advertised[0].prefix"
+        severity: critical
+
+    violation:
+      severity: high
+      pipeline_action: block
+      notify:
+        - netops@acme-investments.com
+      remediation: >
+        1. Identify which branch device has an incorrect or extra
+           entry in networks_advertised.
+        2. Verify the correct /29 allocation in sot/global/ipam.yml.
+        3. Update the branch SoT record to contain exactly one /29.
+        4. If the /29 is a duplicate, assign a new /29 from the
+           regional pool and update ipam.yml accordingly.
+        5. Run pipeline — validate and intent-check stages must pass.
+        6. Push with standard approval.
+
+# ──────────────────────────────────────────────────────────────────
+# Design Notes — BGP Standards Architecture
+# ──────────────────────────────────────────────────────────────────
+
+design_notes:
+
+  ibgp_md5_scope: >
+    INTENT-005 applies to iBGP sessions as well as eBGP. Some
+    implementations apply MD5 only to eBGP (external-facing) sessions
+    on the grounds that iBGP is internal and lower risk. ACME applies
+    MD5 to all sessions because:
+      (a) Spine switches are the most critical devices in the fabric —
+          a compromised BGP session to a spine/RR affects all clients.
+      (b) Internal network segments are not inherently trusted.
+          A lateral movement attack from a compromised server could
+          attempt to inject BGP UPDATE messages if iBGP were unprotected.
+      (c) The operational cost of managing iBGP keys is low — one
+          shared key per DC fabric (bgp_md5_{site}_fabric).
+
+  route_map_vs_prefix_list: >
+    INTENT-006 requires route-maps (not bare prefix-lists) on eBGP
+    sessions. Route-maps are required rather than prefix-lists because:
+      (a) Route-maps can match on BGP communities — the Frankfurt
+          TRADING community deny (seq 5 in RM_INTERDC_LON_FRA_IN)
+          cannot be expressed as a prefix-list.
+      (b) Route-maps can set attributes (local-preference, community)
+          in addition to permit/deny — this is used for traffic
+          engineering and audit tagging.
+      (c) Route-maps provide a named, reusable policy that can be
+          referenced by multiple neighbor entries and validated
+          by Batfish's testRoutePolicies API.
+
+  branch_dual_enforcement: >
+    INTENT-007 uses dual enforcement (branch SoT + border route-map)
+    deliberately. The SoT check (SC-107 through SC-110) catches
+    misconfiguration before a device is deployed. The border route-map
+    (RM_BRANCH_IN) catches unexpected advertisements at runtime —
+    including from devices that may have been manually modified,
+    compromised, or running software with unexpected behaviour.
+    This defence-in-depth means neither layer alone is a single
+    point of failure for prefix control.
+
+  key_rotation_and_session_drop: >
+    MD5 key rotation on a live BGP session will cause the session to
+    drop briefly (the peer rejects TCP segments with the old key).
+    BFD on fabric and WAN sessions detects this within 3 keepalive
+    intervals (90 seconds at default timers). For branch sessions
+    without BFD, hold-time expiry (90 seconds) is the detection
+    mechanism. Plan key rotation during a low-traffic change window.
+    Rotate one key at a time — update both ends before moving to the
+    next key to minimise the window of asymmetric configuration.

@@ -19,6 +19,7 @@ site: fra-dc1
 region: eu-fra
 compliance_tags: [mifid2, bafin, gdpr_applicable, eu_gdpr, gdpr_strict, no_trading_zone]
 security_zones: [MGMT_ZONE]   # TRADING zone intentionally absent
+intent_refs: [INTENT-005, INTENT-008, INTENT-011]
 
 management:
   interface: Management0

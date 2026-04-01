@@ -1,0 +1,718 @@
+---
+# ACME Investments — Design Intents: Routing Policy
+# Layer 2 of the Intent-Based Networking (IBN) model
+#
+# This file defines the inter-region routing policy architecture:
+# how prefixes are summarised before crossing WAN links, how Frankfurt
+# is topologically isolated from APAC, and how TRADING zone prefixes
+# and communities are filtered on the LON↔FRA BGP session.
+#
+# Intents defined here:
+#   INTENT-003  Frankfurt must peer only with London — no FRA↔APAC BGP path
+#   INTENT-004  TRADING prefixes and community (65001:200) must be stripped
+#               on all LON↔FRA sessions, inbound and outbound
+#
+# Supporting standards (not separate INTENT IDs — enforced via
+# INTENT-006 route-maps and SoT aggregate_addresses config):
+#   SUMM-001    Inter-region border routers must summarise before advertising
+#   SUMM-002    Border routers must not originate a default route (0.0.0.0/0)
+#
+# Traceability:
+#   REQ-009 → INTENT-003 → border-fra-01: BGP neighbors LON only
+#                        → test_frankfurt_isolation.py::test_no_fra_apac_direct_path
+#   REQ-010 → INTENT-003 → security_zones: no TRADING at fra-dc1
+#   REQ-010 → INTENT-004 → RM_INTERDC_LON_FRA_IN seq 5: deny ZONE_TRADING
+#                        → RM_INTERDC_LON_FRA_OUT seq 5: deny PL_TRADING_PREFIXES
+#                        → test_frankfurt_isolation.py::test_trading_community_stripped_fra
+#
+# Batfish test files:
+#   batfish/tests/test_frankfurt_isolation.py  — INTENT-003, INTENT-004
+#   batfish/tests/test_routing_policy.py       — SUMM-001, SUMM-002
+#
+# Lab exercises enabled: 3.6, 4.4, 6.3
+#
+# Reviewed by: Head of Network Operations, Head of Compliance — 2026-03-01
+
+intents:
+
+  # ──────────────────────────────────────────────────────────────────
+  # INTENT-003: Frankfurt must peer only with London
+  #
+  # Architectural decision: the BGP topology is hub-and-spoke for
+  # Frankfurt. LON is the sole WAN peer. No direct BGP adjacency to
+  # APAC (SIN, HKG) may exist. This is enforced at the SoT layer
+  # (border-fra-01 has no APAC neighbor entries) and verified by
+  # Batfish (no BGP path between FRA and APAC nodes exists).
+  # ──────────────────────────────────────────────────────────────────
+
+  - id: INTENT-003
+    title: "Frankfurt border must peer only with London — no direct FRA↔APAC BGP adjacency"
+    requirement_refs: [REQ-009, REQ-010]
+    regulatory_refs: [GDPR-002, BAFIN-004, MIFID2-002]
+    related_intents: [INTENT-001, INTENT-002, INTENT-004]
+
+    description: >
+      border-fra-01 (AS 65030) may establish BGP sessions only with
+      border-lon-01 (AS 65001). No BGP session may exist between
+      border-fra-01 and any APAC border router (border-sin-01 AS 65020,
+      border-hkg-01 AS 65021). This restriction applies regardless of
+      whether the session would be direct (point-to-point WAN circuit)
+      or via a transit AS. The prohibition is both topological (no
+      physical WAN circuit) and policy-level (no BGP neighbor entry in
+      the SoT). All Frankfurt-originated traffic destined for APAC must
+      route via London, which is the designated EU/UK hub for cross-
+      regional flows.
+
+    rationale: >
+      GDPR Article 44 prohibits transfers of EU personal data to third
+      countries without adequate safeguards. Singapore and Hong Kong do
+      not have EU adequacy decisions; transfers require explicit SCCs.
+      A direct BGP path FRA→APAC would create an uncontrolled data flow
+      where EU personal data (e.g., employee records, client data
+      processed by Frankfurt regulatory reporting systems) could be
+      routed through APAC infrastructure without the required contractual
+      framework. Routing all FRA↔APAC flows via London ensures they
+      pass through UK infrastructure, which has an EU adequacy decision
+      (UK GDPR post-Brexit), creating a documented and auditable path.
+
+    bgp_topology:
+      border_fra_01:
+        permitted_wan_peers:
+          - peer: border-lon-01
+            asn: 65001
+            circuit: LON-FRA-WAN-001
+            route_map_in: RM_INTERDC_LON_FRA_IN
+            route_map_out: RM_INTERDC_LON_FRA_OUT
+
+        prohibited_wan_peers:
+          - peer: border-sin-01
+            asn: 65020
+            reason: "APAC — no direct FRA↔SIN BGP path permitted (GDPR Article 44)"
+          - peer: border-hkg-01
+            asn: 65021
+            reason: "APAC — no direct FRA↔HKG BGP path permitted (GDPR Article 44)"
+          - peer: border-nyc-01
+            asn: 65010
+            reason: "Americas — Frankfurt authorised for EU reporting only, not transatlantic routing"
+          - peer: border-nyc2-01
+            asn: 65011
+            reason: "Americas secondary — same restriction as NYC primary"
+
+      routing_for_apac_from_fra: >
+        When Frankfurt systems need to communicate with APAC systems
+        (e.g., for regulatory cross-border reporting with explicit SCC
+        approval), traffic routes:
+          FRA → LON (via LON-FRA-WAN-001, BGP next-hop LON)
+          LON → SIN or HKG (via LON-SIN-WAN-001, BGP)
+        This path is auditable: both hops are in ACME-controlled
+        infrastructure. The LON hop is in UK jurisdiction (adequacy
+        decision), and the SIN/HKG hop is covered by PDPA consent
+        or SCCs documented in the data transfer register.
+
+    assertion_type: batfish_check
+
+    batfish_check:
+      test_file: "batfish/tests/test_frankfurt_isolation.py"
+
+      assertions:
+
+        - id: BA-501
+          function: "test_no_fra_apac_direct_bgp_path"
+          description: >
+            Assert that no direct BGP edge exists between border-fra-01
+            and any APAC border router (border-sin-01, border-hkg-01).
+            A direct BGP edge would indicate a physical circuit has been
+            added to the SoT that bypasses the LON hub.
+          pybatfish_api: "bgpEdges"
+          parameters:
+            nodes: "border-fra-01"
+          expected_result: >
+            border-fra-01 has exactly one eBGP WAN edge: to border-lon-01.
+            No BGP edges exist from border-fra-01 to any node whose
+            hostname contains sin or hkg.
+          failure_action: "BLOCK pipeline — regulatory topology violation"
+
+        - id: BA-502
+          function: "test_fra_cannot_reach_apac_without_lon_transit"
+          description: >
+            Assert that the only path from any fra-dc1 device to any
+            APAC device (sin-dc1, hkg-dc1) in the BGP routing table
+            passes through a LON device as the BGP next-hop. No route
+            to APAC prefixes (10.20.0.0/16, 10.21.0.0/16) should be
+            reachable from FRA without transiting LON.
+          pybatfish_api: "routes"
+          parameters:
+            nodes: "border-fra-01"
+            networks: ["10.20.0.0/16", "10.21.0.0/16"]
+            protocols: ["bgp"]
+          expected_result: >
+            All routes to APAC prefixes from border-fra-01 have a
+            next-hop in LON address space (10.0.x.x WAN links or
+            10.1.255.x LON loopbacks). No APAC prefix is reachable
+            via a next-hop that bypasses LON.
+          failure_action: "BLOCK pipeline"
+
+        - id: BA-503
+          function: "test_no_fra_apac_reachability"
+          description: >
+            Assert that no IP flow from fra-dc1 address space can
+            reach APAC device loopbacks (sin-dc1, hkg-dc1) via a
+            path that does not pass through a LON device. Uses
+            Batfish traceroute/reachability to verify the path
+            topology, not just the route table.
+          pybatfish_api: "traceroute"
+          parameters:
+            startLocation: "border-fra-01"
+            headers:
+              srcIps: "10.30.0.0/16"
+              dstIps: "10.20.255.0/24, 10.21.255.0/24"
+          expected_result: >
+            All traceroute paths from FRA to APAC loopbacks include
+            border-lon-01 as an intermediate hop. No path bypasses
+            the LON hub.
+          failure_action: "BLOCK pipeline"
+
+    sot_checks:
+
+      - id: SC-501
+        description: "border-fra-01 must have no BGP neighbors with APAC ASNs (65020, 65021)"
+        check_type: field_value_not_in
+        target_devices: [border-fra-01]
+        field_path: "bgp.neighbors[*].remote_as"
+        prohibited_values: [65010, 65011, 65020, 65021]
+        severity: critical
+        regulatory_ref: "GDPR-002 — Article 44 third-country transfer restriction"
+
+      - id: SC-502
+        description: "border-fra-01 must have exactly one eBGP WAN neighbor (border-lon-01, AS 65001)"
+        check_type: bgp_neighbor_count_by_type
+        target_devices: [border-fra-01]
+        neighbor_type: ebgp_wan
+        expected_count: 1
+        expected_remote_as: [65001]
+        severity: critical
+
+      - id: SC-503
+        description: "border-fra-01 BGP neighbor list must reference RM_INTERDC_LON_FRA_IN as route_map_in on the LON session"
+        check_type: field_value
+        target_devices: [border-fra-01]
+        field_path: "bgp.neighbors[?remote_as==65001].route_map_in"
+        expected: "RM_INTERDC_LON_FRA_IN"
+        severity: critical
+
+      - id: SC-504
+        description: "border-fra-01 BGP neighbor list must reference RM_INTERDC_LON_FRA_OUT as route_map_out on the LON session"
+        check_type: field_value
+        target_devices: [border-fra-01]
+        field_path: "bgp.neighbors[?remote_as==65001].route_map_out"
+        expected: "RM_INTERDC_LON_FRA_OUT"
+        severity: critical
+
+    violation:
+      severity: critical
+      pipeline_action: block
+      notify:
+        - compliance@acme-investments.com
+        - ciso@acme-investments.com
+        - netops@acme-investments.com
+      escalation: >
+        A new direct FRA↔APAC BGP session is a regulatory topology
+        violation. Treat as a P1 compliance incident. Notify Head of
+        Compliance immediately. Do not push the change until legal
+        and compliance teams confirm a data transfer impact assessment
+        has been completed and appropriate SCCs are in place.
+      remediation: >
+        Remove the prohibited BGP neighbor entry from border-fra-01's
+        SoT file. Ensure no WAN circuit has been added between FRA and
+        APAC without appropriate compliance sign-off. If the connectivity
+        is genuinely required, engage Legal and Compliance for a data
+        transfer impact assessment before any SoT change is permitted.
+
+  # ──────────────────────────────────────────────────────────────────
+  # INTENT-004: TRADING prefixes and community must be stripped on
+  #             all LON↔FRA BGP sessions, in both directions
+  #
+  # Architectural decision: two independent deny rules are applied —
+  # one on the prefix (PL_TRADING_PREFIXES) and one on the BGP
+  # community attribute (ZONE_TRADING = 65001:200). Both must be
+  # present. Denying only the prefix leaves a path where a TRADING-
+  # tagged aggregate could slip through. Denying only the community
+  # leaves a path where a TRADING prefix without the community tag
+  # could slip through.
+  # ──────────────────────────────────────────────────────────────────
+
+  - id: INTENT-004
+    title: "TRADING prefixes and community 65001:200 must be stripped on LON↔FRA sessions"
+    requirement_refs: [REQ-010]
+    regulatory_refs: [BAFIN-001, BAFIN-004, MIFID2-002]
+    related_intents: [INTENT-001, INTENT-003]
+
+    description: >
+      The BGP sessions between border-lon-01 and border-fra-01 must
+      filter all TRADING zone traffic in both directions using two
+      independent mechanisms:
+        Outbound from LON (RM_INTERDC_LON_FRA_OUT):
+          seq 5:  deny match prefix-list PL_TRADING_PREFIXES
+                  (10.1.1.0/24, 10.2.1.0/24, 10.10.1.0/24, 10.11.1.0/24,
+                   10.20.1.0/24, 10.21.1.0/24)
+          seq 7:  deny match community ZONE_TRADING (65001:200)
+          seq 10: permit PL_DC_AGGREGATES, community_delete 65001:200
+                  (strip community from aggregates before sending to FRA)
+        Inbound to LON from FRA (RM_INTERDC_LON_FRA_IN):
+          seq 5:  deny match community ZONE_TRADING (65001:200)
+          seq 10: permit PL_DC_AGGREGATES
+          seq 30: deny (catch-all)
+      A TRADING prefix must never appear in border-fra-01's BGP RIB.
+
+    rationale: >
+      The two-filter design (prefix-list + community) provides defence
+      in depth. Scenario A: if the ZONE_TRADING community is accidentally
+      absent from a TRADING prefix (e.g., a misconfigured redistribution),
+      the prefix-list deny catches it. Scenario B: if a TRADING prefix
+      is summarised into an aggregate that also carries the community,
+      the community deny catches it at seq 7 even though the aggregate
+      itself passes the prefix-list. Both scenarios have occurred in
+      real-world environments; dual filtering is industry best practice
+      for regulatory boundary enforcement.
+
+    route_map_specifications:
+      outbound_from_lon:
+        route_map: RM_INTERDC_LON_FRA_OUT
+        defined_in: "sot/bgp/route_policies.yml"
+        critical_sequences:
+          - seq: 5
+            match: "prefix-list PL_TRADING_PREFIXES"
+            action: deny
+            prefixes_denied:
+              - "10.1.1.0/24   (lon-dc1 TRADING_VRF)"
+              - "10.2.1.0/24   (lon-dc2 TRADING_VRF)"
+              - "10.10.1.0/24  (nyc-dc1 TRADING_VRF)"
+              - "10.11.1.0/24  (nyc-dc2 TRADING_VRF)"
+              - "10.20.1.0/24  (sin-dc1 TRADING_VRF)"
+              - "10.21.1.0/24  (hkg-dc1 TRADING_VRF)"
+          - seq: 7
+            match: "community ZONE_TRADING (65001:200)"
+            action: deny
+            note: "Catches aggregates that carry the TRADING community even if not in prefix-list"
+          - seq: 10
+            match: "prefix-list PL_DC_AGGREGATES"
+            set: "community_delete 65001:200"
+            action: permit
+            note: "Strip TRADING community from DC aggregates before sending to FRA"
+
+      inbound_to_lon:
+        route_map: RM_INTERDC_LON_FRA_IN
+        defined_in: "sot/bgp/route_policies.yml"
+        critical_sequences:
+          - seq: 5
+            match: "community ZONE_TRADING (65001:200)"
+            action: deny
+            note: "Frankfurt must not originate TRADING-tagged prefixes — deny defensively"
+          - seq: 10
+            match: "prefix-list PL_DC_AGGREGATES"
+            set: "local_preference 100; community_additive 65001:130 (FRA origin tag)"
+            action: permit
+          - seq: 30
+            action: deny
+
+    assertion_type: batfish_check
+
+    batfish_check:
+      test_file: "batfish/tests/test_frankfurt_isolation.py"
+
+      assertions:
+
+        - id: BA-504
+          function: "test_trading_prefixes_absent_from_fra_rib"
+          description: >
+            Assert that border-fra-01's BGP RIB contains no routes to
+            any TRADING_VRF prefix (10.x.1.0/24 for x in 1,2,10,11,20,21).
+            A TRADING prefix in the FRA RIB means the outbound filter
+            on border-lon-01 failed to deny it.
+          pybatfish_api: "routes"
+          parameters:
+            nodes: "border-fra-01"
+            networks: ["10.1.1.0/24", "10.2.1.0/24", "10.10.1.0/24",
+                       "10.11.1.0/24", "10.20.1.0/24", "10.21.1.0/24"]
+            protocols: ["bgp"]
+          expected_result: >
+            No routes to any TRADING VRF prefix appear in border-fra-01's
+            BGP RIB. The result set must be empty.
+          failure_action: "BLOCK pipeline — critical regulatory violation"
+
+        - id: BA-505
+          function: "test_trading_community_stripped_on_fra_outbound"
+          description: >
+            Assert that when RM_INTERDC_LON_FRA_OUT is applied to a
+            prefix carrying the ZONE_TRADING community (65001:200),
+            the community is absent from the route as received by
+            border-fra-01. Uses Batfish testRoutePolicies to verify
+            the route-map strips the community.
+          pybatfish_api: "testRoutePolicies"
+          parameters:
+            nodes: ["border-lon-01"]
+            policies: ["RM_INTERDC_LON_FRA_OUT"]
+            direction: "out"
+            inputRoute:
+              network: "10.1.0.0/16"    # DC aggregate that might carry TRADING community
+              communities: ["65001:200"]
+          expected_result: >
+            The route is permitted (PL_DC_AGGREGATES matches at seq 10)
+            but the output route has community 65001:200 absent
+            (community_delete applied). The ZONE_TRADING community must
+            not appear in the outgoing route attributes.
+          failure_action: "BLOCK pipeline"
+
+        - id: BA-506
+          function: "test_trading_community_denied_inbound_from_fra"
+          description: >
+            Assert that RM_INTERDC_LON_FRA_IN denies any prefix that
+            carries ZONE_TRADING community. Simulates a scenario where
+            Frankfurt (incorrectly) originates a prefix tagged with
+            65001:200 and verifies LON rejects it.
+          pybatfish_api: "testRoutePolicies"
+          parameters:
+            nodes: ["border-lon-01"]
+            policies: ["RM_INTERDC_LON_FRA_IN"]
+            direction: "in"
+            inputRoute:
+              network: "10.30.0.0/16"
+              communities: ["65001:200"]
+          expected_result: >
+            Route is DENIED at seq 5 of RM_INTERDC_LON_FRA_IN.
+            Action must be DENY, not PERMIT.
+          failure_action: "BLOCK pipeline"
+
+        - id: BA-507
+          function: "test_trading_prefix_denied_outbound_to_fra"
+          description: >
+            Assert that RM_INTERDC_LON_FRA_OUT denies a TRADING prefix
+            (from PL_TRADING_PREFIXES) even without the community tag.
+            This validates the prefix-list deny at seq 5 independently
+            of the community deny at seq 7.
+          pybatfish_api: "testRoutePolicies"
+          parameters:
+            nodes: ["border-lon-01"]
+            policies: ["RM_INTERDC_LON_FRA_OUT"]
+            direction: "out"
+            inputRoute:
+              network: "10.1.1.0/24"    # lon-dc1 TRADING prefix — no community
+              communities: []
+          expected_result: >
+            Route is DENIED at seq 5 of RM_INTERDC_LON_FRA_OUT.
+            Action must be DENY.
+          failure_action: "BLOCK pipeline — critical regulatory violation"
+
+    sot_checks:
+
+      - id: SC-505
+        description: "RM_INTERDC_LON_FRA_OUT must have a deny for PL_TRADING_PREFIXES at seq <= 10"
+        check_type: route_map_sequence_present
+        target_files: ["sot/bgp/route_policies.yml"]
+        route_map: RM_INTERDC_LON_FRA_OUT
+        required_sequence:
+          match_prefix_list: PL_TRADING_PREFIXES
+          action: deny
+          max_seq: 10
+        severity: critical
+
+      - id: SC-506
+        description: "RM_INTERDC_LON_FRA_OUT must have a deny for ZONE_TRADING community at seq <= 10"
+        check_type: route_map_sequence_present
+        target_files: ["sot/bgp/route_policies.yml"]
+        route_map: RM_INTERDC_LON_FRA_OUT
+        required_sequence:
+          match_community: ZONE_TRADING
+          action: deny
+          max_seq: 10
+        severity: critical
+
+      - id: SC-507
+        description: "RM_INTERDC_LON_FRA_IN must have a deny for ZONE_TRADING community at seq <= 10"
+        check_type: route_map_sequence_present
+        target_files: ["sot/bgp/route_policies.yml"]
+        route_map: RM_INTERDC_LON_FRA_IN
+        required_sequence:
+          match_community: ZONE_TRADING
+          action: deny
+          max_seq: 10
+        severity: critical
+
+      - id: SC-508
+        description: "PL_TRADING_PREFIXES must contain all six DC TRADING VRF prefixes"
+        check_type: prefix_list_contains
+        target_files: ["sot/bgp/route_policies.yml"]
+        prefix_list: PL_TRADING_PREFIXES
+        required_prefixes:
+          - "10.1.1.0/24"
+          - "10.2.1.0/24"
+          - "10.10.1.0/24"
+          - "10.11.1.0/24"
+          - "10.20.1.0/24"
+          - "10.21.1.0/24"
+        severity: critical
+        note: >
+          If a new DC with a TRADING VRF is added, its TRADING prefix
+          must be added to PL_TRADING_PREFIXES in the same MR that
+          adds the DC to the SoT. validate_sot.py cross-checks this
+          by comparing ipam.yml vlans.trading entries against
+          PL_TRADING_PREFIXES.
+
+    violation:
+      severity: critical
+      pipeline_action: block
+      notify:
+        - compliance@acme-investments.com
+        - ciso@acme-investments.com
+        - netops@acme-investments.com
+      remediation: >
+        If BA-504 fails (TRADING prefix in FRA RIB):
+          Verify RM_INTERDC_LON_FRA_OUT is correctly applied on
+          border-lon-01's eBGP neighbor to border-fra-01.
+          Verify the route-map sequences in route_policies.yml
+          match the required seq 5 deny for PL_TRADING_PREFIXES.
+
+        If BA-505/BA-507 fail (community not stripped or prefix not denied):
+          The route-map in route_policies.yml may have been modified.
+          Restore the critical sequences (seq 5 and seq 7) in
+          RM_INTERDC_LON_FRA_OUT. Do not modify these sequences
+          without Compliance sign-off.
+
+        If SC-508 fails (new TRADING prefix not in PL_TRADING_PREFIXES):
+          A new DC has been added to the SoT with a TRADING VRF but
+          its prefix was not added to PL_TRADING_PREFIXES. Add the
+          new prefix to the list in route_policies.yml in the same
+          MR as the new DC SoT records.
+
+# ──────────────────────────────────────────────────────────────────
+# Supporting Routing Policy Standards
+# These are not assigned separate INTENT IDs but are enforced via
+# INTENT-006 (explicit route-maps) and verified by Batfish.
+# ──────────────────────────────────────────────────────────────────
+
+routing_policy_standards:
+
+  # ── SUMM-001: Inter-region route summarisation ──────────────────
+
+  SUMM-001:
+    title: "Border routers must summarise before advertising to WAN peers"
+    requirement_refs: [REQ-013]
+    related_intents: [INTENT-006]
+
+    description: >
+      Active DC border routers must aggregate their DC address space
+      into a /16 summary before advertising to inter-region WAN peers.
+      The BGP aggregate_addresses configuration with summary_only: true
+      suppresses more-specific prefixes (individual /24s, /25s, /29s)
+      from being advertised to WAN peers. Branch /29s are similarly
+      aggregated into a regional /16 before WAN advertisement.
+
+    aggregation_table:
+      border-lon-01:
+        dc_aggregate:
+          prefix: "10.1.0.0/16"
+          summary_only: true
+          covers: "All lon-dc1 subnets (mgmt, trading, corporate, dmz, loopbacks, fabric)"
+        branch_aggregate:
+          prefix: "10.100.0.0/16"
+          summary_only: true
+          covers: "All UK branch /29 prefixes"
+
+      border-nyc-01:
+        dc_aggregate:
+          prefix: "10.10.0.0/16"
+          summary_only: true
+        branch_aggregate:
+          prefix: "10.101.0.0/16"
+          summary_only: true
+
+      border-sin-01:
+        dc_aggregate:
+          prefix: "10.20.0.0/16"
+          summary_only: true
+        branch_aggregate:
+          prefix: "10.102.0.0/16"
+          summary_only: true
+
+      border-fra-01:
+        dc_aggregate:
+          prefix: "10.30.0.0/16"
+          summary_only: true
+          note: "FRA aggregate: CORPORATE + DMZ + MGMT only — no TRADING subnets"
+        branch_aggregate:
+          prefix: "10.103.0.0/16"
+          summary_only: true
+
+    rationale: >
+      Advertising /24 and /29 prefixes across WAN links increases the
+      inter-region BGP RIB size unnecessarily and creates routing
+      instability vectors — a single access port flap at a branch would
+      propagate a /29 withdrawal to all four regions. Summarisation
+      contains the blast radius of prefix events to the local DC,
+      keeps the inter-region RIB small, and ensures WAN peers cannot
+      route directly to individual DC subnets (they see only the /16).
+
+    batfish_assertions:
+      - id: BA-508
+        function: "test_no_dc_subnets_in_inter_region_rib"
+        test_file: "batfish/tests/test_routing_policy.py"
+        description: >
+          Assert that no more-specific DC subnet prefix (e.g., /24 or
+          /25) appears in the BGP RIB of any inter-region WAN peer
+          received from a DC border router. Only /16 aggregates and
+          loopback /32s should appear in the inter-region BGP table.
+        pybatfish_api: "routes"
+        parameters:
+          nodes: "border-nyc-01, border-sin-01, border-fra-01"
+          protocols: ["bgp"]
+          prefixRange: "10.0.0.0/8:17-32"   # more-specific than /16
+          excludePrefixes: ["10.x.255.x/32"]  # loopbacks are permitted
+        expected_result: >
+          No route with prefix length > 16 (excluding /32 loopbacks)
+          appears in the BGP RIB of any inter-region peer as learned
+          from a DC border router. Any such route indicates that
+          summary_only is not suppressing more-specifics.
+        failure_action: "WARN — raise as finding but do not block pipeline"
+        note: >
+          Downgraded to WARN because Batfish's BGP simulation may not
+          model aggregate suppression identically to EOS behaviour.
+          The SoT check (aggregate_addresses with summary_only: true)
+          is the primary enforcement; this assertion provides an
+          additional verification in the network model.
+
+      - id: BA-509
+        function: "test_no_branch_slash29s_in_inter_region_rib"
+        test_file: "batfish/tests/test_routing_policy.py"
+        description: >
+          Assert that no branch /29 prefix appears in the inter-region
+          BGP RIB at any DC border router as received from a peer DC.
+          Only the regional /16 branch aggregate should be visible.
+        pybatfish_api: "routes"
+        parameters:
+          nodes: "border-lon-01, border-nyc-01, border-sin-01, border-fra-01"
+          protocols: ["bgp"]
+          networks: ["10.100.0.0/16", "10.101.0.0/16", "10.102.0.0/16", "10.103.0.0/16"]
+          prefixRange: ":29-32"   # /29 or longer
+        expected_result: >
+          No /29 or more-specific branch prefix appears in the inter-DC
+          BGP RIB. Only the regional /16 branch aggregates are present.
+        failure_action: "BLOCK pipeline"
+
+    sot_checks:
+
+      - id: SC-509
+        description: "Active border routers must have aggregate_addresses with summary_only: true for their DC /16"
+        check_type: field_value
+        target_devices: "devices with role: border and lab_state: active"
+        field_path: "bgp.aggregate_addresses[?summary_only==true].prefix"
+        must_contain_pattern: "{dc_supernet}/16"
+        severity: critical
+
+      - id: SC-510
+        description: "Active border routers must have aggregate_addresses with summary_only: true for their regional branch /16"
+        check_type: field_value
+        target_devices: "devices with role: border and lab_state: active"
+        field_path: "bgp.aggregate_addresses[?summary_only==true].prefix"
+        must_contain_pattern: "{branch_supernet}/16"
+        severity: high
+
+  # ── SUMM-002: No default route from border devices ──────────────
+
+  SUMM-002:
+    title: "Border routers must not originate or forward a default route (0.0.0.0/0)"
+    requirement_refs: [REQ-013, REQ-014]
+    related_intents: [INTENT-006, INTENT-007]
+
+    description: >
+      No DC border router may originate a default route (0.0.0.0/0)
+      via BGP, static route, or any other means. Border routers must
+      not advertise a default route to: inter-region WAN peers, branch
+      routers, or iBGP clients within the DC fabric. A default route
+      from a border into the DC fabric would allow all devices to
+      forward unknown-destination traffic to the border, exposing
+      internal traffic to WAN links unintentionally.
+
+    rationale: >
+      A default route from a DC border into the fabric is a common
+      accidental misconfiguration with serious consequences:
+        (a) DC devices would forward traffic to unknown external
+            destinations via the border, exposing them to WAN.
+        (b) A branch receiving a default route from the DC border
+            would send all internet-bound traffic up the WAN circuit,
+            congesting it and bypassing DC security controls.
+        (c) A default route in TRADING_VRF would create an internet
+            path for trading systems — a critical compliance violation.
+      Default route injection is prohibited unconditionally.
+
+    batfish_assertions:
+      - id: BA-510
+        function: "test_no_default_route_in_any_rib"
+        test_file: "batfish/tests/test_routing_policy.py"
+        description: >
+          Assert that 0.0.0.0/0 does not appear in the BGP RIB of
+          any device in the network model as a BGP-learned route.
+          Checks all devices, not just borders, because a leaked default
+          could propagate via iBGP to the entire DC fabric.
+        pybatfish_api: "routes"
+        parameters:
+          network: "0.0.0.0/0"
+          protocols: ["bgp"]
+        expected_result: "Empty result set — no BGP default route exists anywhere in the model"
+        failure_action: "BLOCK pipeline"
+
+    sot_checks:
+      - id: SC-511
+        description: "No border device may have 0.0.0.0/0 in networks_advertised or aggregate_addresses"
+        check_type: field_value_not_in
+        target_devices: "devices with role: border"
+        field_paths:
+          - "bgp.networks_advertised[*].prefix"
+          - "bgp.aggregate_addresses[*].prefix"
+        prohibited_values: ["0.0.0.0/0", "0.0.0.0/0 le 32"]
+        severity: critical
+
+# ──────────────────────────────────────────────────────────────────
+# Design Notes — Routing Policy Architecture
+# ──────────────────────────────────────────────────────────────────
+
+design_notes:
+
+  new_dc_checklist: >
+    When a new DC is added to the SoT, the routing policy engineer
+    must complete all of the following before the new DC's devices
+    can be set to lab_state: active:
+      1. Add the DC's TRADING VRF prefix to PL_TRADING_PREFIXES in
+         route_policies.yml (if the DC has a TRADING zone).
+      2. Add the DC's aggregate addresses to the border device SoT
+         file (both DC /16 and branch /16 with summary_only: true).
+      3. Define inbound and outbound route-maps for each new WAN link
+         (following the RM_INTERDC_LON_{REGION}_{IN/OUT} naming convention).
+      4. For any new link to Frankfurt: ensure TRADING filtering is
+         included at seq 5/7 in the outbound map and seq 5 inbound.
+      5. Run SC-508 manually to confirm PL_TRADING_PREFIXES is complete.
+    Failure to complete step 1 would cause SC-508 and BA-504 to fail
+    on the first pipeline run — it will be caught before push.
+
+  community_delete_vs_deny: >
+    RM_INTERDC_LON_FRA_OUT uses community_delete at seq 10 in addition
+    to the deny sequences at seq 5 and 7. This is intentional:
+      - Seq 5 denies specific TRADING prefixes by prefix-list.
+      - Seq 7 denies any prefix carrying the TRADING community.
+      - Seq 10 permits DC aggregates AND deletes the TRADING community.
+    The community_delete at seq 10 is belt-and-suspenders: if a DC
+    aggregate (10.1.0.0/16) somehow acquired the TRADING community tag
+    (e.g., via a redistribution bug), it would be denied at seq 7
+    and never reach seq 10. The community_delete at seq 10 covers the
+    residual case where a legitimate aggregate prefix has a stale
+    TRADING community attached that should have been stripped earlier
+    in the route propagation path.
+
+  fra_no_trading_in_aggregate: >
+    border-fra-01 advertises 10.30.0.0/16 as its DC aggregate.
+    This aggregate covers CORPORATE (10.30.2.0/22), DMZ (10.30.6.0/24),
+    and MGMT (10.30.0.0/25) subnets — but not TRADING (VLAN 100 is
+    prohibited at FRA per INTENT-001/003). The aggregate therefore
+    never contains TRADING space, which means it cannot carry the
+    ZONE_TRADING community by design. The RM_INTERDC_LON_FRA_IN deny
+    at seq 5 exists as a defensive check, not because FRA is expected
+    to originate TRADING-tagged routes. Defence in depth.

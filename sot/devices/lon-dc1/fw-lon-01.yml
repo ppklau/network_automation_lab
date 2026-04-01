@@ -25,6 +25,7 @@ lab_state: active
 
 compliance_tags: [mifid2, fca, gdpr_applicable, uk_gdpr]
 security_zones: [TRADING, CORPORATE, DMZ, MGMT_ZONE]
+intent_refs: [INTENT-001, INTENT-002, INTENT-005, INTENT-011]
 
 management:
   interface: eth0

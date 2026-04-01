@@ -16,6 +16,7 @@ eol_date: "2028-06-30"
 compliance_tags: [bafin, eu_gdpr, no_trading_zone]
 # TRADING zone is PROHIBITED — EU branches inherit Frankfurt restriction
 security_zones: [CORPORATE, MGMT_ZONE]
+intent_refs: [INTENT-005, INTENT-006, INTENT-007, INTENT-010, INTENT-011]
 trading_zone_prohibited: true
 
 branches:

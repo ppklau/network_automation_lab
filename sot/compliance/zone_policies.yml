@@ -176,6 +176,8 @@ firewall_policy:
 audit_checks:
   - id: ZONE-001
     description: "Frankfurt site must not have VLAN 100 (TRADING) configured"
+    requirement_refs: [REQ-007, REQ-009]   # zone isolation + EU data residency (GDPR Article 44, BaFin)
+    intent_refs: [INTENT-001, INTENT-003]
     target_sites: [fra-dc1]
     check_type: vlan_absent
     vlan_id: 100
@@ -184,6 +186,8 @@ audit_checks:
 
   - id: ZONE-002
     description: "All branch sites must not have VLAN 100 (TRADING)"
+    requirement_refs: [REQ-007]            # zone isolation — branches never carry trading traffic
+    intent_refs: [INTENT-001, INTENT-010]
     target_sites: all_branches
     check_type: vlan_absent
     vlan_id: 100
@@ -191,6 +195,8 @@ audit_checks:
 
   - id: ZONE-003
     description: "TRADING VRF must be isolated — no route leaking to CORPORATE or DMZ VRFs"
+    requirement_refs: [REQ-007, REQ-008]   # trading isolation + no inbound reachability from corporate/DMZ
+    intent_refs: [INTENT-001, INTENT-002]
     check_type: vrf_route_leak
     source_vrf: TRADING_VRF
     disallowed_target_vrfs: [CORPORATE_VRF, DMZ_VRF]
@@ -198,6 +204,8 @@ audit_checks:
 
   - id: ZONE-004
     description: "MGMT_ZONE access must originate from jump hosts only"
+    requirement_refs: [REQ-015, REQ-019]   # audit logging / compliance controls — management plane access
+    intent_refs: [INTENT-011]
     check_type: acl_source_restriction
     zone: MGMT_ZONE
     permitted_sources: [10.1.0.0/25, 10.10.0.0/25, 10.20.0.0/25, 10.30.0.0/25]
@@ -205,6 +213,8 @@ audit_checks:
 
   - id: ZONE-005
     description: "All inter-zone traffic must traverse the site firewall"
+    requirement_refs: [REQ-007, REQ-008]   # zone isolation enforced at firewall boundary
+    intent_refs: [INTENT-001, INTENT-002]
     check_type: traffic_path
     enforcement: firewall_mandatory
     severity: critical

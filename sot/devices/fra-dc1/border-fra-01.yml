@@ -22,6 +22,7 @@ lab_state: active   # This node IS instantiated in containerlab
 compliance_tags: [mifid2, bafin, gdpr_applicable, eu_gdpr, gdpr_strict, no_trading_zone]
 # TRADING zone intentionally absent
 security_zones: [CORPORATE, DMZ, MGMT_ZONE]
+intent_refs: [INTENT-001, INTENT-002, INTENT-003, INTENT-004, INTENT-005, INTENT-006, INTENT-008, INTENT-011]
 
 management:
   interface: eth0

@@ -1,0 +1,711 @@
+---
+# ACME Investments — Design Intents: Compliance Controls
+# Layer 2 of the Intent-Based Networking (IBN) model
+#
+# This file defines the baseline operational security controls that
+# must be present on every managed network device. These controls
+# are regulatory requirements across all applicable frameworks and
+# apply uniformly regardless of site, region, or device role.
+#
+# Intent defined here:
+#   INTENT-011  Baseline compliance controls on all devices:
+#               audit logging, NTP, Telnet prohibition, SSH v2,
+#               SNMP v3
+#
+# Traceability:
+#   REQ-015 → INTENT-011 → platform_defaults logging.servers + validate_sot.py
+#   REQ-016 → INTENT-011 → platform_defaults ntp.authenticate + validate_sot.py
+#   REQ-017 → INTENT-011 → no-telnet in template + Batfish check
+#   REQ-018 → INTENT-011 → SSH v2 in template + Batfish check
+#   REQ-019 → INTENT-011 → platform_defaults snmp.version: v3 + validate_sot.py
+#
+# Verification approach:
+#   Most of INTENT-011 cannot be verified by Batfish's network model
+#   (Batfish models routing and forwarding, not syslog/NTP/SNMP state).
+#   Verification uses three complementary mechanisms:
+#     1. SoT checks (validate_sot.py)  — pre-render, fast, catches config errors
+#     2. Batfish checks                — post-render, catches template rendering bugs
+#     3. Compliance report             — post-push, verifies actual device state
+#                                        (playbooks/compliance_report.yml)
+#
+# Reviewed by: CISO, Head of Compliance — 2026-03-01
+
+intents:
+
+  - id: INTENT-011
+    title: "All devices must implement baseline compliance controls"
+    requirement_refs: [REQ-015, REQ-016, REQ-017, REQ-018, REQ-019]
+    regulatory_refs: [FCA-001, FCA-002, BAFIN-003, BAFIN-005, MAS-002, MAS-004,
+                      MIFID2-003, MIFID2-004, SOX-001, SOX-002, GDPR-001]
+    related_intents: [INTENT-005, INTENT-009]
+
+    description: >
+      Five baseline controls must be present on every network device in
+      the ACME estate, from DC spines to branch CPE routers.
+      All five controls are implemented via platform defaults
+      (sot/global/platform_defaults.yml) and rendered into device
+      configurations by the Jinja2 templates. Device-level SoT files
+      must not override these baseline settings with insecure values.
+      validate_sot.py checks for prohibited overrides at SoT level.
+      compliance_report.yml verifies the rendered config was actually
+      pushed to the device.
+
+    applies_to: all_devices   # no exceptions by site, region, or role
+
+    # ──────────────────────────────────────────────────────────────
+    # Control 1: Audit Logging to Central Syslog
+    # REQ-015 | Regulatory: MIFID2-003, FCA-001, SOX-002, BAFIN-005
+    # ──────────────────────────────────────────────────────────────
+    control_syslog:
+      id: CC-001
+      requirement_ref: REQ-015
+      title: "All devices must forward syslog to central logging infrastructure"
+
+      specification:
+        minimum_severity_level: informational
+        source_interface_by_platform:
+          arista_eos: Loopback0   # loopback provides stable source IP regardless of interface state
+          frr: lo
+        protocol: udp
+        port: 514
+        format:
+          arista_eos: "traditional year"    # includes year in timestamp for long-term log correlation
+          frr: rfc5424
+
+        syslog_servers:
+          primary:
+            ip: 10.1.0.53
+            description: "Graylog — London DC1"
+            regions_served: [emea-lon, eu-fra]
+          secondary:
+            ip: 10.10.0.53
+            description: "Graylog — NYC DC1"
+            regions_served: [americas-nyc, apac]
+
+        required_event_types:
+          - "BGP neighbor state changes (up/down)"
+          - "Interface state changes (up/down)"
+          - "Authentication failures (login/enable)"
+          - "Configuration changes"
+          - "VRRP state transitions"
+          - "System messages severity informational and above"
+
+        retention_requirements:
+          emea-lon:  7    # FCA SYSC 9.1 — 7 years
+          americas-nyc: 7 # SOX Section 802 — 7 years
+          apac:      5    # MAS TRM — 5 years
+          eu-fra:    10   # BaFin MaRisk — 10 years for some record types
+          note: >
+            Retention periods are enforced at the Graylog cluster level
+            via stream-based retention policies. See GAP-001 in
+            regulatory_mappings.yml — FRA 10-year retention is currently
+            a known gap.
+
+      sot_enforcement:
+        platform_defaults_fields:
+          arista_eos:
+            - "platforms.arista_eos.logging.trap_level: informational"
+            - "platforms.arista_eos.logging.source_interface: Loopback0"
+            - "platforms.arista_eos.logging.servers[*].ip"
+            - "platforms.arista_eos.logging.format.timestamp: traditional year"
+          frr:
+            - "platforms.frr.logging.level: info"
+            - "platforms.frr.logging.servers[*].ip"
+            - "platforms.frr.logging.syslog_format: rfc5424"
+        prohibited_overrides: >
+          Device SoT files must not set logging trap_level to a level
+          less verbose than informational (e.g., warnings, errors, critical).
+          Setting a less verbose level would cause events that regulators
+          require to be logged to be silently discarded.
+
+    # ──────────────────────────────────────────────────────────────
+    # Control 2: Authenticated NTP Synchronisation
+    # REQ-016 | Regulatory: MIFID2-004, MAS-003
+    # ──────────────────────────────────────────────────────────────
+    control_ntp:
+      id: CC-002
+      requirement_ref: REQ-016
+      title: "All devices must synchronise to authenticated NTP servers"
+
+      specification:
+        authentication_required: true
+        authentication_algorithm: md5
+        source_interface_by_platform:
+          arista_eos: Loopback0
+          frr: lo
+
+        servers:
+          primary:
+            ip: 10.1.0.50
+            hostname: ntp.acme-investments.internal
+            stratum: 1
+            auth_key_ref: ntp_key_primary
+            preferred: true
+            location: lon-dc1
+          secondary:
+            ip: 10.10.0.50
+            hostname: ntp2.acme-investments.internal
+            stratum: 1
+            auth_key_ref: ntp_key_secondary
+            preferred: false
+            location: nyc-dc1
+          backup:
+            hostname: pool.ntp.org
+            auth_key_ref: null
+            preferred: false
+            note: "Unauthenticated public fallback — only used if both internal servers fail"
+
+        regional_primary:
+          americas-nyc: 10.10.0.50   # prefer local NYC stratum-1 for lower latency
+          emea-lon: 10.1.0.50
+          apac: 10.1.0.50            # no local stratum-1 in APAC — cross-WAN acceptable
+          eu-fra: 10.1.0.50
+
+        accuracy_targets:
+          network_devices: "<= 50ms offset from UTC"
+          note: >
+            MiFID II RTS 25 requires trading system clocks to within 100μs UTC.
+            Network devices are required to be within 50ms — far more lenient.
+            PTP (IEEE 1588) for sub-millisecond trading system sync is handled
+            by the compute team and is outside network automation scope.
+
+      sot_enforcement:
+        platform_defaults_fields:
+          arista_eos:
+            - "platforms.arista_eos.ntp.authenticate: true"
+            - "platforms.arista_eos.ntp.source_interface: Loopback0"
+            - "platforms.arista_eos.ntp.servers[0].ip: 10.1.0.50"
+          frr:
+            - "platforms.frr.ntp.client: chrony"
+            - "platforms.frr.ntp.source_interface: lo"
+            - "platforms.frr.ntp.servers[0].ip: 10.1.0.50"
+        prohibited_overrides: >
+          Device SoT files must not set ntp.authenticate: false or
+          remove the internal NTP server entries. Adding an external
+          NTP server not approved in ntp.yml is also prohibited —
+          unauthenticated external NTP could be used for time-of-day
+          manipulation attacks.
+
+    # ──────────────────────────────────────────────────────────────
+    # Control 3: Telnet Disabled
+    # REQ-017 | Regulatory: FCA-002, BAFIN-003, MAS-004
+    # ──────────────────────────────────────────────────────────────
+    control_no_telnet:
+      id: CC-003
+      requirement_ref: REQ-017
+      title: "Telnet must be disabled and unavailable on all devices"
+
+      specification:
+        telnet_tcp_port: 23
+        enforcement_method_by_platform:
+          arista_eos: >
+            EOS: no transport input telnet on all VTY lines.
+            The base template must configure all VTY lines with
+            transport input ssh only. The EOS default allows telnet
+            unless explicitly disabled; the template must not rely
+            on defaults.
+          frr: >
+            FRR/Linux: telnetd must not be installed or running.
+            The FRR host OS (Linux) must not have any telnet daemon
+            listening. Confirmed by absence of telnet or inetutils-telnetd
+            package in the base image. vtysh access is local-only.
+
+        break_glass_alternative: >
+          Break-glass access during Telnet prohibition must use:
+            (a) SSH to the OOB management interface (primary)
+            (b) SSH to the console server / terminal server (secondary)
+            (c) Physical console cable to the device (last resort)
+          Telnet to a console server that then connects to a device
+          serial port is also prohibited — the console server must
+          present an SSH interface.
+
+      sot_enforcement:
+        prohibited_device_fields:
+          - "Any field that enables telnet transport on VTY lines"
+          - "management.telnet_enabled: true (must not appear)"
+        note: >
+          Telnet configuration is not stored in the SoT device files —
+          it is controlled entirely by the base Jinja2 template.
+          validate_sot.py cannot check Telnet state from SoT data alone.
+          CC-003 is primarily enforced by the template and verified by
+          Batfish (can check VTY line transport config in EOS snapshots)
+          and by compliance_report.yml on live devices.
+
+    # ──────────────────────────────────────────────────────────────
+    # Control 4: SSH Version 2 Only
+    # REQ-018 | Regulatory: FCA-002, BAFIN-003, MAS-004
+    # ──────────────────────────────────────────────────────────────
+    control_ssh_v2:
+      id: CC-004
+      requirement_ref: REQ-018
+      title: "SSH version 2 must be the only permitted remote access protocol"
+
+      specification:
+        permitted_versions: [2]
+        prohibited_versions: [1]
+        enforcement_method_by_platform:
+          arista_eos: >
+            EOS: ip ssh version 2 in global config.
+            VTY lines: transport input ssh (see CC-003).
+            SSH key type: RSA 4096-bit or ECDSA P-256 minimum.
+            The base template renders ip ssh version 2 unconditionally.
+          frr: >
+            FRR/Linux: sshd must have Protocol 2 in /etc/ssh/sshd_config.
+            The base cloud-init or startup config must set:
+              Protocol 2
+              PermitRootLogin no
+              PasswordAuthentication no (key-based auth for service accounts)
+            Ansible service account uses SSH key pair managed by vault.
+
+        host_key_requirements:
+          minimum_rsa_bits: 4096
+          minimum_ecdsa_curve: P-256
+          key_rotation: "Annually or upon suspected compromise"
+
+        additional_hardening:
+          - "MaxAuthTries 3"
+          - "LoginGraceTime 60"
+          - "ClientAliveInterval 300"
+          - "ClientAliveCountMax 2"
+          - "Banner /etc/issue.net (authorised access only warning)"
+
+      sot_enforcement:
+        template_controlled: true
+        prohibited_device_fields:
+          - "Any field that enables SSHv1 (must not appear in device SoT)"
+        note: >
+          SSH version configuration is rendered by the base template
+          from platform_defaults. Device SoT files do not contain
+          SSH version fields. validate_sot.py checks that no device
+          file contains ssh_version: 1 or similar override fields.
+          Batfish can verify the ip ssh version 2 line is present in
+          the rendered EOS configuration.
+
+    # ──────────────────────────────────────────────────────────────
+    # Control 5: SNMP Version 3 Only
+    # REQ-019 | Regulatory: FCA-002, BAFIN-003, MAS-002
+    # ──────────────────────────────────────────────────────────────
+    control_snmp_v3:
+      id: CC-005
+      requirement_ref: REQ-019
+      title: "SNMP v3 with authentication and privacy — no SNMPv1 or SNMPv2c"
+
+      specification:
+        permitted_versions: [v3]
+        prohibited_versions: [v1, v2c]
+        community_strings_prohibited: true   # applies to both read and write community strings
+
+        snmp_v3_requirements:
+          auth_protocol: SHA         # minimum SHA-1; SHA-256 preferred where platform supports
+          priv_protocol: AES128      # minimum AES-128
+          access_level_default: read_only
+          write_access: "Requires explicit justification and change control"
+
+        users_defined_in: "sot/global/snmp.yml"
+        active_users:
+          - username: acme_monitoring
+            purpose: "Prometheus SNMP exporter, monitoring systems"
+            access: read_only
+          - username: acme_audit
+            purpose: "Compliance tooling and audit scripts"
+            access: read_only
+          - username: acme_ops
+            purpose: "Operational queries (read-write) — change control required"
+            access: read_write
+
+        trap_configuration:
+          version: v3
+          auth_required: true
+          priv_required: true
+          targets: "sot/global/snmp.yml — trap_targets"
+          source_interface: Loopback0   # (lo for FRR)
+
+        source_interface_by_platform:
+          arista_eos: Loopback0
+          frr: lo
+
+      sot_enforcement:
+        platform_defaults_fields:
+          arista_eos:
+            - "platforms.arista_eos.snmp.version: v3"
+            - "platforms.arista_eos.snmp.users[*].auth_protocol: sha"
+            - "platforms.arista_eos.snmp.users[*].priv_protocol: aes128"
+            - "platforms.arista_eos.snmp.source_interface: Loopback0"
+          frr:
+            - "platforms.frr.snmp.version: v3"
+            - "platforms.frr.snmp.users[*].auth_protocol: SHA"
+            - "platforms.frr.snmp.users[*].priv_protocol: AES"
+        prohibited_device_overrides:
+          - "snmp.version: v1 or snmp.version: v2c must not appear in any device file"
+          - "snmp community strings (any field named community or community_string) are prohibited"
+        note: >
+          No SNMP community strings should appear anywhere in the SoT.
+          validate_sot.py performs a global string search for the
+          keyword community within SNMP configuration blocks and fails
+          if any are found.
+
+    # ──────────────────────────────────────────────────────────────
+    # SoT Checks (validate_sot.py)
+    # ──────────────────────────────────────────────────────────────
+    assertion_type: sot_check
+
+    sot_checks:
+
+      # ── CC-001: Syslog ──────────────────────────────────────────
+
+      - id: SC-401
+        description: "platform_defaults must configure syslog trap_level: informational or more verbose"
+        check_type: field_value_or_more_verbose
+        target_files: ["sot/global/platform_defaults.yml"]
+        checks:
+          - field: "platforms.arista_eos.logging.trap_level"
+            permitted_values: [emergencies, alerts, critical, errors, warnings, notifications, informational]
+            minimum: informational
+          - field: "platforms.frr.logging.level"
+            permitted_values: [emerg, alert, crit, err, warning, notice, info]
+            minimum: info
+        severity: critical
+
+      - id: SC-402
+        description: "platform_defaults must configure two syslog servers"
+        check_type: list_minimum_length
+        target_files: ["sot/global/platform_defaults.yml"]
+        field_paths:
+          - "platforms.arista_eos.logging.servers"
+          - "platforms.frr.logging.servers"
+        minimum_length: 2
+        severity: high
+
+      - id: SC-403
+        description: "Syslog source_interface must be loopback (not management interface)"
+        check_type: field_value
+        target_files: ["sot/global/platform_defaults.yml"]
+        checks:
+          - field: "platforms.arista_eos.logging.source_interface"
+            expected: "Loopback0"
+          - field: "platforms.frr.logging.source_interface"
+            expected: "lo"
+        severity: high
+        rationale: >
+          Management interface IP can change; syslog source must be stable.
+          Loopback IPs are stable across interface flaps and are the
+          canonical device identifier in log messages.
+
+      - id: SC-404
+        description: "No device file may set logging trap_level less verbose than informational"
+        check_type: prohibited_field_value
+        target_devices: all
+        field_path: "logging.trap_level"
+        prohibited_values: [warnings, errors, critical, alerts, emergencies]
+        severity: critical
+
+      # ── CC-002: NTP ─────────────────────────────────────────────
+
+      - id: SC-405
+        description: "platform_defaults must have ntp.authenticate: true"
+        check_type: field_value
+        target_files: ["sot/global/platform_defaults.yml"]
+        field: "platforms.arista_eos.ntp.authenticate"
+        expected: true
+        severity: critical
+
+      - id: SC-406
+        description: "platform_defaults must configure two authenticated NTP servers"
+        check_type: list_minimum_length
+        target_files: ["sot/global/platform_defaults.yml"]
+        field_paths:
+          - "platforms.arista_eos.ntp.servers"
+          - "platforms.frr.ntp.servers"
+        minimum_length: 2
+        severity: high
+
+      - id: SC-407
+        description: "Primary NTP server must have a non-null auth_key_ref (authenticated)"
+        check_type: field_non_null
+        target_files: ["sot/global/ntp.yml"]
+        field_path: "global_ntp.servers[?preferred==true].auth_key_ref"
+        severity: critical
+
+      - id: SC-408
+        description: "No device file may disable NTP authentication"
+        check_type: prohibited_field_value
+        target_devices: all
+        field_path: "ntp.authenticate"
+        prohibited_values: [false]
+        severity: critical
+
+      - id: SC-409
+        description: "NTP source interface must be loopback"
+        check_type: field_value
+        target_files: ["sot/global/platform_defaults.yml"]
+        checks:
+          - field: "platforms.arista_eos.ntp.source_interface"
+            expected: "Loopback0"
+          - field: "platforms.frr.ntp.source_interface"
+            expected: "lo"
+        severity: high
+
+      # ── CC-003: Telnet Prohibition ──────────────────────────────
+
+      - id: SC-410
+        description: "No device file may contain telnet_enabled: true or equivalent"
+        check_type: prohibited_field_presence
+        target_devices: all
+        prohibited_fields:
+          - "telnet_enabled"
+          - "management.telnet"
+          - "vty.transport_input_telnet"
+        severity: critical
+
+      # ── CC-004: SSH v2 ──────────────────────────────────────────
+
+      - id: SC-411
+        description: "No device file may contain ssh_version: 1 or similar override"
+        check_type: prohibited_field_value
+        target_devices: all
+        field_path: "ssh_version"
+        prohibited_values: [1, "1", "v1"]
+        severity: critical
+
+      # ── CC-005: SNMP v3 ─────────────────────────────────────────
+
+      - id: SC-412
+        description: "platform_defaults must set snmp.version: v3 for all platforms"
+        check_type: field_value
+        target_files: ["sot/global/platform_defaults.yml"]
+        checks:
+          - field: "platforms.arista_eos.snmp.version"
+            expected: "v3"
+          - field: "platforms.frr.snmp.version"
+            expected: "v3"
+        severity: critical
+
+      - id: SC-413
+        description: "platform_defaults SNMPv3 users must use SHA authentication"
+        check_type: field_value
+        target_files: ["sot/global/platform_defaults.yml"]
+        checks:
+          - field: "platforms.arista_eos.snmp.users[*].auth_protocol"
+            permitted_values: [sha, SHA, sha256, SHA256]
+          - field: "platforms.frr.snmp.users[*].auth_protocol"
+            permitted_values: [SHA, SHA256]
+        severity: critical
+
+      - id: SC-414
+        description: "platform_defaults SNMPv3 users must use AES privacy"
+        check_type: field_value
+        target_files: ["sot/global/platform_defaults.yml"]
+        checks:
+          - field: "platforms.arista_eos.snmp.users[*].priv_protocol"
+            permitted_values: [aes128, aes256, AES128, AES256]
+          - field: "platforms.frr.snmp.users[*].priv_protocol"
+            permitted_values: [AES, AES128, AES256]
+        severity: critical
+
+      - id: SC-415
+        description: "No SNMP community strings may appear anywhere in the SoT"
+        check_type: global_pattern_absent
+        target_files: all_sot_files
+        patterns:
+          - "community:"
+          - "snmp_community"
+          - "community_string"
+          - "public"     # common default community string
+          - "private"    # common default community string
+        severity: critical
+        note: >
+          This is a broad string search — false positives are possible
+          (e.g., the word 'community' in a description field). The
+          check is intentionally conservative: any match must be
+          reviewed and confirmed to be non-SNMP context before the
+          pipeline can proceed.
+
+      - id: SC-416
+        description: "No device file may override snmp.version to v1 or v2c"
+        check_type: prohibited_field_value
+        target_devices: all
+        field_path: "snmp.version"
+        prohibited_values: [v1, v2c, "1", "2c"]
+        severity: critical
+
+    # ──────────────────────────────────────────────────────────────
+    # Batfish Checks
+    # Note: Batfish's network model covers routing/forwarding and some
+    # device configuration properties. It does NOT model syslog, NTP,
+    # or SNMP state. Batfish checks here cover only what Batfish can
+    # reliably assert from the rendered device snapshot.
+    # ──────────────────────────────────────────────────────────────
+    batfish_check:
+      test_file: "batfish/tests/test_bgp_standards.py"
+      notes: >
+        Compliance control checks that Batfish can verify are included
+        in the broader test suite. The primary Batfish-verifiable controls
+        are Telnet prohibition (VTY line config) and SSH version. Syslog,
+        NTP, and SNMP v3 are verified by compliance_report.yml instead.
+
+      assertions:
+
+        - id: BA-401
+          function: "test_no_telnet_on_vty_lines"
+          description: >
+            Assert that no device in the Batfish snapshot has Telnet
+            configured as a permitted transport on any VTY line.
+            On Arista EOS, this means no VTY line has
+            transport input telnet (the base template must render
+            transport input ssh on all lines).
+          pybatfish_api: "nodeProperties"
+          parameters:
+            properties: ["Configuration"]
+            nodeRegex: ".*"
+          expected_result: >
+            No device configuration in the snapshot contains the string
+            transport input telnet on any VTY line. Any device with
+            Telnet enabled on a VTY line fails.
+          failure_action: "BLOCK pipeline"
+
+        - id: BA-402
+          function: "test_ssh_version_2"
+          description: >
+            Assert that all Arista EOS devices in the snapshot have
+            ip ssh version 2 in their global configuration. FRR/Linux
+            SSH version is enforced by the startup config and is not
+            modelled in the Batfish snapshot.
+          pybatfish_api: "nodeProperties"
+          parameters:
+            properties: ["Configuration"]
+            nodeRegex: ".*eos.*|spine-.*|leaf-.*|border-lon.*"
+          expected_result: >
+            All EOS device configurations contain ip ssh version 2.
+            No device contains ip ssh version 1.
+          failure_action: "BLOCK pipeline"
+
+    # ──────────────────────────────────────────────────────────────
+    # Operational Verification (compliance_report.yml)
+    # These checks run against live devices post-push and cannot be
+    # verified from the SoT or Batfish snapshot alone.
+    # ──────────────────────────────────────────────────────────────
+    operational_verification:
+      playbook: "playbooks/compliance_report.yml"
+      schedule: "Weekly + after every push"
+      checks:
+        - id: OV-001
+          control: CC-001
+          description: "Verify active syslog sessions from device to syslog servers"
+          method: "SNMP MIB-II syslog table or EOS show logging | grep 'last message'"
+          pass_condition: "At least one syslog server shows recent messages (within 24h)"
+
+        - id: OV-002
+          control: CC-002
+          description: "Verify NTP synchronisation status"
+          method: "show ntp status (EOS) or chronyc tracking (FRR/Linux)"
+          pass_condition: "Device is synchronised, stratum <= 3, offset < 50ms"
+
+        - id: OV-003
+          control: CC-003
+          description: "Verify Telnet is not accessible on management IP"
+          method: >
+            Attempt TCP connection to port 23 of device management IP.
+            Confirm connection refused or no response.
+          pass_condition: "TCP/23 unreachable on all management IPs"
+
+        - id: OV-004
+          control: CC-004
+          description: "Verify SSH version 2 is the only accepted SSH version"
+          method: "ssh -1 {device_mgmt_ip} and confirm connection refused"
+          pass_condition: "SSHv1 connection attempt is rejected"
+
+        - id: OV-005
+          control: CC-005
+          description: "Verify SNMP v1/v2c community string access is refused"
+          method: "snmpwalk -v1 -c public {device_mgmt_ip} or -v2c -c public"
+          pass_condition: "SNMP v1/v2c queries receive no response or authentication failure"
+
+    violation:
+      severity: critical
+      pipeline_action: block   # applies to SoT and Batfish check failures
+      operational_finding_action: >
+        Operational check failures (OV-001 through OV-005) are reported
+        to the compliance team and raised as findings in the weekly
+        compliance report. A critical finding (e.g., Telnet accessible
+        on a live device) must be treated as a P1 security incident.
+      notify:
+        - ciso@acme-investments.com
+        - compliance@acme-investments.com
+        - netops@acme-investments.com
+      remediation: >
+        For SoT check failures (SC-401 through SC-416):
+          Identify the prohibited field value or missing platform default.
+          Correct in platform_defaults.yml or remove the prohibited
+          override from the device file. Re-run validate_sot.py.
+
+        For Batfish check failures (BA-401, BA-402):
+          The Jinja2 template is rendering an insecure configuration.
+          Identify the template bug in templates/arista_eos/base.j2.
+          Correct the template and re-run the render stage.
+          Do not push until both BA-401 and BA-402 pass.
+
+        For operational check failures (OV-001 through OV-005):
+          Treat as a P1 security incident.
+          Immediately isolate the affected device from the management
+          network if Telnet or SSHv1 is found accessible.
+          Run a pipeline push of the baseline config (no SoT changes
+          required — the template is correct) to restore secure state.
+          Document the incident and root cause in the compliance log.
+
+# ──────────────────────────────────────────────────────────────────
+# Design Notes — Compliance Controls Architecture
+# ──────────────────────────────────────────────────────────────────
+
+design_notes:
+
+  platform_defaults_as_single_source: >
+    All five compliance controls are implemented in a single file:
+    sot/global/platform_defaults.yml. This is intentional — having
+    one place where baseline security settings are defined makes it
+    impossible to "accidentally" misconfigure a device by failing to
+    include the security settings in its individual SoT file.
+    The Jinja2 base template always imports platform_defaults before
+    device-specific vars, so these settings are always rendered.
+    Device-level SoT files can only override these settings with
+    more secure values (e.g., increasing logging verbosity), not less.
+    validate_sot.py enforces this by checking for prohibited overrides.
+
+  three_layer_verification: >
+    INTENT-011 uses three verification layers because Batfish cannot
+    model all five controls:
+      Layer 1 (validate_sot.py): Checks the SoT data. Fast, runs first.
+        Catches misconfigurations before any config is rendered.
+        Can verify: logging level, NTP authenticate field, SNMP version
+        field, absence of prohibited field values.
+      Layer 2 (Batfish): Checks the rendered config model. Catches
+        template rendering bugs. Can verify: no Telnet on VTY lines,
+        SSH version 2 in EOS config. Cannot model: syslog state,
+        NTP sync status, SNMP daemon configuration.
+      Layer 3 (compliance_report.yml): Checks live device state.
+        Authoritative — verifies what is actually running on the device.
+        Can verify all five controls. Runs weekly and after every push.
+    A device that passes all three layers has been verified at
+    design, render, and operational levels.
+
+  snmp_community_search_rationale: >
+    SC-415 performs a broad global pattern search for community strings
+    rather than checking a specific field. This is because SNMP community
+    strings might appear in unexpected places: in a description field
+    of a monitoring system integration, in a comment copied from old
+    documentation, or in a template variable. The conservative approach
+    flags any occurrence for review. The expected false positive rate
+    is low (the SoT doesn't contain documentation prose) and the
+    consequence of missing a real community string is a critical
+    security finding.
+
+  telnet_template_responsibility: >
+    Telnet prohibition (CC-003) cannot be verified from SoT data alone
+    because it is not a field in the device SoT — it is a template
+    behaviour. A device SoT file that does not mention Telnet at all
+    would pass all SoT checks but could still have Telnet enabled if
+    the template failed to render the transport input ssh line.
+    This is why BA-401 (Batfish check on the rendered snapshot) is
+    the primary verification mechanism for CC-003, supplemented by
+    OV-003 (operational check on the live device). This illustrates
+    the value of the three-layer approach: SoT checks cannot catch
+    everything; Batfish catches what SoT cannot.

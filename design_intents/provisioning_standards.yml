@@ -1,0 +1,688 @@
+---
+# ACME Investments — Design Intents: Provisioning Standards
+# Layer 2 of the Intent-Based Networking (IBN) model
+#
+# This file defines the architectural constraints that must be satisfied
+# when any new branch office or Frankfurt DC device is added to the SoT.
+# These are provisioning-time invariants: assertions that validate
+# a new SoT record before the pipeline will render or push a config.
+#
+# Intent defined here:
+#   INTENT-010  Branch provisioning must meet all standard constraints
+#               before a device can be set to lab_state: active
+#
+# Traceability:
+#   REQ-003 → INTENT-010 → ASN/IP/zone/tag checks in validate_sot.py
+#   REQ-007 → INTENT-010 → Frankfurt VLAN 100 absence (provisioning gate)
+#   REQ-011 → INTENT-010 → Branch zone restriction: CORPORATE + MGMT only
+#
+# Relationship to other intents:
+#   INTENT-001/002  Zone isolation at runtime (what Batfish verifies)
+#   INTENT-010      Zone isolation at provisioning time (what validate_sot.py checks)
+#   INTENT-007      Branch /29 advertisement standard (BGP-layer enforcement)
+#   INTENT-010      Branch /29 allocation standard (SoT-layer source)
+#
+# The distinction matters: INTENT-001/002 verify the network model built
+# from rendered configs. INTENT-010 verifies the SoT records before
+# any config is rendered — it is the first line of defence.
+#
+# Lab exercises enabled: 1.1.1, 1.1.2, 1.1.4, 4.1
+#
+# Reviewed by: Head of Network Operations, Head of Compliance — 2026-03-01
+
+intents:
+
+  # ──────────────────────────────────────────────────────────────────
+  # INTENT-010: Branch provisioning must meet all standard constraints
+  #
+  # Architectural decision: provisioning constraints are expressed as
+  # machine-verifiable rules on SoT records. A branch record that fails
+  # any of these constraints must be blocked by validate_sot.py in the
+  # pipeline validate stage — before any config is rendered.
+  #
+  # This makes compliance a pre-condition of deployment, not an
+  # audit after the fact.
+  # ──────────────────────────────────────────────────────────────────
+
+  - id: INTENT-010
+    title: "New branch SoT records must satisfy all provisioning standards before deployment"
+    requirement_refs: [REQ-003, REQ-011]
+    regulatory_refs: [FCA-003, GDPR-003, BAFIN-001]
+    related_intents: [INTENT-001, INTENT-002, INTENT-005, INTENT-006, INTENT-007]
+
+    description: >
+      Every new branch device added to the SoT must satisfy all of
+      the following constraints before its lab_state may be set to
+      anything other than sot_only:
+        (a) ASN allocated from the correct regional pool in asn_pools.yml
+        (b) /29 prefix allocated from the correct regional supernet in ipam.yml
+        (c) security_zones contains exactly [CORPORATE, MGMT_ZONE] — no TRADING, no DMZ
+        (d) compliance_tags matches the required set for the device's region
+        (e) BGP configuration includes MD5, route-maps, and advertises exactly the assigned /29
+        (f) uplink_dc and uplink_border reference valid, existing SoT records
+        (g) Frankfurt DC devices: vlans must not contain id=100; security_zones must not
+            include TRADING or TRADING_VRF in any form
+      These checks run in the validate stage of the pipeline before rendering.
+      A device with lab_state: sot_only may exist in the SoT without passing
+      all checks — but it cannot advance to active until all constraints pass.
+
+    rationale: >
+      Provisioning errors are significantly cheaper to fix before a device
+      is deployed than after. A branch provisioned with incorrect zone
+      assignments (e.g., TRADING zone accidentally included) creates an
+      immediate compliance violation the moment it receives a config.
+      A branch with a duplicate /29 causes a routing black hole for another
+      branch. A Frankfurt device provisioned with VLAN 100 would be a
+      BaFin violation detectable only after a device push.
+      Encoding provisioning constraints as SoT validation rules means
+      the pipeline catches these errors before they reach a device.
+
+    scope:
+      applies_to:
+        - all branch devices (sot/devices/branches/)
+        - all Frankfurt DC devices (sot/devices/fra-dc1/)
+      pipeline_stage: validate   # runs before render, before Batfish, before push
+
+    # ──────────────────────────────────
+    # Constraint Group A: ASN Allocation
+    # ──────────────────────────────────
+    asn_allocation_standard:
+      description: >
+        Each branch must have an ASN allocated from the regional pool
+        defined in sot/global/asn_pools.yml. The ASN must be within the
+        assigned range for the branch's region. No two branches may share
+        an ASN. DC device ASNs are allocated separately and must not
+        overlap with branch ASN ranges.
+
+      regional_pools:
+        emea-lon:
+          range: "65100–65111"
+          uplink_dc: lon-dc1
+          uplink_border: border-lon-01
+        americas-nyc:
+          range: "65120–65127"
+          uplink_dc: nyc-dc1
+          uplink_border: border-nyc-01
+        apac:
+          range: "65130–65135"
+          uplink_dc: sin-dc1
+          uplink_border: border-sin-01
+        eu-fra:
+          range: "65140–65143"
+          uplink_dc: fra-dc1
+          uplink_border: border-fra-01
+
+      expansion_procedure: >
+        When a regional pool is exhausted, a new range must be allocated
+        from the reserved pool (65200–65299 for branches) by Network
+        Engineering. The new range must be added to asn_pools.yml and
+        a new prefix-list entry added to route_policies.yml before any
+        branch in the new range can be provisioned. Do not reuse a
+        decommissioned branch ASN for at least 12 months (BGP route
+        convergence and potential router memory issues).
+
+    # ──────────────────────────────────────────
+    # Constraint Group B: IP Prefix Allocation
+    # ──────────────────────────────────────────
+    ip_allocation_standard:
+      description: >
+        Each branch is allocated exactly one /29 from the regional branch
+        supernet. The /29 serves as both the WAN link prefix (providing
+        the branch WAN IP, the DC peer IP, and the network/broadcast
+        addresses) and the branch LAN prefix. No separate LAN allocation
+        is made at branch level. All allocations are recorded in
+        sot/global/ipam.yml under branches.{region}.branches.
+
+      regional_supernets:
+        emea-lon:    "10.100.0.0/16"
+        americas-nyc: "10.101.0.0/16"
+        apac:        "10.102.0.0/16"
+        eu-fra:      "10.103.0.0/16"
+
+      slash29_address_layout:
+        # For each /29 allocated to a branch:
+        offset_0: "Network address (not usable)"
+        offset_1: "Branch WAN IP — also branch BGP router-id and management IP"
+        offset_2: "DC border peer IP — configured on the border sub-interface"
+        offset_3: "Available for future use (spare)"
+        offset_4: "Available for future use (spare)"
+        offset_5: "Available for future use (spare)"
+        offset_6: "Available for future use (spare)"
+        offset_7: "Broadcast address (not usable)"
+
+      consecutive_allocation: >
+        /29s are allocated consecutively within the regional supernet,
+        offset by 8 addresses per branch. Example for UK branches:
+          branch-lon-01: 10.100.0.0/29  (branch .1, border .2)
+          branch-lon-02: 10.100.0.8/29  (branch .9, border .10)
+          branch-lon-03: 10.100.0.16/29 (branch .17, border .18)
+          ...continuing at +8 per branch
+
+      required_sot_fields: >
+        Each branch record must contain all of: asn, wan_prefix,
+        wan_ip, uplink_peer_ip, lan_prefix, management_ip.
+        wan_prefix and lan_prefix must be the same /29.
+        wan_ip must be offset +1 from the network address.
+        uplink_peer_ip must be offset +2 from the network address.
+
+    # ─────────────────────────────────────────────────────
+    # Constraint Group C: Zone Restriction (Security Zones)
+    # ─────────────────────────────────────────────────────
+    zone_restriction_standard:
+      description: >
+        Branch offices carry standard corporate connectivity only.
+        The security_zones field must contain exactly [CORPORATE, MGMT_ZONE].
+        TRADING and DMZ zones are prohibited at all branch sites, in all
+        regions. EU branches (eu-fra region) have an additional restriction:
+        they inherit the Frankfurt TRADING prohibition and must carry the
+        no_trading_zone compliance tag.
+
+      permitted_zones:
+        standard_branches: [CORPORATE, MGMT_ZONE]
+        eu_branches: [CORPORATE, MGMT_ZONE]   # same as standard — TRADING prohibited
+
+      prohibited_zones:
+        all_branches: [TRADING, TRADING_VRF, DMZ, DMZ_VRF]
+        rationale: >
+          TRADING: branches are not trading floors. Trading connectivity
+            uses dedicated leased lines from the trading desk to the
+            DC TRADING_VRF — not the branch WAN. Routing TRADING traffic
+            over branch WAN circuits would expose order flow to
+            uncontrolled commodity internet paths.
+          DMZ: branches do not host internet-facing or partner-facing
+            services. Corporate internet access is via a proxy in the
+            DC DMZ — not a local DMZ breakout. A branch DMZ would be
+            an unmonitored internet breakout outside DC security controls.
+
+      frankfurt_device_additional_constraint: >
+        Frankfurt DC devices (region: eu-fra, site: fra-dc1) have a
+        stricter prohibition. At the device level:
+          - security_zones must not include TRADING
+          - vrfs list must not contain TRADING_VRF
+          - vlans list must not contain any entry with id: 100
+          - compliance_tags must include no_trading_zone
+        At the site level (sot/sites/fra-dc1.yml):
+          - zone_permissions.TRADING must be false
+          - vlans_prohibited must include 100
+          - trading_zone_prohibited must be true
+        These checks are enforced by SC-003, SC-004 in zone_isolation.yml
+        and by SC-201, SC-202, SC-203 below. Both sets must pass.
+
+    # ──────────────────────────────────────────────────────
+    # Constraint Group D: Compliance Tag Assignment
+    # ──────────────────────────────────────────────────────
+    compliance_tag_standard:
+      description: >
+        Every branch device must carry the compliance tags appropriate
+        to its region. Tags are defined in sot/compliance/regulatory.yml
+        under device_compliance_tags. The validate_sot.py script
+        cross-references each device's region against the required
+        tag set and fails the pipeline if any required tag is missing.
+
+      required_tags_by_region:
+        emea-lon:
+          required: [fca, uk_gdpr]
+          rationale: "UK branches are FCA-supervised entities; UK GDPR applies to employee/client data"
+
+        americas-nyc:
+          required: [sox, sec]
+          rationale: "US branches fall within SOX IT general controls scope and SEC supervision"
+
+        apac:
+          required: [mas_trm]
+          rationale: "Singapore-jurisdiction branches subject to MAS TRM guidelines"
+
+        eu-fra:
+          required: [bafin, eu_gdpr, no_trading_zone]
+          rationale: "EU branches subject to BaFin oversight and EU GDPR; inherit Frankfurt TRADING prohibition"
+
+      additional_tags_permitted: true
+      notes: >
+        A device may carry more compliance tags than the minimum required
+        — for example, an APAC branch in Hong Kong might carry both
+        mas_trm and hkma_cfi. Validate_sot.py checks that required
+        tags are present; it does not fail on additional tags.
+
+    # ──────────────────────────────────────────────────────
+    # Constraint Group E: BGP Configuration Standards
+    # ──────────────────────────────────────────────────────
+    bgp_configuration_standard:
+      description: >
+        Every branch BGP configuration must satisfy the following
+        constraints at the time of provisioning. These mirror the
+        runtime requirements from INTENT-005, INTENT-006, INTENT-007
+        but are checked as SoT constraints before the config is rendered.
+
+      required_fields:
+        - field: "bgp.local_as"
+          constraint: "Must match the ASN allocated in asn_pools.yml"
+
+        - field: "bgp.router_id"
+          constraint: "Must equal the wan_ip (branch WAN IP, offset +1 from /29 network)"
+
+        - field: "bgp.neighbors[0].peer_ip"
+          constraint: "Must equal uplink_peer_ip (DC border peer, offset +2 from /29)"
+
+        - field: "bgp.neighbors[0].remote_as"
+          constraint: "Must equal the ASN of the uplink DC (e.g., 65001 for LON)"
+
+        - field: "bgp.neighbors[0].md5_password_ref"
+          constraint: "Non-null; must follow naming convention bgp_md5_branch_{hostname}"
+
+        - field: "bgp.neighbors[0].route_map_in"
+          constraint: "Must be RM_INTERDC_{REGION}_IN or RM_BRANCH_IN (see route_policies.yml)"
+          note: >
+            Branch inbound map must accept DC aggregate routes and set
+            appropriate local-preference. It must not accept TRADING
+            community routes at branches in eu-fra region.
+
+        - field: "bgp.neighbors[0].route_map_out"
+          constraint: "Must be RM_BRANCH_OUT"
+
+        - field: "bgp.networks_advertised"
+          constraint: "Exactly one entry; prefix must be the branch's assigned /29"
+
+    # ──────────────────────────────────────────────────────
+    # Constraint Group F: Lab State Gate
+    # ──────────────────────────────────────────────────────
+    lab_state_gate:
+      description: >
+        A branch record with lab_state: sot_only may exist in the SoT
+        before all provisioning checks pass — it represents a planned
+        branch not yet live. The pipeline does not generate configs for
+        sot_only devices. However, a device cannot be promoted to
+        lab_state: active until all constraints in Groups A–E pass.
+        The validate_sot.py script enforces this gate: it checks all
+        constraints on active devices and raises an error if any fail.
+
+      allowed_states:
+        - sot_only: "Record exists; no config generated; partial SoT data permitted"
+        - active: "Full validation required; config generated and pushed by pipeline"
+
+      promotion_procedure: >
+        1. Complete the branch SoT record with all required fields.
+        2. Run scripts/validate_sot.py locally — all constraints must pass.
+        3. Open a pipeline MR with the new/updated branch record.
+        4. Pipeline validate stage runs validate_sot.py — must pass.
+        5. Pipeline Batfish intent-check runs — zone isolation must pass.
+        6. MR approved by Network Engineering lead.
+        7. Change set to active, pushed in next change window.
+
+    assertion_type: sot_check
+    # Note: also validated by Batfish for zone restriction (BA-201)
+    # Primary enforcement is validate_sot.py (fast, runs before Batfish)
+
+    sot_checks:
+
+      # ── Group A: ASN Allocation ──────────────────────────────────
+
+      - id: SC-201
+        description: "Branch ASN must be within the regional pool range"
+        check_type: value_in_range
+        target_devices: all_branches
+        field_path: "asn"
+        range_map:
+          emea-lon:    { min: 65100, max: 65111 }
+          americas-nyc: { min: 65120, max: 65127 }
+          apac:        { min: 65130, max: 65135 }
+          eu-fra:      { min: 65140, max: 65143 }
+        key_field: "region"
+        severity: critical
+
+      - id: SC-202
+        description: "Branch ASN must be registered in sot/global/asn_pools.yml"
+        check_type: cross_reference
+        target_devices: all_branches
+        source_field: "asn"
+        reference_file: "sot/global/asn_pools.yml"
+        reference_path: "asn_pools.branches.*.allocations[*].asn"
+        severity: critical
+
+      - id: SC-203
+        description: "No two branch devices may share the same ASN"
+        check_type: global_uniqueness
+        target_devices: all_branches
+        field_path: "asn"
+        severity: critical
+
+      # ── Group B: IP Prefix Allocation ───────────────────────────
+
+      - id: SC-204
+        description: "Branch wan_prefix must be a /29"
+        check_type: prefix_length_exact
+        target_devices: all_branches
+        field_path: "wan_prefix"
+        expected_prefix_length: 29
+        severity: critical
+
+      - id: SC-205
+        description: "Branch wan_prefix must fall within the correct regional supernet"
+        check_type: prefix_within_supernet
+        target_devices: all_branches
+        field_path: "wan_prefix"
+        supernet_map:
+          emea-lon:    "10.100.0.0/16"
+          americas-nyc: "10.101.0.0/16"
+          apac:        "10.102.0.0/16"
+          eu-fra:      "10.103.0.0/16"
+        key_field: "region"
+        severity: critical
+
+      - id: SC-206
+        description: "Branch wan_ip must be offset +1 from the /29 network address"
+        check_type: ip_offset_from_prefix
+        target_devices: all_branches
+        prefix_field: "wan_prefix"
+        ip_field: "wan_ip"
+        expected_offset: 1
+        severity: critical
+
+      - id: SC-207
+        description: "Branch uplink_peer_ip must be offset +2 from the /29 network address"
+        check_type: ip_offset_from_prefix
+        target_devices: all_branches
+        prefix_field: "wan_prefix"
+        ip_field: "uplink_peer_ip"
+        expected_offset: 2
+        severity: critical
+
+      - id: SC-208
+        description: "No two branches may share the same wan_prefix"
+        check_type: global_uniqueness
+        target_devices: all_branches
+        field_path: "wan_prefix"
+        severity: critical
+
+      - id: SC-209
+        description: "Branch wan_prefix and lan_prefix must be identical"
+        check_type: fields_equal
+        target_devices: all_branches
+        field_a: "wan_prefix"
+        field_b: "lan_prefix"
+        severity: high
+        rationale: "Branch LAN is the same /29 as the WAN link — no separate LAN allocation"
+
+      - id: SC-210
+        description: "Branch wan_prefix must be registered in sot/global/ipam.yml"
+        check_type: cross_reference
+        target_devices: all_branches
+        source_field: "wan_prefix"
+        reference_file: "sot/global/ipam.yml"
+        reference_path: "branches.*.branches.*.wan_prefix"
+        severity: critical
+
+      # ── Group C: Zone Restriction ────────────────────────────────
+
+      - id: SC-211
+        description: "Branch security_zones must not include TRADING or TRADING_VRF"
+        check_type: field_absence
+        target_devices: all_branches
+        field_path: "security_zones"
+        must_not_contain: ["TRADING", "TRADING_VRF"]
+        severity: critical
+
+      - id: SC-212
+        description: "Branch security_zones must not include DMZ or DMZ_VRF"
+        check_type: field_absence
+        target_devices: all_branches
+        field_path: "security_zones"
+        must_not_contain: ["DMZ", "DMZ_VRF"]
+        severity: high
+
+      - id: SC-213
+        description: "Frankfurt DC device security_zones must not include TRADING"
+        check_type: field_absence
+        target_sites: [fra-dc1]
+        field_path: "security_zones"
+        must_not_contain: ["TRADING", "TRADING_VRF"]
+        severity: critical
+        regulatory_ref: "BAFIN-001 — Frankfurt entity not authorised for trading activity"
+
+      - id: SC-214
+        description: "Frankfurt DC device vlans list must not contain id=100"
+        check_type: list_value_absent
+        target_sites: [fra-dc1]
+        field_path: "vlans[*].id"
+        must_not_contain: [100]
+        severity: critical
+        regulatory_ref: "BAFIN-001, ZONE-001 audit check"
+
+      - id: SC-215
+        description: "Frankfurt DC device vrfs must not contain TRADING_VRF"
+        check_type: list_value_absent
+        target_sites: [fra-dc1]
+        field_path: "vrfs[*].name"
+        must_not_contain: ["TRADING_VRF"]
+        severity: critical
+
+      - id: SC-216
+        description: "Frankfurt site record must have trading_zone_prohibited: true and vlans_prohibited containing 100"
+        check_type: field_value
+        target_files: ["sot/sites/fra-dc1.yml"]
+        checks:
+          - field: "site.trading_zone_prohibited"
+            expected: true
+          - field: "site.vlans_prohibited"
+            must_contain: [100]
+          - field: "site.zone_permissions.TRADING"
+            expected: false
+        severity: critical
+
+      # ── Group D: Compliance Tags ──────────────────────────────────
+
+      - id: SC-217
+        description: "UK branches must carry compliance tags [fca, uk_gdpr]"
+        check_type: field_contains_all
+        target_devices: "branches where region == emea-lon"
+        field_path: "compliance_tags"
+        must_contain: [fca, uk_gdpr]
+        severity: critical
+
+      - id: SC-218
+        description: "US branches must carry compliance tags [sox, sec]"
+        check_type: field_contains_all
+        target_devices: "branches where region == americas-nyc"
+        field_path: "compliance_tags"
+        must_contain: [sox, sec]
+        severity: critical
+
+      - id: SC-219
+        description: "APAC branches must carry compliance tag [mas_trm]"
+        check_type: field_contains_all
+        target_devices: "branches where region == apac"
+        field_path: "compliance_tags"
+        must_contain: [mas_trm]
+        severity: critical
+
+      - id: SC-220
+        description: "EU branches must carry compliance tags [bafin, eu_gdpr, no_trading_zone]"
+        check_type: field_contains_all
+        target_devices: "branches where region == eu-fra"
+        field_path: "compliance_tags"
+        must_contain: [bafin, eu_gdpr, no_trading_zone]
+        severity: critical
+
+      # ── Group E: BGP Configuration ───────────────────────────────
+
+      - id: SC-221
+        description: "Branch bgp.local_as must match asn field"
+        check_type: fields_equal
+        target_devices: all_branches
+        field_a: "bgp.local_as"
+        field_b: "asn"
+        severity: critical
+
+      - id: SC-222
+        description: "Branch bgp.router_id must equal wan_ip"
+        check_type: fields_equal
+        target_devices: all_branches
+        field_a: "bgp.router_id"
+        field_b: "wan_ip"
+        severity: high
+
+      - id: SC-223
+        description: "Branch BGP neighbor peer_ip must equal uplink_peer_ip"
+        check_type: fields_equal
+        target_devices: all_branches
+        field_a: "bgp.neighbors[0].peer_ip"
+        field_b: "uplink_peer_ip"
+        severity: critical
+
+      - id: SC-224
+        description: "Branch BGP neighbor md5_password_ref must be non-null"
+        check_type: field_non_null
+        target_devices: all_branches
+        field_path: "bgp.neighbors[*].md5_password_ref"
+        severity: critical
+
+      - id: SC-225
+        description: "Branch BGP neighbor route_map_out must be RM_BRANCH_OUT"
+        check_type: field_value
+        target_devices: all_branches
+        field_path: "bgp.neighbors[0].route_map_out"
+        expected: "RM_BRANCH_OUT"
+        severity: critical
+
+      - id: SC-226
+        description: "Branch networks_advertised must contain exactly one /29 matching wan_prefix"
+        check_type: list_length_exact
+        target_devices: all_branches
+        field_path: "bgp.networks_advertised"
+        expected_length: 1
+        severity: critical
+
+      - id: SC-227
+        description: "Branch advertised prefix must match wan_prefix"
+        check_type: fields_equal
+        target_devices: all_branches
+        field_a: "bgp.networks_advertised[0].prefix"
+        field_b: "wan_prefix"
+        severity: critical
+
+      # ── Group F: Lab State Gate ──────────────────────────────────
+
+      - id: SC-228
+        description: "A device may only have lab_state: active if all other SoT checks pass"
+        check_type: conditional
+        condition: "lab_state == active"
+        required_checks: [SC-201, SC-202, SC-203, SC-204, SC-205, SC-206, SC-207, SC-208,
+                          SC-209, SC-210, SC-211, SC-212, SC-217, SC-218, SC-219, SC-220,
+                          SC-221, SC-222, SC-223, SC-224, SC-225, SC-226, SC-227]
+        target_devices: all_branches
+        severity: critical
+        rationale: >
+          sot_only devices are permitted to have incomplete records —
+          they represent planned branches not yet deployed. Only active
+          devices need fully validated records, because only active
+          devices receive pipeline-generated configurations.
+
+    batfish_check:
+      # Batfish validates the zone restrictions in the rendered network model.
+      # These run after validate_sot.py and provide a second verification
+      # layer that catches rendering errors (e.g., template bug that adds
+      # VLAN 100 to a Frankfurt device despite the SoT being correct).
+      test_file: "batfish/tests/test_zone_isolation.py"
+
+      assertions:
+
+        - id: BA-201
+          function: "test_branch_has_no_trading_vrf"
+          description: >
+            Assert that no branch node in the network model has an
+            interface in TRADING_VRF or a route in the TRADING_VRF
+            routing table. This catches template rendering errors
+            that might add TRADING config despite the SoT being correct.
+          pybatfish_api: "interfaceProperties"
+          parameters:
+            nodes: "branch-.*"
+            properties: ["VRF"]
+          expected_result: "No branch interface is in TRADING_VRF"
+          failure_action: "BLOCK pipeline"
+
+        - id: BA-202
+          function: "test_frankfurt_devices_have_no_vlan100"
+          description: >
+            Assert that no device at fra-dc1 has VLAN 100 in its
+            switched VLAN properties in the Batfish network model.
+            Duplicates BA-004 from zone_isolation.yml but applied
+            in the provisioning test suite for exercise coverage.
+          pybatfish_api: "switchedVlanProperties"
+          parameters:
+            nodes: ".*-fra-.*"
+          expected_result: "VLAN 100 absent from all Frankfurt nodes"
+          failure_action: "BLOCK pipeline — critical regulatory violation"
+
+    violation:
+      severity: critical
+      pipeline_action: block
+      notify:
+        - netops@acme-investments.com
+        - compliance@acme-investments.com
+      remediation: >
+        For a failed branch provisioning check:
+          1. Review the validate_sot.py error output to identify which
+             check(s) failed (SC-2xx reference).
+          2. Correct the branch SoT record in sot/devices/branches/.
+          3. Update sot/global/asn_pools.yml and sot/global/ipam.yml
+             if an allocation is incorrect or missing.
+          4. Re-run validate_sot.py locally before opening the MR.
+          5. Do not attempt to bypass the validate stage.
+
+        For a Frankfurt VLAN 100 violation (SC-214, SC-215, SC-216):
+          1. Treat as a critical compliance finding.
+          2. Remove the offending VLAN or VRF entry from the device file.
+          3. Verify sot/sites/fra-dc1.yml has vlans_prohibited: [100].
+          4. Run pipeline — SC-213 through SC-216 and BA-202 must pass.
+          5. Document as a near-miss in the compliance incident log.
+
+# ──────────────────────────────────────────────────────────────────
+# Design Notes — Provisioning Standards Architecture
+# ──────────────────────────────────────────────────────────────────
+
+design_notes:
+
+  sot_only_vs_active: >
+    The two-state model (sot_only → active) is a deliberate design
+    choice. It allows network engineers to plan branches in the SoT
+    — allocating ASNs and IPs, coordinating with procurement — without
+    the SoT being in a "broken" state that fails validation.
+    validate_sot.py skips Group E (BGP config) and Group F (lab state
+    gate) checks for sot_only devices, allowing incomplete records.
+    Only when lab_state is changed to active does full validation apply.
+    This approach is also used by scripts/bulk_import.py when importing
+    branch records from CSV — imported records default to sot_only.
+
+  dual_enforcement_philosophy: >
+    Provisioning standards (this file, INTENT-010) enforce constraints
+    at SoT creation time. Runtime intents (INTENT-001/002 in
+    zone_isolation.yml) enforce constraints continuously against the
+    rendered network model. Both are necessary:
+      - SoT checks are fast (pure data validation, no network model)
+        and catch errors before any config is rendered.
+      - Batfish checks are authoritative (model the actual network
+        behaviour) and catch template rendering bugs or edge cases
+        that SoT data validation cannot see.
+    If SoT checks fail, the pipeline never reaches Batfish.
+    If Batfish checks fail, the pipeline never reaches push.
+    A configuration that reaches a device has passed both layers.
+
+  frankfurt_check_layering: >
+    Frankfurt VLAN 100 prohibition is checked at three layers:
+      Layer 1 (SoT data):     SC-213 through SC-216 — validate_sot.py
+      Layer 2 (Network model): BA-004 (zone_isolation.yml) + BA-202 here
+      Layer 3 (Audit):        ZONE-001 audit check — compliance_report.yml
+    Each layer is independent. A bug in SoT validation does not disable
+    the Batfish check. A bug in the Batfish template does not disable
+    the ZONE-001 audit check. Regulators receive evidence from all three.
+
+  bulk_import_integration: >
+    scripts/bulk_import.py (Phase 10) imports branch records from a CSV
+    and produces SoT YAML for review. It applies all INTENT-010 constraints
+    as validation rules during import. Specifically:
+      - Looks up the next available ASN from asn_pools.yml
+      - Looks up the next available /29 from ipam.yml
+      - Applies the correct compliance_tags for the specified region
+      - Sets security_zones to [CORPORATE, MGMT_ZONE] unconditionally
+      - Sets lab_state to sot_only for all imported records
+      - Outputs YAML for human review before being committed to the SoT
+    This ensures bulk-imported branches satisfy INTENT-010 from the start.

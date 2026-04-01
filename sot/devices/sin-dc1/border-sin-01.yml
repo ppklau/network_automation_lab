@@ -20,6 +20,7 @@ lab_state: active   # This node IS instantiated in containerlab
 
 compliance_tags: [mas_trm, hkma_cfi, apac_data_residency]
 security_zones: [TRADING, CORPORATE, DMZ, MGMT_ZONE]
+intent_refs: [INTENT-001, INTENT-002, INTENT-005, INTENT-006, INTENT-008, INTENT-011]
 
 management:
   interface: eth0

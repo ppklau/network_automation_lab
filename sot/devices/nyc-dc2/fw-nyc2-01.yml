@@ -18,6 +18,7 @@ site: nyc-dc2
 region: americas-nyc
 compliance_tags: [sox, sec, reg_sci]
 security_zones: [TRADING, CORPORATE, DMZ, MGMT_ZONE]
+intent_refs: [INTENT-001, INTENT-002, INTENT-005, INTENT-011]
 
 management:
   interface: eth0

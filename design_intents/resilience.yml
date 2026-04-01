@@ -1,0 +1,658 @@
+---
+# ACME Investments — Design Intents: Resilience
+# Layer 2 of the Intent-Based Networking (IBN) model
+#
+# This file defines the architectural resilience requirements for the
+# ACME DC fabric and inter-region WAN. It specifies the minimum
+# redundancy that must exist at every layer of the network, and the
+# fast-failure-detection mechanisms that keep reconvergence within
+# operational and regulatory time bounds.
+#
+# Intent defined here:
+#   INTENT-008  DC fabric and WAN resilience — dual spine, dual WAN,
+#               fast failure detection, VRRP gateway redundancy
+#
+# Traceability:
+#   REQ-020 → INTENT-008 → two spines per DC, each leaf peers to both,
+#                           BFD on fabric sessions, VRRP spine tracking
+#   REQ-021 → INTENT-008 → two WAN paths per border, BFD on WAN sessions
+#
+# Regulatory context:
+#   FCA PS21/3 — max tolerable disruption for trading IBS: 15 minutes
+#   SEC Reg SCI — trading system availability SLA: 99.999%
+#   MAS TRM 6.2 — critical systems must meet availability targets
+#
+# Reconvergence targets encoded in this intent:
+#   DC fabric (spine failure):   < 30 seconds (BFD 3x300ms + BGP hold)
+#   Gateway failover (VRRP):     < 65 seconds (60s preempt delay + 3s advert)
+#   WAN circuit failure:         < 90 seconds (BFD 3x1s + BGP hold-time)
+#   Total RTO (worst case):      < 3 minutes (well within FCA 15-minute tolerance)
+#
+# Reviewed by: Head of Infrastructure, Head of Network Operations — 2026-03-01
+
+intents:
+
+  - id: INTENT-008
+    title: "DC fabric and WAN must tolerate any single component failure without service loss"
+    requirement_refs: [REQ-020, REQ-021]
+    regulatory_refs: [FCA-004, REGSCI-001, REGSCI-002, MAS-003, SOX-001]
+    related_intents: [INTENT-001, INTENT-002, INTENT-005, INTENT-006]
+
+    description: >
+      The network must be designed and verified such that loss of any
+      single component — a spine switch, a leaf-to-spine link, a WAN
+      circuit, or a gateway — does not cause loss of connectivity for
+      any end system. Specifically:
+        (a) Each DC must have exactly two spine switches acting as BGP
+            route reflectors. All traffic between any two devices in the
+            same DC must have at least two equal-cost paths (ECMP).
+        (b) Each leaf switch must have a direct physical link to both
+            spine switches, with an iBGP session to each.
+        (c) Each active DC border router must have at least two WAN
+            circuits to peer regions. Loss of any single WAN circuit
+            must not isolate the DC from inter-region routing.
+        (d) BFD must be enabled on all iBGP fabric sessions and all
+            eBGP WAN sessions to ensure failure detection completes
+            within 3 seconds, not 90 seconds (BGP hold timer).
+        (e) VRRP gateway redundancy must be active on all SVI VLANs.
+            VRRP must track both spine uplinks so that a spine failure
+            causes the affected leaf to yield the gateway role.
+
+    rationale: >
+      The FCA PS21/3 operational resilience policy requires that ACME
+      can remain within its impact tolerance (15-minute max disruption
+      for trading connectivity) during severe but plausible disruptions.
+      A spine switch failure is a plausible single-device failure.
+      Without dual spine + ECMP, a spine failure would isolate all
+      leaves from the border router, disrupting all trading and
+      corporate connectivity simultaneously. The 15-minute tolerance
+      is the FCA minimum; the design target is < 3 minutes from
+      failure to full reconvergence.
+
+    # ──────────────────────────────────────────────────────────────
+    # Component 1: Dual Spine per DC
+    # ──────────────────────────────────────────────────────────────
+    dual_spine_standard:
+      description: >
+        Every DC must have exactly two spine switches. Both spines act
+        as iBGP route reflectors for the DC fabric. They peer with each
+        other as non-RR-client iBGP peers (spine-spine peer) and reflect
+        routes to all leaves and the border router.
+
+      dc_spine_inventory:
+        lon-dc1:  [spine-lon-01, spine-lon-02]    # AS 65001
+        lon-dc2:  [spine-lon2-01, spine-lon2-02]  # AS 65002
+        nyc-dc1:  [spine-nyc-01, spine-nyc-02]    # AS 65010
+        nyc-dc2:  [spine-nyc2-01, spine-nyc2-02]  # AS 65011
+        sin-dc1:  [spine-sin-01, spine-sin-02]    # AS 65020
+        hkg-dc1:  [spine-hkg-01, spine-hkg-02]    # AS 65021
+        fra-dc1:  [spine-fra-01, spine-fra-02]    # AS 65030
+
+      spine_rr_configuration:
+        role: route_reflector
+        rr_peer_relationship: >
+          The two spines within each DC are peers to each other
+          (route_reflector_client: false). This prevents a routing
+          loop where spine-01 reflects a route from leaf-A to spine-02,
+          which then reflects it back to leaf-A.
+        clients: "All leaves and border router(s) in the same DC"
+        update_source: Loopback0
+        md5_required: true   # see INTENT-005
+
+      failure_scenario: >
+        If spine-01 fails:
+          - All leaf-to-spine-01 BGP sessions drop (BFD detects within ~900ms)
+          - Leaf BGP hold timers expire (3 * 300ms BFD = 900ms, not 90s hold timer)
+          - ECMP routes through spine-01 are withdrawn from leaf routing tables
+          - All traffic immediately shifts to spine-02 paths (already installed)
+          - Border router continues to receive routes via spine-02
+          - Impact: brief packet loss during FIB update (< 1 second with BFD)
+
+    # ──────────────────────────────────────────────────────────────
+    # Component 2: Leaf Dual-Home to Both Spines
+    # ──────────────────────────────────────────────────────────────
+    leaf_dual_home_standard:
+      description: >
+        Every leaf switch must have a direct physical link to both
+        spine switches in its DC. The leaf must establish a BGP
+        session to each spine (both acting as RR). ECMP must be
+        configured with maximum-paths ≥ 2 so that traffic is
+        distributed across both spine uplinks.
+
+      required_per_leaf:
+        fabric_interfaces:
+          count: 2
+          layout:
+            - ethernet1: "uplink to spine-01 (e.g., spine-lon-01 Ethernet1)"
+            - ethernet2: "uplink to spine-02 (e.g., spine-lon-02 Ethernet1)"
+          ip_scheme: "/31 point-to-point from fabric_p2p range"
+          mtu: 9214
+          speed: 100G
+
+        bgp_sessions:
+          count: 2
+          peers:
+            - "spine-01 Loopback0 (e.g., 10.1.255.1 for spine-lon-01)"
+            - "spine-02 Loopback0 (e.g., 10.1.255.2 for spine-lon-02)"
+          session_type: iBGP
+          update_source: Loopback0
+          route_reflector_client: false   # leaf is the client; spine is the RR
+          md5_required: true
+
+      ecmp_configuration:
+        maximum_paths: 4         # from platform_defaults bgp_defaults.maximum_paths
+        bestpath_as_path: multipath_relax
+        bestpath_ecmp_fast: true
+
+      fabric_link_ips:
+        # Pattern for lon-dc1 (repeated at each DC with appropriate supernet):
+        # spine01_leafXX: 10.1.100.{N}/31   spine=.N, leaf=.N+1
+        # spine02_leafXX: 10.1.100.{N+8}/31 spine=.N+8, leaf=.N+9
+        lon_dc1_example:
+          leaf_lon_01:
+            to_spine01: "10.1.100.0/31  (leaf=.1, spine=.0)"
+            to_spine02: "10.1.100.8/31  (leaf=.9, spine=.8)"
+          leaf_lon_02:
+            to_spine01: "10.1.100.2/31  (leaf=.3, spine=.2)"
+            to_spine02: "10.1.100.10/31 (leaf=.11, spine=.10)"
+          leaf_lon_03:
+            to_spine01: "10.1.100.4/31  (leaf=.5, spine=.4)"
+            to_spine02: "10.1.100.12/31 (leaf=.13, spine=.12)"
+          leaf_lon_04:
+            to_spine01: "10.1.100.6/31  (leaf=.7, spine=.6)"
+            to_spine02: "10.1.100.14/31 (leaf=.15, spine=.14)"
+
+    # ──────────────────────────────────────────────────────────────
+    # Component 3: VRRP Gateway Redundancy with Spine Uplink Tracking
+    # ──────────────────────────────────────────────────────────────
+    vrrp_standard:
+      description: >
+        Each SVI VLAN on the leaf layer must have VRRP configured
+        to provide a redundant default gateway. VRRP groups are
+        split across leaves to distribute active gateway load.
+        Each VRRP group must track both spine uplink interfaces
+        so that if a spine link fails, the leaf yields the active
+        gateway role — preventing a black hole where end systems
+        send traffic to a leaf that has lost its spine uplinks.
+
+      vrrp_groups_lon_dc1:
+        # Active/standby assignments for LON DC1
+        # Leaves 01+02 are the primary gateway pair; 03+04 are secondary
+        vlan100_trading:
+          vip: 10.1.1.1
+          active_leaf: leaf-lon-01    # priority 110
+          standby_leaf: leaf-lon-02   # priority 90
+          preempt: true
+          preempt_delay_seconds: 60
+          advertisement_interval_ms: 1000
+
+        vlan200_corporate:
+          vip: 10.1.2.1
+          active_leaf: leaf-lon-02    # priority 110 — split load vs TRADING
+          standby_leaf: leaf-lon-01   # priority 90
+          preempt: true
+          preempt_delay_seconds: 60
+          advertisement_interval_ms: 1000
+
+        vlan400_mgmt:
+          vip: 10.1.0.126
+          active_leaf: leaf-lon-04    # priority 110
+          standby_leaf: leaf-lon-03   # priority 90
+          preempt: true
+          preempt_delay_seconds: 60
+          advertisement_interval_ms: 1000
+
+      vrrp_tracking_requirement:
+        description: >
+          Every active VRRP group must track both spine-facing interfaces
+          (Ethernet1 → spine-01, Ethernet2 → spine-02). Each tracking
+          entry must decrement the VRRP priority by at least 20 on
+          interface failure. With two tracking entries of 20 each:
+            - Normal:     priority = configured (e.g., 110)
+            - Spine-01 down: priority = 90 (may still be active)
+            - Spine-02 down: priority = 90 (may still be active)
+            - Both spines down: priority = 70 (below any standby — yields gateway)
+          This ensures a leaf isolated from both spines always yields
+          the gateway role to a leaf that still has spine connectivity.
+        track_interfaces: [Ethernet1, Ethernet2]
+        priority_decrement: 20   # per interface
+        minimum_resulting_priority: 70   # if both spines down
+
+      preempt_delay_rationale: >
+        The 60-second preempt delay prevents VRRP flapping when a spine
+        comes back online. Without the delay, the high-priority leaf
+        would immediately reclaim the active gateway role, causing a
+        brief traffic interruption even though both paths are operational.
+        60 seconds allows BGP to reconverge fully before VRRP transitions.
+
+    # ──────────────────────────────────────────────────────────────
+    # Component 4: Dual WAN Paths per Border Router
+    # ──────────────────────────────────────────────────────────────
+    wan_redundancy_standard:
+      description: >
+        Every active DC border router must maintain at least two eBGP
+        WAN sessions to peer regions, using physically diverse circuits
+        on different carriers where possible. Loss of any single WAN
+        circuit must not isolate the DC from inter-region routing.
+        BGP ECMP must be configured on border routers (maximum-paths ≥ 2)
+        so that traffic is distributed across available WAN paths.
+
+      border_wan_inventory:
+        border-lon-01:
+          wan_sessions:
+            - peer: border-nyc-01
+              interface: Ethernet3
+              circuit: LON-NYC-WAN-001
+              carrier: "Equinix Fabric"
+              peer_asn: 65010
+
+            - peer: border-sin-01
+              interface: Ethernet4
+              circuit: LON-SIN-WAN-001
+              carrier: "Tata Communications"
+              peer_asn: 65020
+
+            - peer: border-fra-01
+              interface: Ethernet5
+              circuit: LON-FRA-WAN-001
+              carrier: "Deutsche Telekom"
+              peer_asn: 65030
+          minimum_active_sessions: 2
+          notes: >
+            LON is the hub. Loss of any one WAN circuit leaves LON
+            connected to the other two regions. Traffic to the
+            disconnected region is rerouted via the remaining peers
+            (e.g., LON→SIN→HKG if LON-SIN direct is lost, using
+            BGP local-preference to prefer direct paths).
+
+        border-nyc-01:
+          # NYC connects to LON only (hub-spoke from NYC perspective)
+          # Redundancy provided by secondary NYC DC (nyc-dc2) via intra-NYC link
+          wan_sessions:
+            - peer: border-lon-01
+              circuit: LON-NYC-WAN-001
+              peer_asn: 65001
+            - peer: border-nyc2-01
+              circuit: NYC-DC1-DC2-001
+              peer_asn: 65002
+          minimum_active_sessions: 1
+          notes: >
+            NYC has one WAN link to LON. Resilience is provided by
+            the intra-NYC link to NYC DC2, which has its own LON WAN
+            path in the full production topology. In the lab, NYC-DC2
+            is sot_only — this resilience is tested at SoT level only.
+
+        border-sin-01:
+          wan_sessions:
+            - peer: border-lon-01
+              circuit: LON-SIN-WAN-001
+              peer_asn: 65001
+            - peer: border-hkg-01
+              circuit: SIN-HKG-001
+              peer_asn: 65021
+          minimum_active_sessions: 1
+          notes: "APAC intra-DC link provides secondary path"
+
+        border-fra-01:
+          wan_sessions:
+            - peer: border-lon-01
+              circuit: LON-FRA-WAN-001
+              peer_asn: 65001
+          minimum_active_sessions: 1
+          notes: >
+            FRA has a single WAN link to LON. FRA is a regulatory
+            reporting hub only — it does not carry trading traffic.
+            A FRA WAN outage affects reporting functions but does
+            not breach the trading system availability SLA.
+            Adding a second FRA WAN path is in the infrastructure
+            roadmap for 2027.
+
+    # ──────────────────────────────────────────────────────────────
+    # Component 5: BFD for Fast Failure Detection
+    # ──────────────────────────────────────────────────────────────
+    bfd_standard:
+      description: >
+        Bidirectional Forwarding Detection (BFD) must be enabled on
+        all iBGP fabric sessions and all eBGP WAN sessions. BFD
+        reduces failure detection from the BGP hold timer (90 seconds
+        at default configuration) to 3 × BFD interval, enabling
+        much faster reconvergence.
+
+      bfd_timers:
+        fabric_ibgp:
+          interval_ms: 300
+          multiplier: 3
+          detection_time_ms: 900   # 3 × 300ms = 900ms
+          notes: "300ms interval is appropriate for DC fabric — low latency, reliable links"
+
+        wan_ebgp:
+          interval_ms: 1000
+          multiplier: 3
+          detection_time_ms: 3000   # 3 × 1s = 3s
+          notes: >
+            1s interval for WAN links — more conservative than fabric
+            to avoid false positives on higher-latency circuits.
+            Equinix Fabric and Tata circuits have SLA latency <20ms
+            LON-NYC; BFD at 1s interval is well within tolerance.
+
+      reconvergence_timeline:
+        spine_failure:
+          step1: "BFD detects leaf-to-spine link failure: ~900ms"
+          step2: "Leaf withdraws BGP routes via failed spine path: ~100ms"
+          step3: "ECMP FIB update on all fabric devices: ~500ms"
+          step4: "Traffic shifts to surviving spine: already in FIB"
+          total: "< 2 seconds"
+          note: "VRRP preempt triggers separately if VRRP tracking fires (60s delay)"
+
+        wan_failure:
+          step1: "BFD detects WAN link failure: ~3s"
+          step2: "Border withdraws eBGP routes for failed circuit: ~100ms"
+          step3: "BGP reconvergence propagates to spines and leaves: ~5-10s"
+          step4: "Traffic reroutes via surviving WAN paths: already in RIB if ECMP"
+          total: "< 15 seconds end-to-end reconvergence"
+
+        rto_target:
+          trading_systems: "< 30 seconds from any single failure"
+          corporate_systems: "< 60 seconds (VRRP preempt delay included)"
+          regulatory_requirement: "FCA PS21/3 impact tolerance: 15 minutes"
+          margin: "30s actual vs 15min tolerance — 30× margin"
+
+      platform_enablement:
+        arista_eos: "bfd: enabled in platform_defaults (bgp_defaults section)"
+        frr: "bfdd daemon in FRR suite — enabled in platform_defaults"
+
+    assertion_type: batfish_check
+
+    batfish_check:
+      test_file: "batfish/tests/test_resilience.py"
+
+      assertions:
+
+        - id: BA-301
+          function: "test_two_spines_per_dc"
+          description: >
+            Assert that every DC site has exactly two devices with
+            role: spine. A DC with zero or one spine violates the
+            dual-spine requirement.
+          pybatfish_api: "nodeProperties"
+          parameters:
+            properties: ["Role"]
+            nodeRegex: "spine-.*"
+          expected_result: >
+            For each DC site (lon-dc1, lon-dc2, nyc-dc1, nyc-dc2,
+            sin-dc1, hkg-dc1, fra-dc1): exactly two nodes with
+            role=spine exist in the snapshot. Any DC with fewer
+            than two spine nodes fails.
+          failure_action: "BLOCK pipeline"
+
+        - id: BA-302
+          function: "test_each_leaf_peers_to_both_spines"
+          description: >
+            Assert that every leaf switch has exactly two iBGP sessions
+            in the network model — one to each spine in its DC.
+            A leaf with only one spine iBGP session is missing its
+            redundant path and violates the dual-home requirement.
+          pybatfish_api: "bgpEdges"
+          parameters:
+            type: "IBGP"
+            nodeRegex: "leaf-.*"
+          expected_result: >
+            Every leaf node has exactly two iBGP edges, one to each
+            spine in the same DC. No leaf has fewer than two iBGP
+            sessions.
+          failure_action: "BLOCK pipeline"
+
+        - id: BA-303
+          function: "test_ecmp_paths_exist_leaf_to_border"
+          description: >
+            Assert that for every leaf node, there are at least two
+            equal-cost paths to the border router in the same DC.
+            This verifies that ECMP is working across both spine
+            uplinks, not just that two uplinks are physically present.
+          pybatfish_api: "routes"
+          parameters:
+            protocols: ["bgp"]
+            nodeRegex: "leaf-.*"
+            network: "10.1.255.20/32"   # border-lon-01 loopback (representative)
+          expected_result: >
+            Each leaf has at least two BGP routes to the border
+            loopback with equal metric (ECMP). A leaf with only one
+            path to the border fails even if two spines are present
+            (would indicate one spine is not properly reflecting routes).
+          failure_action: "BLOCK pipeline"
+
+        - id: BA-304
+          function: "test_spine_failure_simulation"
+          description: >
+            Simulate failure of each spine in turn and assert that
+            all leaves retain at least one path to the border router.
+            Uses Batfish single-failure analysis to verify no leaf
+            is isolated when any single spine is removed.
+          pybatfish_api: "searchRoutePolicies"
+          parameters:
+            type: "singleFailure"
+            failureType: "NODE"
+            nodeRegex: "spine-.*"
+          expected_result: >
+            For every spine node failure: all leaves in the same DC
+            continue to have at least one path to the border router.
+            No leaf is completely isolated by any single spine failure.
+          failure_action: "BLOCK pipeline"
+
+        - id: BA-305
+          function: "test_border_has_minimum_wan_sessions"
+          description: >
+            Assert that each active border router has at least the
+            minimum number of WAN eBGP sessions defined in the
+            wan_redundancy_standard. For LON specifically, minimum
+            is 2 sessions (NYC + SIN, with FRA as third).
+          pybatfish_api: "bgpEdges"
+          parameters:
+            type: "EBGP"
+            nodeRegex: "border-.*"
+          expected_result: >
+            border-lon-01: at least 3 eBGP WAN sessions (NYC, SIN, FRA).
+            border-nyc-01: at least 1 eBGP WAN session (LON).
+            border-sin-01: at least 1 eBGP WAN session (LON).
+            border-fra-01: at least 1 eBGP WAN session (LON).
+            Any active border router with zero eBGP WAN sessions fails.
+          failure_action: "BLOCK pipeline"
+
+        - id: BA-306
+          function: "test_wan_failure_simulation"
+          description: >
+            Simulate failure of each WAN circuit from border-lon-01
+            in turn and assert that inter-region routing continues
+            via remaining paths. Specifically: LON-NYC link failure
+            must not isolate NYC (LON must still have SIN and FRA
+            paths in the routing table).
+          pybatfish_api: "searchRoutePolicies"
+          parameters:
+            type: "singleFailure"
+            failureType: "INTERFACE"
+            interfaceRegex: "border-lon-01\\[Ethernet[3-5]\\]"
+          expected_result: >
+            For each WAN interface failure on border-lon-01:
+            the routing table on border-lon-01 still contains routes
+            to all other DC loopbacks via surviving WAN paths.
+            No DC is completely unreachable from LON after any
+            single WAN interface failure.
+          failure_action: "BLOCK pipeline"
+
+        - id: BA-307
+          function: "test_vrrp_spine_tracking_configured"
+          description: >
+            Assert that all VRRP groups on all leaf nodes have
+            tracking entries for both spine uplink interfaces
+            (Ethernet1 and Ethernet2), with a priority decrement
+            of at least 20 per interface.
+          pybatfish_api: "interfaceProperties"
+          parameters:
+            nodeRegex: "leaf-.*"
+            properties: ["VRRP_GROUPS"]
+          expected_result: >
+            Every VRRP group on every leaf has:
+              - track interface Ethernet1, decrement >= 20
+              - track interface Ethernet2, decrement >= 20
+            Any VRRP group missing tracking entries for both spine
+            uplinks fails this assertion.
+          failure_action: "WARN — does not block pipeline but raises as finding"
+          notes: >
+            Downgraded to WARN rather than BLOCK because Batfish's
+            VRRP tracking model may not capture all EOS-specific
+            tracking configurations. This assertion validates intent
+            but a manual review of the VRRP section in device files
+            is the authoritative check.
+
+    sot_checks:
+
+      - id: SC-301
+        description: "Each DC must have exactly two devices with role: spine"
+        check_type: count_by_site_and_role
+        role: spine
+        expected_count: 2
+        target_sites: all_dc_sites
+        severity: critical
+
+      - id: SC-302
+        description: "Each leaf must have exactly two fabric interfaces (to spine-01 and spine-02)"
+        check_type: interface_count_by_peer_role
+        target_devices: "all devices with role: leaf"
+        peer_role: spine
+        expected_count: 2
+        severity: critical
+
+      - id: SC-303
+        description: "Each leaf must have exactly two iBGP BGP neighbors (one to each spine loopback)"
+        check_type: bgp_neighbor_count_by_remote_role
+        target_devices: "all devices with role: leaf"
+        remote_role: spine
+        expected_count: 2
+        session_type: ibgp
+        severity: critical
+
+      - id: SC-304
+        description: "Border router must have at least two WAN interface entries"
+        check_type: interface_count_by_type
+        target_devices: "all devices with role: border and lab_state: active"
+        interface_type: wan
+        minimum_count: 2
+        severity: critical
+        exceptions:
+          - device: border-fra-01
+            minimum_count: 1
+            rationale: "FRA has single WAN link — second WAN path is in 2027 roadmap"
+
+      - id: SC-305
+        description: "BFD must be enabled in platform_defaults for all platforms"
+        check_type: field_value
+        target_files:
+          - "sot/global/platform_defaults.yml"
+        checks:
+          - field: "platforms.arista_eos.features.bfd"
+            expected: "enabled"
+          - field: "platforms.frr.features.bfd"
+            expected: "enabled"
+        severity: critical
+
+      - id: SC-306
+        description: "VRRP groups on leaves must have track entries for both Ethernet1 and Ethernet2"
+        check_type: vrrp_track_presence
+        target_devices: "all devices with role: leaf"
+        required_tracked_interfaces: [Ethernet1, Ethernet2]
+        minimum_decrement: 20
+        severity: high
+
+      - id: SC-307
+        description: "BGP maximum_paths must be >= 2 on all devices (ECMP enablement)"
+        check_type: field_gte
+        target_devices: all
+        field_path: "bgp.address_family_defaults.ipv4_unicast.maximum_paths"
+        fallback_field: "platform_defaults.bgp_defaults.maximum_paths"
+        minimum_value: 2
+        severity: high
+
+    violation:
+      severity: critical
+      pipeline_action: block
+      notify:
+        - netops@acme-investments.com
+        - infra@acme-investments.com
+      escalation: >
+        If a resilience violation is detected in production (not caught
+        by pre-push checks), it must be treated as a P2 incident.
+        The network operations team must assess the current exposure
+        (is the network actually operating with a single point of failure?)
+        and implement a temporary mitigation (e.g., manual failover
+        staging) while the pipeline fix is prepared.
+      remediation: >
+        For missing spine (SC-301):
+          Verify the spine device record exists in sot/devices/{site}/.
+          If the device is being decommissioned, ensure a replacement
+          is provisioned before the old device is removed from the SoT.
+
+        For leaf missing spine peer (SC-302, SC-303):
+          Add the missing fabric interface and BGP neighbor entry
+          to the leaf device file. Verify the peer_device and
+          peer_interface fields match the spine's interface list.
+
+        For border missing WAN session (SC-304):
+          A WAN session can only be removed if the circuit has been
+          physically decommissioned. If the circuit is still present,
+          restore the BGP neighbor entry. If the circuit is being
+          replaced, ensure the replacement is provisioned before the
+          old entry is removed.
+
+        For VRRP tracking missing (SC-306):
+          Add the missing track entries to the VRRP group in the
+          leaf device file. Both Ethernet1 and Ethernet2 must be
+          tracked with decrement: 20.
+
+# ──────────────────────────────────────────────────────────────────
+# Design Notes — Resilience Architecture
+# ──────────────────────────────────────────────────────────────────
+
+design_notes:
+
+  why_not_mlag: >
+    The DC fabric uses a spine-leaf BGP ECMP design rather than MLAG
+    (Multi-chassis Link Aggregation). MLAG provides active-active
+    redundancy at Layer 2 but introduces complexity (peer-link
+    dependency, split-brain scenarios) that is harder to model and
+    assert against with Batfish. The BGP ECMP model is fully
+    machine-verifiable: Batfish can simulate spine failures and
+    assert path continuity. MLAG split-brain scenarios are not
+    modelled by Batfish's data-plane analysis. For a compliance-
+    driven architecture, the verifiability of BGP ECMP is a stronger
+    design argument than the theoretical throughput gain of MLAG.
+
+  vrrp_load_splitting: >
+    VRRP active/standby is split across leaves to balance gateway
+    load. leaf-lon-01 is active for TRADING (VLAN 100), leaf-lon-02
+    is active for CORPORATE (VLAN 200), leaf-lon-04 is active for
+    MGMT (VLAN 400). This means a single leaf failure affects only
+    one zone's gateway (the standby takes over for the other zones
+    immediately). Without load splitting, a single leaf failure would
+    cause all gateways to fail over simultaneously, creating a
+    reconvergence spike.
+
+  fra_wan_single_link: >
+    Frankfurt has a single WAN link (LON-FRA-WAN-001). This is
+    accepted as a risk because:
+      (a) FRA is a regulatory/reporting hub only — not a trading site.
+          A FRA WAN outage does not breach the trading SLA.
+      (b) A second FRA WAN path is in the 2027 infrastructure roadmap.
+      (c) FRA devices are mostly sot_only in the current architecture —
+          only border-fra-01 is active in the lab.
+    SC-304 has an explicit exception for border-fra-01 documenting
+    this accepted risk. This exception will be removed when the
+    second FRA WAN link is provisioned.
+
+  bfd_timer_selection: >
+    Fabric BFD at 300ms × 3 = 900ms detection was chosen over faster
+    intervals (e.g., 50ms × 3 = 150ms) to avoid false positives from
+    transient interface blips during software upgrades or port resets.
+    In a containerlab environment, CPU contention can cause BFD packets
+    to be delayed, making sub-second intervals unreliable. For the lab,
+    300ms is the minimum practical interval. In production hardware,
+    50-100ms intervals are appropriate on DC fabric links.
