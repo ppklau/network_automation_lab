@@ -1,0 +1,317 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://acme-investments.internal/schemas/device.schema.json",
+  "title": "ACME Investments — DC Device SoT Schema",
+  "description": "Validates individual DC device files in sot/devices/{site}/*.yml (non-branch). Checked by scripts/validate_sot.py at CI validate stage.",
+  "type": "object",
+  "required": [
+    "hostname",
+    "fqdn",
+    "role",
+    "platform",
+    "site",
+    "region",
+    "lab_state",
+    "compliance_tags",
+    "security_zones",
+    "intent_refs",
+    "management",
+    "loopback"
+  ],
+  "additionalProperties": true,
+
+  "properties": {
+
+    "hostname": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]+$",
+      "description": "Lowercase alphanumeric with hyphens. Must match filename without .yml."
+    },
+
+    "fqdn": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9.-]+\\.[a-z]+$"
+    },
+
+    "role": {
+      "type": "string",
+      "enum": ["spine", "leaf", "border", "fw", "firewall"],
+      "description": "DC device roles. 'fw' and 'firewall' are equivalent — prefer 'fw' for new devices."
+    },
+
+    "platform": {
+      "type": "string",
+      "enum": ["arista_eos", "frr"],
+      "description": "arista_eos for cEOS DC devices; frr for border stubs and firewalls."
+    },
+
+    "image": {
+      "type": "string",
+      "description": "Container image tag used in containerlab."
+    },
+
+    "hardware_model": { "type": "string" },
+    "serial":         { "type": "string" },
+
+    "eol_date": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+      "description": "ISO 8601 date — YYYY-MM-DD."
+    },
+
+    "site": {
+      "type": "string",
+      "description": "Site code — must match a key in sot/sites/. E.g. lon-dc1, fra-dc1."
+    },
+
+    "region": {
+      "type": "string",
+      "enum": ["emea-lon", "americas-nyc", "apac", "eu-fra"]
+    },
+
+    "lab_state": {
+      "type": "string",
+      "enum": ["active", "sot_only"],
+      "description": "active = instantiated in containerlab; sot_only = SoT record only."
+    },
+
+    "compliance_tags": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1,
+      "description": "Regulatory tags. Validated for regional completeness by validate_sot.py."
+    },
+
+    "security_zones": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["TRADING", "CORPORATE", "DMZ", "MGMT_ZONE"]
+      },
+      "description": "Zones this device participates in. Frankfurt devices: TRADING must never appear."
+    },
+
+    "intent_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^INTENT-\\d{3}$"
+      },
+      "minItems": 1,
+      "description": "Design intent IDs this device is bound by. Validated against design_intents/ by validate_sot.py."
+    },
+
+    "management": {
+      "type": "object",
+      "required": ["interface", "ip"],
+      "properties": {
+        "interface": { "type": "string" },
+        "ip":        { "type": "string" },
+        "gateway":   { "type": "string" },
+        "vrf":       { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+
+    "loopback": {
+      "type": "object",
+      "required": ["interface", "ip"],
+      "properties": {
+        "interface":   { "type": "string" },
+        "ip":          { "type": "string" },
+        "description": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+
+    "ntp_source_interface":     { "type": "string" },
+    "logging_source_interface": { "type": "string" },
+    "snmp_source_interface":    { "type": "string" },
+
+    "vrfs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name":                { "type": "string" },
+          "description":         { "type": "string" },
+          "rd":                  { "type": "string" },
+          "route_target_import": { "type": "string" },
+          "route_target_export": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+
+    "vlans": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["vlan_id", "name"],
+        "properties": {
+          "vlan_id": { "type": "integer", "minimum": 1, "maximum": 4094 },
+          "name":    { "type": "string" },
+          "vrf":     { "type": "string" },
+          "svi_ip":  { "type": "string" },
+          "active":  { "type": "boolean" }
+        },
+        "additionalProperties": false
+      }
+    },
+
+    "interfaces": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name":           { "type": "string" },
+          "description":    { "type": "string" },
+          "ip":             { "type": ["string", "null"] },
+          "vrf":            { "type": "string" },
+          "peer_device":    { "type": "string" },
+          "peer_interface": { "type": "string" },
+          "peer_ip":        { "type": "string" },
+          "mtu":            { "type": "integer" },
+          "speed":          { "type": "string" },
+          "mode": {
+            "type": "string",
+            "enum": ["access", "trunk", "routed"]
+          },
+          "access_vlan":    { "type": "integer" },
+          "trunk_vlans":    { "type": "array", "items": { "type": "integer" } },
+          "vrrp_group":     { "type": "integer" },
+          "shutdown":       { "type": "boolean" }
+        },
+        "additionalProperties": true
+      }
+    },
+
+    "bgp": {
+      "type": "object",
+      "required": ["local_as", "router_id"],
+      "properties": {
+        "local_as":   { "type": "integer" },
+        "router_id":  { "type": "string" },
+        "role": {
+          "type": "string",
+          "enum": ["route_reflector", "rr_client", "border", "branch", "firewall_bgp"]
+        },
+        "neighbors": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["peer_ip", "remote_as"],
+            "properties": {
+              "peer_ip":              { "type": "string" },
+              "remote_as":            { "type": "integer" },
+              "description":          { "type": "string" },
+              "update_source":        { "type": "string" },
+              "route_reflector_client": { "type": "boolean" },
+              "md5_password_ref":     { "type": "string" },
+              "route_map_in":         { "type": "string" },
+              "route_map_out":        { "type": "string" },
+              "prefix_list_in":       { "type": "string" },
+              "prefix_list_out":      { "type": "string" },
+              "address_families":     { "type": "array" },
+              "bfd":                  { "type": "boolean" },
+              "send_community":       { "type": "string" },
+              "ebgp_multihop":        { "type": "integer" },
+              "next_hop_self":        { "type": "boolean" },
+              "soft_reconfiguration": { "type": "boolean" }
+            },
+            "additionalProperties": true,
+            "properties": {
+              "bgp_password": {
+                "not": {},
+                "description": "FORBIDDEN — inline BGP passwords are prohibited. Use md5_password_ref pointing to Vault. See INTENT-005, SC-103."
+              }
+            }
+          }
+        },
+        "timers": {
+          "type": "object",
+          "properties": {
+            "keepalive":  { "type": "integer" },
+            "hold_time":  { "type": "integer" }
+          }
+        },
+        "graceful_restart":     { "type": "boolean" },
+        "log_neighbor_changes": { "type": "boolean" },
+        "networks_advertised":  { "type": "array" },
+        "aggregate_addresses":  { "type": "array" },
+        "address_family_defaults": { "type": "object" },
+        "maximum_paths":        { "type": "integer" },
+        "bestpath_multipath_relax": { "type": "boolean" },
+        "ecmp_fast":            { "type": "boolean" }
+      }
+    },
+
+    "vrrp": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["group", "vlan", "virtual_ip"],
+        "properties": {
+          "group":                    { "type": "integer", "minimum": 1, "maximum": 255 },
+          "vlan":                     { "type": "integer" },
+          "vrf":                      { "type": "string" },
+          "virtual_ip":               { "type": "string" },
+          "priority":                 { "type": "integer", "minimum": 1, "maximum": 254 },
+          "preempt":                  { "type": "boolean" },
+          "preempt_delay_seconds":    { "type": "integer" },
+          "advertisement_interval_ms": { "type": "integer" },
+          "track": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["interface", "decrement"],
+              "properties": {
+                "interface":  { "type": "string" },
+                "decrement":  { "type": "integer" }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+
+  "allOf": [
+    {
+      "description": "Frankfurt constraint — TRADING zone must never appear (INTENT-001, INTENT-003, REQ-007, REQ-009)",
+      "if": {
+        "properties": { "site": { "const": "fra-dc1" } },
+        "required": ["site"]
+      },
+      "then": {
+        "properties": {
+          "security_zones": {
+            "not": { "contains": { "const": "TRADING" } }
+          }
+        }
+      }
+    },
+    {
+      "description": "Frankfurt constraint — VLAN 100 (TRADING) must never be defined on FRA devices",
+      "if": {
+        "allOf": [
+          { "properties": { "site": { "const": "fra-dc1" } }, "required": ["site"] },
+          { "required": ["vlans"] }
+        ]
+      },
+      "then": {
+        "properties": {
+          "vlans": {
+            "items": {
+              "properties": {
+                "vlan_id": { "not": { "const": 100 } }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

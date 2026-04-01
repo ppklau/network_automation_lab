@@ -1,0 +1,201 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://acme-investments.internal/schemas/site.schema.json",
+  "title": "ACME Investments — Site SoT Schema",
+  "description": "Validates site files in sot/sites/*.yml. Each file has a top-level 'site:' object.",
+  "type": "object",
+  "required": ["site"],
+  "additionalProperties": false,
+
+  "properties": {
+    "site": {
+      "type": "object",
+      "required": [
+        "name",
+        "code",
+        "short_code",
+        "region",
+        "lab_instantiated",
+        "network_os_primary",
+        "asn",
+        "supernet",
+        "zone_permissions",
+        "compliance_tags",
+        "data_residency"
+      ],
+      "additionalProperties": true,
+
+      "properties": {
+
+        "name": { "type": "string" },
+
+        "code": {
+          "type": "string",
+          "pattern": "^[a-z]{2,6}-dc[12]$",
+          "description": "Site code: {location}-dc{N}. E.g. lon-dc1, fra-dc1."
+        },
+
+        "short_code": {
+          "type": "string",
+          "pattern": "^[a-z]{2,6}[12]$"
+        },
+
+        "region": {
+          "type": "string",
+          "enum": ["emea-lon", "americas-nyc", "apac", "eu-fra"]
+        },
+
+        "address":         { "type": "string" },
+        "country":         { "type": "string" },
+        "tier":            { "type": "string" },
+        "lab_instantiated": { "type": "boolean" },
+
+        "physical": {
+          "type": "object",
+          "properties": {
+            "floor_space_sqm":      { "type": "integer" },
+            "total_racks":          { "type": "integer" },
+            "power_kw":             { "type": "integer" },
+            "cooling":              { "type": "string" },
+            "connectivity_providers": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+
+        "network_os_primary": {
+          "type": "string",
+          "enum": ["arista_eos", "frr"]
+        },
+
+        "asn": {
+          "type": "integer",
+          "minimum": 65001,
+          "maximum": 65030,
+          "description": "DC ASN — must be in the DC pool 65001-65030."
+        },
+
+        "supernet": {
+          "type": "string",
+          "pattern": "^10\\.\\d{1,3}\\.0\\.0/16$",
+          "description": "DC /16 supernet from 10.0.0.0/8 IPAM allocation."
+        },
+
+        "device_count": { "type": "integer" },
+
+        "trading_zone_prohibited": {
+          "type": "boolean",
+          "description": "Set to true for Frankfurt and EU sites."
+        },
+
+        "vlans_prohibited": {
+          "type": "array",
+          "items": { "type": "integer" },
+          "description": "VLAN IDs that must not appear in device configs at this site."
+        },
+
+        "vlans": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["vlan_id", "name", "vrf"],
+            "properties": {
+              "vlan_id":     { "type": "integer", "minimum": 1, "maximum": 4094 },
+              "name":        { "type": "string" },
+              "vrf":         { "type": "string" },
+              "prefix":      { "type": "string" },
+              "gateway_vip": { "type": "string" },
+              "description": { "type": "string" },
+              "zone":        { "type": "string" },
+              "active":      { "type": "boolean" }
+            }
+          }
+        },
+
+        "zone_permissions": {
+          "type": "object",
+          "required": ["TRADING", "CORPORATE", "DMZ", "MGMT_ZONE"],
+          "properties": {
+            "TRADING":   { "type": "boolean" },
+            "CORPORATE": { "type": "boolean" },
+            "DMZ":       { "type": "boolean" },
+            "MGMT_ZONE": { "type": "boolean" }
+          },
+          "additionalProperties": false
+        },
+
+        "subnets": {
+          "type": "object",
+          "description": "Named subnet allocations for this site.",
+          "additionalProperties": { "type": "string" }
+        },
+
+        "management_ips": {
+          "type": "object",
+          "description": "Hostname → management IP map.",
+          "additionalProperties": { "type": "string" }
+        },
+
+        "devices": {
+          "type": "array",
+          "description": "Device roster for this site.",
+          "items": {
+            "type": "object",
+            "required": ["hostname", "role", "platform", "lab_state"],
+            "properties": {
+              "hostname":  { "type": "string" },
+              "role":      { "type": "string", "enum": ["spine", "leaf", "border", "firewall", "fw"] },
+              "platform":  { "type": "string", "enum": ["arista_eos", "frr"] },
+              "lab_state": { "type": "string", "enum": ["active", "sot_only"] }
+            }
+          }
+        },
+
+        "compliance_tags": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1
+        },
+
+        "data_residency": {
+          "type": "string",
+          "description": "Country or region where data must reside. Enforces GDPR Article 44 / BaFin constraints."
+        }
+      },
+
+      "allOf": [
+        {
+          "description": "Frankfurt constraint: if trading_zone_prohibited=true then vlans_prohibited must include 100 and zone_permissions.TRADING must be false.",
+          "if": {
+            "properties": { "trading_zone_prohibited": { "const": true } },
+            "required": ["trading_zone_prohibited"]
+          },
+          "then": {
+            "required": ["vlans_prohibited"],
+            "properties": {
+              "vlans_prohibited": {
+                "contains": { "const": 100 }
+              },
+              "zone_permissions": {
+                "properties": {
+                  "TRADING": { "const": false }
+                }
+              }
+            }
+          }
+        },
+        {
+          "description": "Frankfurt constraint: if code=fra-dc1 then trading_zone_prohibited must be true.",
+          "if": {
+            "properties": { "code": { "const": "fra-dc1" } },
+            "required": ["code"]
+          },
+          "then": {
+            "required": ["trading_zone_prohibited"],
+            "properties": {
+              "trading_zone_prohibited": { "const": true }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

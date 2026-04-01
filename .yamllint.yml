@@ -1,0 +1,129 @@
+---
+# ACME Investments — yamllint configuration
+# Applied to all YAML in the repo by validate_sot.py and CI validate stage.
+# Run manually: yamllint -c .yamllint.yml sot/ design_intents/ requirements/
+#
+# Rationale for each rule is documented inline.
+
+extends: default
+
+rules:
+
+  # ── Braces ─────────────────────────────────────────────────────────────────
+  # Flow mappings (inline {...}) are used sparingly in design_intent files.
+  braces:
+    min-spaces-inside: 0
+    max-spaces-inside: 1
+
+  # ── Brackets ───────────────────────────────────────────────────────────────
+  # Inline arrays like [TRADING, CORPORATE] are standard in the SoT.
+  brackets:
+    min-spaces-inside: 0
+    max-spaces-inside: 0
+
+  # ── Colons ─────────────────────────────────────────────────────────────────
+  colons:
+    max-spaces-before: 0
+    max-spaces-after: 1
+
+  # ── Commas ─────────────────────────────────────────────────────────────────
+  commas:
+    max-spaces-before: 0
+    min-spaces-after: 1
+
+  # ── Comments ───────────────────────────────────────────────────────────────
+  # Require a single space after #. Inline comments must be separated by at
+  # least two spaces from content. Section separator comments (─────) are exempt
+  # because they have no space after # in the first character.
+  comments:
+    require-starting-space: false   # allows # ─────── section headers
+    min-spaces-from-content: 2
+
+  comments-indentation:
+    # Comments must match the indentation of the following line.
+    # Allows section headers to precede their block.
+    level: warning
+
+  # ── Document start ─────────────────────────────────────────────────────────
+  # All YAML files must start with ---. Ensures the document boundary is
+  # explicit and parsers always see a complete document.
+  document-start:
+    present: true
+
+  # ── Empty lines ────────────────────────────────────────────────────────────
+  # Up to two consecutive blank lines are allowed for visual section separation
+  # in long SoT files. More than two suggests an editing accident.
+  empty-lines:
+    max: 2
+    max-start: 0
+    max-end: 1
+
+  # ── Empty values ───────────────────────────────────────────────────────────
+  # Explicitly null values (key:) are flagged. Use key: null or omit the key.
+  empty-values:
+    forbid-in-block-mappings: true
+    forbid-in-flow-mappings: true
+
+  # ── Hyphens ────────────────────────────────────────────────────────────────
+  hyphens:
+    max-spaces-after: 1
+
+  # ── Indentation ────────────────────────────────────────────────────────────
+  # 2-space indentation throughout. No tabs.
+  indentation:
+    spaces: 2
+    indent-sequences: true
+    check-multi-line-strings: false   # block scalars (>) are indentation-free
+
+  # ── Key duplicates ─────────────────────────────────────────────────────────
+  # Duplicate keys in a mapping are always a bug (e.g. two 'hostname:' fields).
+  key-duplicates:
+    level: error
+
+  # ── Key ordering ───────────────────────────────────────────────────────────
+  # Keys within a mapping do NOT need to be alphabetically sorted — ordering
+  # is semantic in SoT files (e.g. hostname before fqdn before role).
+  key-ordering: disable
+
+  # ── Line length ────────────────────────────────────────────────────────────
+  # 120 characters. Long regex patterns or CIDR lists may exceed this —
+  # set level: warning not error so CI doesn't hard-block on unavoidable lines.
+  line-length:
+    max: 120
+    level: warning
+    allow-non-breakable-words: true
+    allow-non-breakable-inline-mappings: true
+
+  # ── New line at end of file ─────────────────────────────────────────────────
+  new-line-at-end-of-file:
+    present: true
+
+  # ── New lines ──────────────────────────────────────────────────────────────
+  new-lines:
+    type: unix
+
+  # ── Octal values ───────────────────────────────────────────────────────────
+  # Prevent accidental octal interpretation (e.g. 0644 in permissions).
+  octal-values:
+    forbid-implicit-octal: true
+    forbid-explicit-octal: false
+
+  # ── Quoted strings ─────────────────────────────────────────────────────────
+  # Double quotes are preferred for strings that require escaping or contain
+  # special characters. Single quotes are allowed for simple strings.
+  # 'only-when-needed' ensures unquoted scalars aren't unnecessarily wrapped.
+  quoted-strings:
+    quote-type: double
+    required: only-when-needed
+    allow-quoted-quotes: false
+
+  # ── Trailing spaces ────────────────────────────────────────────────────────
+  # Trailing whitespace causes spurious diffs in Git and is always an error.
+  trailing-spaces: enable
+
+  # ── Truthy values ──────────────────────────────────────────────────────────
+  # Enforce explicit true/false. Prevents yes/no/on/off from being interpreted
+  # as booleans, which changes meaning if the YAML is parsed as a string.
+  truthy:
+    allowed-values: ["true", "false"]
+    check-keys: false   # don't flag mapping keys that happen to be truthy
