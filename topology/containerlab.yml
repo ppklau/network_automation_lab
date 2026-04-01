@@ -1,0 +1,262 @@
+---
+# ACME Investments — Containerlab Topology
+# ─────────────────────────────────────────────────────────────────────────────
+# Lab topology: 13 nodes, 18 links
+#
+# London DC1 (fully instantiated — Arista cEOS):
+#   spine-lon-01, spine-lon-02 (route reflectors)
+#   leaf-lon-01..04 (dual-homed to both spines)
+#   border-lon-01 (WAN hub, eBGP to all regions)
+#   fw-lon-01 (FRR — inter-zone enforcement)
+#
+# Regional border stubs (FRR — lightweight WAN peers):
+#   border-nyc-01, border-sin-01, border-fra-01
+#
+# Branch stubs (FRR):
+#   branch-lon-01 (UK, AS65100)
+#   branch-nyc-01 (US, AS65120)
+#
+# Management network: 172.20.20.0/24 (Docker bridge — OOB access)
+#   Containerlab sets Management0 automatically via mgmt-ipv4.
+#   Do NOT configure Management0 in startup-configs.
+#   Ansible pushes production IPs (10.x.x.x) from the SoT via push_configs.yml.
+#
+# Image requirements:
+#   ceos:4.32.2F — requires Arista account (https://www.arista.com/en/support/software-download)
+#   frrouting/frr:9.1.0 — public Docker Hub image
+#
+# Deploy: cd topology && containerlab deploy -t containerlab.yml
+# Destroy: containerlab destroy -t containerlab.yml --cleanup
+#
+# See topology/README.md for full setup guide.
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: acme-lab
+
+mgmt:
+  network: acme-mgmt
+  ipv4-subnet: 172.20.20.0/24
+
+topology:
+
+  # ── Kind-level defaults ─────────────────────────────────────────────────────
+  kinds:
+
+    ceos:
+      image: ceos:4.32.2F
+      # Environment variables required for cEOS to operate correctly
+      env:
+        INTFTYPE: eth
+        ETBA: 1
+        SKIP_ZEROTOUCH_BARRIER_IN_SYSDBINIT: 1
+        CEOS: 1
+        EOS_PLATFORM: ceoslab
+        container: docker
+
+    linux:
+      image: frrouting/frr:9.1.0
+
+  # ── Nodes ───────────────────────────────────────────────────────────────────
+  nodes:
+
+    # ── London DC1 — Arista cEOS (fully instantiated) ────────────────────────
+    #
+    # Two-spine collapsed-core fabric. Spines are BGP route reflectors.
+    # Four leaves dual-homed to both spines. Border peers WAN + fabric.
+    # All cEOS nodes start with minimal bootstrap configs — full config
+    # is pushed by Ansible from the SoT.
+
+    spine-lon-01:
+      kind: ceos
+      mgmt-ipv4: 172.20.20.11
+      startup-config: startup_configs/spine-lon-01.cfg
+      labels:
+        role: spine
+        site: lon-dc1
+        graph-level: "1"
+        graph-icon: switch
+
+    spine-lon-02:
+      kind: ceos
+      mgmt-ipv4: 172.20.20.12
+      startup-config: startup_configs/spine-lon-02.cfg
+      labels:
+        role: spine
+        site: lon-dc1
+        graph-level: "1"
+        graph-icon: switch
+
+    leaf-lon-01:
+      kind: ceos
+      mgmt-ipv4: 172.20.20.21
+      startup-config: startup_configs/leaf-lon-01.cfg
+      labels:
+        role: leaf
+        site: lon-dc1
+        graph-level: "2"
+        graph-icon: switch
+
+    leaf-lon-02:
+      kind: ceos
+      mgmt-ipv4: 172.20.20.22
+      startup-config: startup_configs/leaf-lon-02.cfg
+      labels:
+        role: leaf
+        site: lon-dc1
+        graph-level: "2"
+        graph-icon: switch
+
+    leaf-lon-03:
+      kind: ceos
+      mgmt-ipv4: 172.20.20.23
+      startup-config: startup_configs/leaf-lon-03.cfg
+      labels:
+        role: leaf
+        site: lon-dc1
+        graph-level: "2"
+        graph-icon: switch
+
+    leaf-lon-04:
+      kind: ceos
+      mgmt-ipv4: 172.20.20.24
+      startup-config: startup_configs/leaf-lon-04.cfg
+      labels:
+        role: leaf
+        site: lon-dc1
+        graph-level: "2"
+        graph-icon: switch
+
+    border-lon-01:
+      kind: ceos
+      mgmt-ipv4: 172.20.20.31
+      startup-config: startup_configs/border-lon-01.cfg
+      labels:
+        role: border
+        site: lon-dc1
+        graph-level: "3"
+        graph-icon: router
+
+    fw-lon-01:
+      kind: linux
+      mgmt-ipv4: 172.20.20.32
+      binds:
+        - startup_configs/fw-lon-01/frr.conf:/etc/frr/frr.conf:ro
+        - startup_configs/fw-lon-01/daemons:/etc/frr/daemons:ro
+      labels:
+        role: firewall
+        site: lon-dc1
+        graph-level: "3"
+        graph-icon: firewall
+
+    # ── Regional border stubs (FRR) ───────────────────────────────────────────
+    #
+    # Lightweight FRR containers simulating the remote end of each WAN link.
+    # In production, border-nyc-01 and border-sin-01 are Arista EOS devices;
+    # they are modelled as FRR stubs here to minimise lab memory footprint.
+    # Full DC fabrics for NYC/SIN/HKG are sot_only and not instantiated.
+
+    border-nyc-01:
+      kind: linux
+      mgmt-ipv4: 172.20.20.41
+      binds:
+        - startup_configs/border-nyc-01/frr.conf:/etc/frr/frr.conf:ro
+        - startup_configs/border-nyc-01/daemons:/etc/frr/daemons:ro
+      labels:
+        role: border-stub
+        site: nyc-dc1
+        graph-level: "3"
+        graph-icon: router
+
+    border-sin-01:
+      kind: linux
+      mgmt-ipv4: 172.20.20.42
+      binds:
+        - startup_configs/border-sin-01/frr.conf:/etc/frr/frr.conf:ro
+        - startup_configs/border-sin-01/daemons:/etc/frr/daemons:ro
+      labels:
+        role: border-stub
+        site: sin-dc1
+        graph-level: "3"
+        graph-icon: router
+
+    border-fra-01:
+      kind: linux
+      mgmt-ipv4: 172.20.20.43
+      binds:
+        - startup_configs/border-fra-01/frr.conf:/etc/frr/frr.conf:ro
+        - startup_configs/border-fra-01/daemons:/etc/frr/daemons:ro
+      labels:
+        role: border-stub
+        site: fra-dc1
+        graph-level: "3"
+        graph-icon: router
+
+    # ── Branch stubs (FRR) ────────────────────────────────────────────────────
+    #
+    # One active branch per region (UK and US). Other branches are sot_only.
+    # Each stub simulates a branch CPE: single eBGP session to its DC border,
+    # advertising only the branch /29.
+
+    branch-lon-01:
+      kind: linux
+      mgmt-ipv4: 172.20.20.51
+      binds:
+        - startup_configs/branch-lon-01/frr.conf:/etc/frr/frr.conf:ro
+        - startup_configs/branch-lon-01/daemons:/etc/frr/daemons:ro
+      labels:
+        role: branch
+        site: branch-lon-01
+        graph-level: "4"
+        graph-icon: router
+
+    branch-nyc-01:
+      kind: linux
+      mgmt-ipv4: 172.20.20.52
+      binds:
+        - startup_configs/branch-nyc-01/frr.conf:/etc/frr/frr.conf:ro
+        - startup_configs/branch-nyc-01/daemons:/etc/frr/daemons:ro
+      labels:
+        role: branch
+        site: branch-nyc-01
+        graph-level: "4"
+        graph-icon: router
+
+  # ── Links ───────────────────────────────────────────────────────────────────
+  #
+  # Interface mapping: cEOS eth1 → EthernetI, eth2 → Ethernet2, etc.
+  # FRR/linux: eth0 = management (set by containerlab), eth1+ = data plane.
+  # All interface assignments match peer_device/peer_interface in the SoT.
+
+  links:
+
+    # ── London DC1 fabric — spine-lon-01 downlinks ───────────────────────────
+    # spine Ethernet1-5 → leaf/border, leaf Ethernet1 = uplink to spine-lon-01
+    - endpoints: ["spine-lon-01:eth1", "leaf-lon-01:eth1"]   # 10.1.100.0/31
+    - endpoints: ["spine-lon-01:eth2", "leaf-lon-02:eth1"]   # 10.1.100.2/31
+    - endpoints: ["spine-lon-01:eth3", "leaf-lon-03:eth1"]   # 10.1.100.4/31
+    - endpoints: ["spine-lon-01:eth4", "leaf-lon-04:eth1"]   # 10.1.100.6/31
+    - endpoints: ["spine-lon-01:eth5", "border-lon-01:eth1"] # 10.1.100.16/31
+
+    # ── London DC1 fabric — spine-lon-02 downlinks ───────────────────────────
+    # spine Ethernet1-5 → leaf/border, leaf Ethernet2 = uplink to spine-lon-02
+    - endpoints: ["spine-lon-02:eth1", "leaf-lon-01:eth2"]   # 10.1.100.8/31
+    - endpoints: ["spine-lon-02:eth2", "leaf-lon-02:eth2"]   # 10.1.100.10/31
+    - endpoints: ["spine-lon-02:eth3", "leaf-lon-03:eth2"]   # 10.1.100.12/31
+    - endpoints: ["spine-lon-02:eth4", "leaf-lon-04:eth2"]   # 10.1.100.14/31
+    - endpoints: ["spine-lon-02:eth5", "border-lon-01:eth2"] # 10.1.100.18/31
+
+    # ── WAN links — border-lon-01 → regional stubs ───────────────────────────
+    # border Ethernet3/4/5, stub eth1
+    - endpoints: ["border-lon-01:eth3", "border-nyc-01:eth1"] # 10.0.1.0/31
+    - endpoints: ["border-lon-01:eth4", "border-sin-01:eth1"] # 10.0.2.0/31
+    - endpoints: ["border-lon-01:eth5", "border-fra-01:eth1"] # 10.0.3.0/31
+
+    # ── Firewall links — border-lon-01 Ethernet6, leaf-lon-03/04 Ethernet5 ───
+    - endpoints: ["border-lon-01:eth6", "fw-lon-01:eth1"]    # DMZ zone boundary
+    - endpoints: ["leaf-lon-03:eth5", "fw-lon-01:eth2"]      # TRADING+CORPORATE internal
+    - endpoints: ["leaf-lon-04:eth5", "fw-lon-01:eth3"]      # DMZ+MGMT internal
+
+    # ── Branch links ─────────────────────────────────────────────────────────
+    # border-lon-01 Ethernet7 (branch aggregation), border-nyc-01 eth4
+    - endpoints: ["border-lon-01:eth7", "branch-lon-01:eth1"] # 10.100.0.0/29
+    - endpoints: ["border-nyc-01:eth4", "branch-nyc-01:eth1"] # 10.101.0.0/29
