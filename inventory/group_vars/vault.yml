@@ -1,0 +1,85 @@
+---
+# ACME Investments — Ansible Vault: Secret References
+# ─────────────────────────────────────────────────────────────────────────────
+# PRODUCTION: This file must be encrypted with ansible-vault before committing.
+#   ansible-vault encrypt inventory/group_vars/vault.yml
+#
+# LAB: Plain-text CHANGEME values used for lab bootstrap.
+#   Do NOT expose this file externally. Rotate all secrets before production use.
+#
+# In production, secrets are fetched from HashiCorp Vault via:
+#   ansible-playbook --vault-password-file ~/.vault_pass.txt ...
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Ansible service account password (used for all device connections)
+vault_ansible_password: CHANGEME
+
+# Break-glass local admin passwords (keyed by password_ref in platform_defaults)
+vault_local_passwords:
+  local_admin_password: CHANGEME
+  ansible_password: CHANGEME
+
+# NTP MD5 authentication keys
+vault_ntp_keys:
+  ntp_key_primary: CHANGEME
+  ntp_key_secondary: CHANGEME
+
+# SNMP v3 auth and priv keys
+vault_snmp_keys:
+  snmp_auth_key_monitoring: CHANGEME
+  snmp_priv_key_monitoring: CHANGEME
+  snmp_auth_key_ops: CHANGEME
+  snmp_priv_key_ops: CHANGEME
+  snmp_auth_key_audit: CHANGEME
+  snmp_priv_key_audit: CHANGEME
+
+# BGP MD5 passwords (keyed by md5_password_ref in device files)
+vault_bgp_passwords:
+  # LON DC1 fabric iBGP
+  bgp_md5_lon_dc1_fabric: CHANGEME
+  # Inter-DC WAN eBGP
+  bgp_md5_wan_lon_nyc: CHANGEME
+  bgp_md5_wan_lon_sin: CHANGEME
+  bgp_md5_wan_lon_fra: CHANGEME
+  # NYC DC1 fabric iBGP
+  bgp_md5_nyc_dc1_fabric: CHANGEME
+  # SIN DC1 fabric iBGP
+  bgp_md5_sin_dc1_fabric: CHANGEME
+  # FRA DC1 fabric iBGP
+  bgp_md5_fra_dc1_fabric: CHANGEME
+  # UK branches (65100–65111)
+  bgp_md5_branch_lon_01: CHANGEME
+  bgp_md5_branch_lon_02: CHANGEME
+  bgp_md5_branch_lon_03: CHANGEME
+  bgp_md5_branch_lon_04: CHANGEME
+  bgp_md5_branch_lon_05: CHANGEME
+  bgp_md5_branch_lon_06: CHANGEME
+  bgp_md5_branch_lon_07: CHANGEME
+  bgp_md5_branch_lon_08: CHANGEME
+  bgp_md5_branch_lon_09: CHANGEME
+  bgp_md5_branch_lon_10: CHANGEME
+  bgp_md5_branch_lon_11: CHANGEME
+  bgp_md5_branch_lon_12: CHANGEME
+  # US branches (65120–65127)
+  bgp_md5_branch_nyc_01: CHANGEME
+  bgp_md5_branch_nyc_02: CHANGEME
+  bgp_md5_branch_nyc_03: CHANGEME
+  bgp_md5_branch_nyc_04: CHANGEME
+  bgp_md5_branch_nyc_05: CHANGEME
+  bgp_md5_branch_nyc_06: CHANGEME
+  bgp_md5_branch_nyc_07: CHANGEME
+  bgp_md5_branch_nyc_08: CHANGEME
+  # APAC branches (65130–65135)
+  bgp_md5_branch_sin_01: CHANGEME
+  bgp_md5_branch_sin_02: CHANGEME
+  bgp_md5_branch_sin_03: CHANGEME
+  bgp_md5_branch_sin_04: CHANGEME
+  bgp_md5_branch_sin_05: CHANGEME
+  bgp_md5_branch_sin_06: CHANGEME
+  # EU branches (65140–65143)
+  bgp_md5_branch_fra_01: CHANGEME
+  bgp_md5_branch_fra_02: CHANGEME
+  bgp_md5_branch_fra_03: CHANGEME
+  bgp_md5_branch_fra_04: CHANGEME
+  # SIN–HKG inter-DC
+  bgp_md5_interdc_sin_hkg: CHANGEME

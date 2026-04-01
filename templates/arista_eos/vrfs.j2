@@ -1,0 +1,31 @@
+{# ─────────────────────────────────────────────────────────────────────────
+   ACME Investments — Arista EOS VRF Configuration Template
+   Source: templates/arista_eos/vrfs.j2
+
+   Renders VRF definitions from device SoT vrfs[] list.
+   The MGMT VRF is rendered first (required for management plane).
+   Trading zone check: TRADING_VRF must not appear on FRA devices.
+   ─────────────────────────────────────────────────────────────────────────
+#}
+{% if vrfs is defined and vrfs | length > 0 %}
+! ── VRF Definitions ──────────────────────────────────────────────────────
+!
+{% for vrf in vrfs %}
+{# Frankfurt ring-fence: TRADING_VRF must never appear on fra-dc1 devices #}
+{% if vrf.name == 'TRADING_VRF' and site == 'fra-dc1' %}
+! SKIPPED: TRADING_VRF is prohibited on fra-dc1 (INTENT-003, INTENT-004, REQ-007)
+{% else %}
+vrf instance {{ vrf.name }}
+{% if vrf.description is defined %}
+   description {{ vrf.description }}
+{% endif %}
+{% if vrf.rd is defined and vrf.rd != 'auto' %}
+   rd {{ vrf.rd }}
+{% endif %}
+!
+{% if vrf.route_target_import is defined %}
+ip routing vrf {{ vrf.name }}
+{% endif %}
+{% endif %}
+{% endfor %}
+{% endif %}

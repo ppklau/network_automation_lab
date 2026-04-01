@@ -1,0 +1,30 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Rendered configs — tracked via .gitkeep; individual files gitignored
+# because they may contain sensitive rendered credentials.
+# Diffs are captured as CI pipeline artefacts, not committed to git.
+configs/*/
+!configs/.gitkeep
+
+# Ansible
+*.retry
+inventory/group_vars/vault.yml.bak
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# macOS
+.DS_Store
+
+# Secrets — never commit
+*.key
+*.pem
+secrets.yml

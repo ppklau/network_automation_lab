@@ -1,0 +1,129 @@
+{# ─────────────────────────────────────────────────────────────────────────
+   ACME Investments — Arista EOS BGP Configuration Template
+   Source: templates/arista_eos/bgp.j2
+
+   Handles:
+     - Route reflector (role: route_reflector) — sets neighbor route-reflector-client
+     - RR client (role: rr_client) — standard iBGP
+     - eBGP neighbors — remote-as differs from local_as
+     - MD5 authentication — passwords from vault_bgp_passwords[md5_password_ref]
+     - Address families per neighbor (ipv4 unicast)
+     - networks_advertised — per VRF
+     - aggregate_addresses — summary-only aggregates
+     - Graceful restart, timers, maximum-paths, ECMP
+   ─────────────────────────────────────────────────────────────────────────
+#}
+{% if bgp is defined %}
+! ── BGP ──────────────────────────────────────────────────────────────────
+! AS{{ bgp.local_as }} | Router-ID: {{ bgp.router_id }}
+! Role: {{ bgp.role }}
+!
+router bgp {{ bgp.local_as }}
+   router-id {{ bgp.router_id }}
+   no bgp default ipv4-unicast
+   !
+   bgp graceful-restart
+   bgp graceful-restart restart-time 300
+   !
+   timers bgp {{ bgp.timers.keepalive | default(30) }} {{ bgp.timers.hold_time | default(90) }}
+   !
+{% if bgp.log_neighbor_changes | default(true) %}
+   bgp log-neighbor-changes
+{% endif %}
+   !
+   maximum-paths 4 ecmp 4
+   bgp bestpath as-path multipath-relax
+   !
+{# ── Neighbor definitions ─────────────────────────────────────── #}
+{% for neighbor in bgp.neighbors %}
+   neighbor {{ neighbor.peer_ip }} remote-as {{ neighbor.remote_as }}
+   neighbor {{ neighbor.peer_ip }} description {{ neighbor.description | default('') }}
+{% if neighbor.update_source is defined %}
+   neighbor {{ neighbor.peer_ip }} update-source {{ neighbor.update_source }}
+{% endif %}
+{% if neighbor.md5_password_ref is defined %}
+   neighbor {{ neighbor.peer_ip }} password 7 {{ vault_bgp_passwords[neighbor.md5_password_ref] | default('CHANGEME') }}
+{% endif %}
+{% if neighbor.remote_as == bgp.local_as %}
+{# iBGP — set route-reflector-client if this RR is configured to reflect to this peer #}
+{% if bgp.role == 'route_reflector' and neighbor.route_reflector_client | default(false) %}
+   neighbor {{ neighbor.peer_ip }} route-reflector-client
+{% endif %}
+{% if neighbor.timers is defined %}
+   neighbor {{ neighbor.peer_ip }} timers {{ neighbor.timers.keepalive }} {{ neighbor.timers.hold_time }}
+{% endif %}
+{% else %}
+{# eBGP — set ebgp-multihop if specified #}
+{% if neighbor.ebgp_multihop is defined and neighbor.ebgp_multihop %}
+   neighbor {{ neighbor.peer_ip }} ebgp-multihop {{ neighbor.ebgp_multihop }}
+{% endif %}
+{% if neighbor.timers is defined %}
+   neighbor {{ neighbor.peer_ip }} timers {{ neighbor.timers.keepalive }} {{ neighbor.timers.hold_time }}
+{% endif %}
+{% endif %}
+   !
+{% endfor %}
+{# ── Address family ipv4 unicast ──────────────────────────────── #}
+   address-family ipv4
+{% for neighbor in bgp.neighbors %}
+{% set activate = namespace(yes=false, route_map_in='', route_map_out='') %}
+{% if neighbor.address_families is defined %}
+{% for af in neighbor.address_families if af.afi == 'ipv4' and af.safi == 'unicast' %}
+{% set activate.yes = af.activate | default(true) %}
+{% endfor %}
+{% else %}
+{% set activate.yes = true %}
+{% endif %}
+{% if activate.yes %}
+      neighbor {{ neighbor.peer_ip }} activate
+{% if neighbor.route_map_in is defined %}
+      neighbor {{ neighbor.peer_ip }} route-map {{ neighbor.route_map_in }} in
+{% endif %}
+{% if neighbor.route_map_out is defined %}
+      neighbor {{ neighbor.peer_ip }} route-map {{ neighbor.route_map_out }} out
+{% endif %}
+{% endif %}
+{% endfor %}
+      !
+{# ── Networks advertised (default VRF) ───────────────────────── #}
+{% if bgp.networks_advertised is defined %}
+{% for net in bgp.networks_advertised if net.vrf is not defined or net.vrf == 'default' %}
+      network {{ net.prefix }}
+{% endfor %}
+{% endif %}
+{# ── Aggregate addresses (default VRF) ───────────────────────── #}
+{% if bgp.aggregate_addresses is defined %}
+{% for agg in bgp.aggregate_addresses %}
+      aggregate-address {{ agg.prefix }}{% if agg.summary_only | default(false) %} summary-only{% endif %}
+
+{% endfor %}
+{% endif %}
+   exit-address-family
+   !
+{# ── Per-VRF address families (TRADING_VRF, CORPORATE_VRF, etc.) #}
+{% if bgp.networks_advertised is defined %}
+{% set ns = namespace(vrfs_seen=[]) %}
+{% for net in bgp.networks_advertised if net.vrf is defined and net.vrf not in ['default', 'MGMT'] %}
+{% if net.vrf not in ns.vrfs_seen %}
+{% set ns.vrfs_seen = ns.vrfs_seen + [net.vrf] %}
+   vrf {{ net.vrf }}
+      rd {{ vrfs | selectattr('name', 'equalto', net.vrf) | map(attribute='rd') | first | default('auto') }}
+      !
+{% for rt_vrf in vrfs if rt_vrf.name == net.vrf %}
+{% if rt_vrf.route_target_import is defined %}
+      route-target import evpn {{ rt_vrf.route_target_import }}
+      route-target export evpn {{ rt_vrf.route_target_export }}
+{% endif %}
+{% endfor %}
+      address-family ipv4
+{% for inner_net in bgp.networks_advertised if inner_net.vrf is defined and inner_net.vrf == net.vrf %}
+         network {{ inner_net.prefix }}
+{% endfor %}
+      exit-address-family
+   exit-vrf
+   !
+{% endif %}
+{% endfor %}
+{% endif %}
+!
+{% endif %}

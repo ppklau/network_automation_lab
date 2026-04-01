@@ -1,0 +1,21 @@
+---
+# ACME Investments — Ansible Group Vars (all hosts)
+# Applied to every host in the inventory.
+# Credentials and secrets: see vault.yml (ansible-vault encrypted in production).
+# Global SoT data (NTP, SNMP, platform defaults) is loaded by render_configs.yml.
+
+# ── Ansible connection settings ───────────────────────────────────────────
+
+# Default for cEOS devices — overridden per host via platform field in SoT
+ansible_network_os: arista.eos.eos
+ansible_connection: ansible.netcommon.httpapi
+ansible_httpapi_use_ssl: false
+ansible_httpapi_port: 80
+ansible_user: ansible
+ansible_password: "{{ vault_ansible_password }}"
+
+# ── Paths — used by render_configs.yml ───────────────────────────────────
+
+sot_device_dir: "{{ playbook_dir }}/../sot/devices"
+sot_global_dir: "{{ playbook_dir }}/../sot/global"
+configs_output_dir: "{{ playbook_dir }}/../configs"

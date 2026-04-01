@@ -1,0 +1,86 @@
+{# ─────────────────────────────────────────────────────────────────────────
+   ACME Investments — FRR BGP Configuration Template
+   Source: templates/frr/bgp.j2
+
+   Handles:
+     - iBGP and eBGP neighbors (determined by remote_as vs local_as)
+     - MD5 authentication — passwords from vault_bgp_passwords[md5_password_ref]
+     - route-maps (permissive stubs rendered; production maps pushed by Ansible)
+     - networks_advertised and aggregate-address
+     - Frankfurt: prefix-lists to filter TRADING zone (site == fra-dc1)
+   ─────────────────────────────────────────────────────────────────────────
+#}
+{% if bgp is defined %}
+! ── BGP ──────────────────────────────────────────────────────────────────
+! AS{{ bgp.local_as }} | Router-ID: {{ bgp.router_id }}
+!
+{% if site == 'fra-dc1' %}
+! Frankfurt TRADING filter (INTENT-003, INTENT-004, REQ-007)
+ip prefix-list PL_DENY_TRADING seq 5 deny 10.1.1.0/24 le 32
+ip prefix-list PL_DENY_TRADING seq 10 permit any
+!
+{% endif %}
+{# Collect unique route-map names referenced by neighbors #}
+{% set route_maps = namespace(names=[]) %}
+{% for neighbor in bgp.neighbors %}
+{% if neighbor.route_map_in is defined and neighbor.route_map_in not in route_maps.names %}
+{% set route_maps.names = route_maps.names + [neighbor.route_map_in] %}
+{% endif %}
+{% if neighbor.route_map_out is defined and neighbor.route_map_out not in route_maps.names %}
+{% set route_maps.names = route_maps.names + [neighbor.route_map_out] %}
+{% endif %}
+{% endfor %}
+{% if route_maps.names %}
+! ── Route maps (permissive stubs — production policy pushed by Ansible) ──
+!
+{% for rm_name in route_maps.names %}
+route-map {{ rm_name }} permit 10
+!
+{% endfor %}
+{% endif %}
+router bgp {{ bgp.local_as }}
+ bgp router-id {{ bgp.router_id }}
+ no bgp ebgp-requires-policy
+ no bgp default ipv4-unicast
+ !
+{% for neighbor in bgp.neighbors %}
+ neighbor {{ neighbor.peer_ip }} remote-as {{ neighbor.remote_as }}
+ neighbor {{ neighbor.peer_ip }} description {{ neighbor.description | default('') }}
+{% if neighbor.update_source is defined %}
+ neighbor {{ neighbor.peer_ip }} update-source {{ neighbor.update_source }}
+{% endif %}
+{% if neighbor.md5_password_ref is defined %}
+ neighbor {{ neighbor.peer_ip }} password {{ vault_bgp_passwords[neighbor.md5_password_ref] | default('CHANGEME') }}
+{% endif %}
+{% if neighbor.timers is defined %}
+ neighbor {{ neighbor.peer_ip }} timers {{ neighbor.timers.keepalive }} {{ neighbor.timers.hold_time }}
+{% endif %}
+ !
+{% endfor %}
+ address-family ipv4 unicast
+{% for neighbor in bgp.neighbors %}
+  neighbor {{ neighbor.peer_ip }} activate
+{% if neighbor.route_map_in is defined %}
+  neighbor {{ neighbor.peer_ip }} route-map {{ neighbor.route_map_in }} in
+{% elif site == 'fra-dc1' and neighbor.remote_as != bgp.local_as %}
+  neighbor {{ neighbor.peer_ip }} route-map RM_DENY_TRADING_IN in
+{% endif %}
+{% if neighbor.route_map_out is defined %}
+  neighbor {{ neighbor.peer_ip }} route-map {{ neighbor.route_map_out }} out
+{% endif %}
+{% endfor %}
+  !
+{% if bgp.networks_advertised is defined %}
+{% for net in bgp.networks_advertised %}
+  network {{ net.prefix | default(net) }}
+{% endfor %}
+{% endif %}
+{% if bgp.aggregate_addresses is defined %}
+{% for agg in bgp.aggregate_addresses %}
+  aggregate-address {{ agg.prefix }}{% if agg.summary_only | default(false) %} summary-only{% endif %}
+
+{% endfor %}
+{% endif %}
+ exit-address-family
+!
+{% endif %}

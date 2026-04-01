@@ -1,0 +1,22 @@
+{# ─────────────────────────────────────────────────────────────────────────
+   ACME Investments — Arista EOS VLAN Configuration Template
+   Source: templates/arista_eos/vlans.j2
+
+   Renders VLAN database from device SoT vlans[] list.
+   Frankfurt check: VLAN 100 (TRADING) must never appear on fra-dc1.
+   Only active VLANs are rendered.
+   ─────────────────────────────────────────────────────────────────────────
+#}
+{% if vlans is defined and vlans | length > 0 %}
+! ── VLAN Database ────────────────────────────────────────────────────────
+!
+{% for vlan in vlans if vlan.active | default(true) %}
+{% if vlan.vlan_id == 100 and site == 'fra-dc1' %}
+! SKIPPED: VLAN 100 (TRADING) is prohibited on fra-dc1 (INTENT-003, REQ-007)
+{% else %}
+vlan {{ vlan.vlan_id }}
+   name {{ vlan.name }}
+!
+{% endif %}
+{% endfor %}
+{% endif %}

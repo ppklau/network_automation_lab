@@ -1,0 +1,105 @@
+{# ─────────────────────────────────────────────────────────────────────────
+   ACME Investments — Arista EOS Interface Configuration Template
+   Source: templates/arista_eos/interfaces.j2
+
+   Renders all interface stanzas from device SoT interfaces[] list.
+
+   Interface types handled:
+     - Loopback: ip address only
+     - ManagementN: ip address in VRF MGMT
+     - VlanN (SVI): ip address + optional VRRP group
+     - EthernetN (L3 routed): ip address + mtu + speed
+     - EthernetN (L2 access): switchport access vlan
+     - EthernetN (L2 trunk): switchport trunk allowed vlan
+     - EthernetN.N (sub-interface): encapsulation dot1q + ip address
+
+   VRRP groups are rendered from device SoT vrrp[] list, keyed by vlan.
+   ─────────────────────────────────────────────────────────────────────────
+#}
+! ── Interfaces ───────────────────────────────────────────────────────────
+!
+{% for intf in interfaces %}
+interface {{ intf.name }}
+   description {{ intf.description | default('') }}
+{% if intf.name.startswith('Loopback') %}
+   ip address {{ intf.ip }}
+{% elif intf.name.startswith('Management') %}
+   ip address {{ intf.ip }}
+   no autostate
+{% elif intf.name.startswith('Vlan') %}
+{# SVI interface — look up VRRP group for this VLAN #}
+{% set vlan_id = intf.name | replace('Vlan', '') | int %}
+   ip address {{ intf.ip }}
+{% if intf.vrf is defined and intf.vrf not in ['default', 'MGMT'] %}
+   vrf {{ intf.vrf }}
+{% endif %}
+{# Render VRRP configuration if a vrrp group is defined for this VLAN #}
+{% if vrrp is defined %}
+{% for vg in vrrp if vg.vlan == vlan_id %}
+   vrrp {{ vg.group }} ipv4 {{ vg.virtual_ip }}
+   vrrp {{ vg.group }} priority-level {{ vg.priority | default(100) }}
+   vrrp {{ vg.group }} timers advertise {{ (vg.advertisement_interval_ms | default(1000)) // 1000 }}
+{% if vg.preempt | default(false) %}
+   vrrp {{ vg.group }} preempt
+{% if vg.preempt_delay_seconds is defined %}
+   vrrp {{ vg.group }} preempt delay minimum {{ vg.preempt_delay_seconds }}
+{% endif %}
+{% endif %}
+{% if vg.track is defined %}
+{% for track in vg.track %}
+   vrrp {{ vg.group }} tracked-object IF_{{ track.interface | replace('/', '_') }} decrement {{ track.decrement }}
+{% endfor %}
+{% endif %}
+{% endfor %}
+{% endif %}
+{% elif '.' in intf.name and intf.name.startswith('Ethernet') %}
+{# Sub-interface with dot1q encapsulation #}
+{% if intf.encapsulation is defined and intf.encapsulation == 'dot1q' %}
+   encapsulation dot1q vlan {{ intf.vlan }}
+{% endif %}
+{% if intf.ip is defined and intf.ip is not none %}
+   ip address {{ intf.ip }}
+{% endif %}
+{% if intf.vrf is defined and intf.vrf not in ['default'] %}
+   vrf {{ intf.vrf }}
+{% endif %}
+{% elif intf.name.startswith('Ethernet') %}
+{# Physical Ethernet — determine L2 or L3 #}
+{% if intf.mode is defined %}
+{% if intf.mode == 'access' %}
+   switchport
+   switchport mode access
+   switchport access vlan {{ intf.access_vlan }}
+{% elif intf.mode == 'trunk' %}
+   switchport
+   switchport mode trunk
+   switchport trunk allowed vlan {{ intf.trunk_vlans | join(',') }}
+{% endif %}
+{% else %}
+{# L3 routed port #}
+   no switchport
+{% if intf.ip is defined and intf.ip is not none %}
+   ip address {{ intf.ip }}
+{% endif %}
+{% if intf.vrf is defined and intf.vrf not in ['default', None] %}
+   vrf {{ intf.vrf }}
+{% endif %}
+{% if intf.mtu is defined %}
+   mtu {{ intf.mtu }}
+{% endif %}
+{% if intf.speed is defined and intf.speed not in ['auto', None] %}
+   speed forced {{ intf.speed | replace('G', '000') }}full
+{% endif %}
+{% endif %}
+{% endif %}
+!
+{% endfor %}
+{# Management interface — render explicitly from management stanza if not already in interfaces #}
+{% if management.interface not in (interfaces | map(attribute='name') | list) %}
+interface {{ management.interface }}
+   description OOB management
+   ip address {{ management.ip }}
+   vrf {{ management.vrf | default('MGMT') }}
+   no autostate
+!
+{% endif %}

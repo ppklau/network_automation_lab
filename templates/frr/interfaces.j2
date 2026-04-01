@@ -1,0 +1,24 @@
+{# ─────────────────────────────────────────────────────────────────────────
+   ACME Investments — FRR Interface Configuration Template
+   Source: templates/frr/interfaces.j2
+
+   Renders FRR interface stanzas from device SoT interfaces[] list.
+   FRR uses Linux interface names: eth0, eth1, eth2, lo
+   eth0 is OOB management (handled by containerlab in lab; chrony/resolvconf in prod).
+   Only data-plane interfaces (eth1+, lo) are rendered into frr.conf.
+   ─────────────────────────────────────────────────────────────────────────
+#}
+! ── Interfaces ───────────────────────────────────────────────────────────
+!
+interface lo
+ description Loopback — router-id
+ ip address {{ loopback.ip }}
+!
+{% for intf in interfaces if intf.name != 'eth0' and not intf.name.startswith('lo') %}
+interface {{ intf.name }}
+ description {{ intf.description | default('') }}
+{% if intf.ip is defined and intf.ip is not none %}
+ ip address {{ intf.ip }}
+{% endif %}
+!
+{% endfor %}

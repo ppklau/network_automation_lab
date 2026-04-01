@@ -1,0 +1,150 @@
+{# ─────────────────────────────────────────────────────────────────────────
+   ACME Investments — Arista EOS Base Configuration Template
+   Source: templates/arista_eos/base.j2
+   Rendered by: playbooks/render_configs.yml
+
+   Variables (all sourced from SoT):
+     Device vars:  sot/devices/<site>/<hostname>.yml
+     Global vars:  sot/global/platform_defaults.yml  (loaded as platform_defaults)
+     Secrets:      inventory/group_vars/vault.yml     (ansible-vault encrypted)
+   ─────────────────────────────────────────────────────────────────────────
+#}
+! ═══════════════════════════════════════════════════════════════════════════
+! {{ hostname }}  |  {{ role }}  |  {{ site }}  |  {{ region }}
+! Rendered by automation pipeline — do NOT edit manually.
+! Source: sot/devices/{{ site }}/{{ hostname }}.yml
+! Last rendered: {{ ansible_date_time.iso8601 }}
+! ═══════════════════════════════════════════════════════════════════════════
+!
+! ── Hostname ─────────────────────────────────────────────────────────────
+!
+hostname {{ hostname }}
+!
+! ── DNS / Domain ─────────────────────────────────────────────────────────
+!
+ip domain-name {{ platform_defaults.dns.domain_name }}
+{% for ns in platform_defaults.dns.servers %}
+ip name-server vrf {{ platform_defaults.dns.vrf }} {{ ns }}
+{% endfor %}
+ip domain lookup source-interface {{ management.interface }}
+!
+! ── Banner ───────────────────────────────────────────────────────────────
+!
+banner motd
+{{ platform_defaults.banner.motd -}}
+EOF
+!
+banner login
+{{ platform_defaults.banner.login }}
+EOF
+!
+! ── Services ─────────────────────────────────────────────────────────────
+!
+no ip telnet
+service routing protocols model multi-agent
+ip routing
+{% if vrfs is defined %}
+{% for vrf in vrfs if vrf.name != 'MGMT' %}
+ip routing vrf {{ vrf.name }}
+{% endfor %}
+{% endif %}
+!
+! ── AAA — TACACS+ with local break-glass fallback ────────────────────────
+!
+aaa group server tacacs+ TACACS_SERVERS
+{% for server in platform_defaults.aaa.tacacs_servers %}
+   server {{ server.ip }} vrf {{ server.vrf }}
+   timeout 3
+{% endfor %}
+!
+aaa authentication login default group TACACS_SERVERS local
+aaa authentication enable default group TACACS_SERVERS enable
+aaa authorization exec default group TACACS_SERVERS local
+aaa authorization commands all default group TACACS_SERVERS local
+aaa accounting exec default start-stop group TACACS_SERVERS
+aaa accounting commands all default start-stop group TACACS_SERVERS
+!
+no aaa root
+!
+{% for user in platform_defaults.aaa.local_users %}
+username {{ user.username }} privilege {{ user.privilege }} role {{ user.role }} secret {{ vault_local_passwords[user.password_ref] | default('CHANGEME') }}
+{% endfor %}
+!
+! ── Management SSH ───────────────────────────────────────────────────────
+!
+management ssh
+   idle-timeout 15
+   authentication mode keyboard-interactive
+   no shutdown
+!
+! ── Management API (eAPI — required for Ansible httpapi) ─────────────────
+!
+management api http-commands
+   no protocol https
+   no shutdown
+   vrf {{ management.vrf | default('MGMT') }}
+!
+! ── NTP ──────────────────────────────────────────────────────────────────
+!
+ntp authenticate
+ntp authentication-key 1 md5 7 {{ vault_ntp_keys['ntp_key_primary'] | default('CHANGEME') }}
+ntp authentication-key 2 md5 7 {{ vault_ntp_keys['ntp_key_secondary'] | default('CHANGEME') }}
+ntp trusted-key 1
+ntp trusted-key 2
+ntp source-interface {{ ntp_source_interface | default('Loopback0') }}
+{% for server in platform_defaults.ntp.servers %}
+{% if server.ip is defined and server.ip is not none %}
+{% if server.preferred | default(false) %}
+ntp server vrf MGMT {{ server.ip }} prefer key {{ server.key_id }}
+{% else %}
+ntp server vrf MGMT {{ server.ip }} key {{ server.key_id | default('') }}
+{% endif %}
+{% else %}
+ntp server vrf MGMT {{ server.hostname }}
+{% endif %}
+{% endfor %}
+!
+! ── Logging (syslog) ─────────────────────────────────────────────────────
+!
+logging on
+logging facility {{ platform_defaults.logging.facility }}
+logging trap {{ platform_defaults.logging.trap_level }}
+logging source-interface {{ logging_source_interface | default('Loopback0') }}
+logging format timestamp traditional year
+logging format hostname fqdn
+logging format sequence-numbers
+{% for srv in platform_defaults.logging.servers %}
+logging host {{ srv.ip }} {{ srv.port }} vrf MGMT protocol {{ srv.protocol | default('udp') }}
+{% endfor %}
+!
+! ── SNMP v3 ──────────────────────────────────────────────────────────────
+! SNMPv1/v2c disabled — SNMPv3 only per INTENT-011 / REQ-019
+!
+snmp-server location {{ site }}-{{ role }}-{{ hostname }}
+snmp-server contact netops@acme-investments.com
+snmp-server source-interface {{ snmp_source_interface | default('Loopback0') }}
+snmp-server vrf MGMT
+{% for user in platform_defaults.snmp.users %}
+snmp-server user {{ user.username }} ACME_MONITORS v3 auth sha {{ vault_snmp_keys[user.auth_key_ref] | default('CHANGEME') }} priv aes128 {{ vault_snmp_keys[user.priv_key_ref] | default('CHANGEME') }}
+{% endfor %}
+{% for trap in platform_defaults.snmp.trap_targets %}
+snmp-server host {{ trap.ip }} vrf MGMT version 3 auth acme_monitoring
+{% endfor %}
+snmp-server enable traps bgp
+snmp-server enable traps snmp link-down
+snmp-server enable traps snmp link-up
+!
+! ── LLDP ─────────────────────────────────────────────────────────────────
+!
+lldp run
+no cdp run
+!
+! ── Spanning Tree ────────────────────────────────────────────────────────
+!
+{% if role == 'leaf' %}
+spanning-tree mode rapid-pvst
+spanning-tree portfast default
+{% else %}
+no spanning-tree vlan-id 1-4094
+{% endif %}
+!

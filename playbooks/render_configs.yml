@@ -1,0 +1,178 @@
+---
+# ACME Investments — Configuration Render Playbook
+# ─────────────────────────────────────────────────────────────────────────────
+# Renders full device configurations from Jinja2 templates + SoT data.
+# Runs locally — no device connection required. Output written to configs/.
+#
+# Usage:
+#   ansible-playbook playbooks/render_configs.yml
+#   ansible-playbook playbooks/render_configs.yml --limit spine-lon-01
+#   ansible-playbook playbooks/render_configs.yml --limit site_lon_dc1
+#
+# What it does:
+#   1. Loads global SoT data (platform_defaults, NTP, SNMP)
+#   2. For each active host, loads the device SoT YAML file
+#   3. Renders platform-appropriate Jinja2 templates
+#   4. Writes full config to configs/<hostname>/running.conf
+#
+# Pipeline stage: render (runs after validate, before diff+push)
+# ─────────────────────────────────────────────────────────────────────────────
+
+- name: Render device configurations from SoT
+  hosts: lab_active
+  gather_facts: false
+  connection: local
+
+  pre_tasks:
+
+    # ── Load global SoT data ─────────────────────────────────────────────
+    # These are loaded once per play and available to all hosts.
+
+    - name: Load platform defaults
+      ansible.builtin.include_vars:
+        file: "{{ sot_global_dir }}/platform_defaults.yml"
+        name: global_platform_defaults
+      run_once: true
+
+    - name: Set platform_defaults for arista_eos hosts
+      ansible.builtin.set_fact:
+        platform_defaults: "{{ global_platform_defaults.platforms.arista_eos }}"
+      when: hostvars[inventory_hostname].ansible_network_os | default('') is search('eos')
+        or hostvars[inventory_hostname].platform | default('') == 'arista_eos'
+
+    - name: Set platform_defaults for frr hosts
+      ansible.builtin.set_fact:
+        platform_defaults: "{{ global_platform_defaults.platforms.frr }}"
+      when: hostvars[inventory_hostname].platform | default('') == 'frr'
+
+    - name: Load global NTP config
+      ansible.builtin.include_vars:
+        file: "{{ sot_global_dir }}/ntp.yml"
+        name: global_ntp
+      run_once: true
+
+    - name: Load global SNMP config
+      ansible.builtin.include_vars:
+        file: "{{ sot_global_dir }}/snmp.yml"
+        name: global_snmp
+      run_once: true
+
+    # ── Load device SoT file ─────────────────────────────────────────────
+    # Device SoT files are under sot/devices/<site>/<hostname>.yml
+    # The 'site' var comes from the device file itself — we resolve the path
+    # by searching for the hostname under sot/devices/.
+
+    - name: Find device SoT file
+      ansible.builtin.find:
+        paths: "{{ sot_device_dir }}"
+        patterns: "{{ inventory_hostname }}.yml"
+        recurse: true
+        excludes: "branches"
+      register: device_sot_search
+
+    - name: Fail if device SoT file not found
+      ansible.builtin.fail:
+        msg: >
+          No SoT file found for {{ inventory_hostname }} under {{ sot_device_dir }}.
+          Expected: sot/devices/<site>/{{ inventory_hostname }}.yml
+      when: device_sot_search.files | length == 0
+
+    - name: Load device SoT data
+      ansible.builtin.include_vars:
+        file: "{{ device_sot_search.files[0].path }}"
+
+    # ── Ensure output directory exists ───────────────────────────────────
+
+    - name: Create configs output directory
+      ansible.builtin.file:
+        path: "{{ configs_output_dir }}/{{ inventory_hostname }}"
+        state: directory
+        mode: "0755"
+
+  tasks:
+
+    # ── Arista EOS rendering ─────────────────────────────────────────────
+
+    - name: Render EOS base config
+      ansible.builtin.template:
+        src: "{{ playbook_dir }}/../templates/arista_eos/base.j2"
+        dest: "{{ configs_output_dir }}/{{ inventory_hostname }}/base.conf"
+        mode: "0644"
+      when: platform == 'arista_eos'
+
+    - name: Render EOS VRF config
+      ansible.builtin.template:
+        src: "{{ playbook_dir }}/../templates/arista_eos/vrfs.j2"
+        dest: "{{ configs_output_dir }}/{{ inventory_hostname }}/vrfs.conf"
+        mode: "0644"
+      when: platform == 'arista_eos' and vrfs is defined
+
+    - name: Render EOS VLAN config
+      ansible.builtin.template:
+        src: "{{ playbook_dir }}/../templates/arista_eos/vlans.j2"
+        dest: "{{ configs_output_dir }}/{{ inventory_hostname }}/vlans.conf"
+        mode: "0644"
+      when: platform == 'arista_eos' and vlans is defined
+
+    - name: Render EOS interface config
+      ansible.builtin.template:
+        src: "{{ playbook_dir }}/../templates/arista_eos/interfaces.j2"
+        dest: "{{ configs_output_dir }}/{{ inventory_hostname }}/interfaces.conf"
+        mode: "0644"
+      when: platform == 'arista_eos' and interfaces is defined
+
+    - name: Render EOS BGP config
+      ansible.builtin.template:
+        src: "{{ playbook_dir }}/../templates/arista_eos/bgp.j2"
+        dest: "{{ configs_output_dir }}/{{ inventory_hostname }}/bgp.conf"
+        mode: "0644"
+      when: platform == 'arista_eos' and bgp is defined
+
+    - name: Assemble EOS full running config
+      ansible.builtin.assemble:
+        src: "{{ configs_output_dir }}/{{ inventory_hostname }}"
+        dest: "{{ configs_output_dir }}/{{ inventory_hostname }}/running.conf"
+        delimiter: "!"
+        regexp: "^(base|vrfs|vlans|interfaces|bgp)\\.conf$"
+        mode: "0644"
+      when: platform == 'arista_eos'
+
+    # ── FRR rendering ────────────────────────────────────────────────────
+
+    - name: Render FRR base config
+      ansible.builtin.template:
+        src: "{{ playbook_dir }}/../templates/frr/base.j2"
+        dest: "{{ configs_output_dir }}/{{ inventory_hostname }}/base.conf"
+        mode: "0644"
+      when: platform == 'frr'
+
+    - name: Render FRR interface config
+      ansible.builtin.template:
+        src: "{{ playbook_dir }}/../templates/frr/interfaces.j2"
+        dest: "{{ configs_output_dir }}/{{ inventory_hostname }}/interfaces.conf"
+        mode: "0644"
+      when: platform == 'frr' and interfaces is defined
+
+    - name: Render FRR BGP config
+      ansible.builtin.template:
+        src: "{{ playbook_dir }}/../templates/frr/bgp.j2"
+        dest: "{{ configs_output_dir }}/{{ inventory_hostname }}/bgp.conf"
+        mode: "0644"
+      when: platform == 'frr' and bgp is defined
+
+    - name: Assemble FRR full frr.conf
+      ansible.builtin.assemble:
+        src: "{{ configs_output_dir }}/{{ inventory_hostname }}"
+        dest: "{{ configs_output_dir }}/{{ inventory_hostname }}/running.conf"
+        delimiter: "!"
+        regexp: "^(base|interfaces|bgp)\\.conf$"
+        mode: "0644"
+      when: platform == 'frr'
+
+    # ── Render summary ───────────────────────────────────────────────────
+
+    - name: Report rendered config path
+      ansible.builtin.debug:
+        msg: >
+          {{ inventory_hostname }} [{{ platform }}]
+          → {{ configs_output_dir }}/{{ inventory_hostname }}/running.conf

@@ -1,0 +1,21 @@
+{# ─────────────────────────────────────────────────────────────────────────
+   ACME Investments — FRR Base Configuration Template
+   Source: templates/frr/base.j2
+
+   Used for: FRR border stubs, branch CPEs, firewall (fw-lon-01)
+   Variables sourced from device SoT and platform_defaults (frr section)
+   ─────────────────────────────────────────────────────────────────────────
+#}
+! ═══════════════════════════════════════════════════════════════════════════
+! {{ hostname }}  |  {{ role }}  |  {{ site }}  |  {{ region }}
+! Rendered by automation pipeline — do NOT edit manually.
+! Source: sot/devices/{{ site }}/{{ hostname }}.yml
+! Last rendered: {{ ansible_date_time.iso8601 }}
+! ═══════════════════════════════════════════════════════════════════════════
+frr version 9.1
+frr defaults traditional
+hostname {{ hostname }}
+log syslog informational
+no ipv6 forwarding
+service integrated-vtysh-config
+!
