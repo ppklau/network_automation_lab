@@ -1,0 +1,157 @@
+---
+# ACME Investments — Verify State Playbook
+# ─────────────────────────────────────────────────────────────────────────────
+# Post-push verification: checks that the network converged correctly.
+# Fails the pipeline if any critical check fails, triggering rollback.
+#
+# Checks performed:
+#   EOS:
+#     - All expected BGP neighbors are Established
+#     - Management interface is reachable (ping from device)
+#     - No interface is in err-disabled state
+#     - Loopback0 is up/up
+#   FRR:
+#     - BGP peer is in Established state
+#     - Interface is up
+#
+# Usage:
+#   ansible-playbook playbooks/verify_state.yml
+#   ansible-playbook playbooks/verify_state.yml --limit spine-lon-01
+#
+# Pipeline stage: verify (runs after push; triggers rollback on failure)
+# ─────────────────────────────────────────────────────────────────────────────
+
+- name: Verify device state post-push
+  hosts: lab_active
+  gather_facts: false
+
+  vars:
+    verify_retries: 6        # retry up to 6 times (BGP may take ~30s to reconverge)
+    verify_delay: 10         # seconds between retries
+
+  tasks:
+
+    # ── EOS verification ─────────────────────────────────────────────────
+
+    - name: Collect BGP summary (EOS)
+      arista.eos.eos_command:
+        commands:
+          - show bgp summary | json
+      register: bgp_summary_raw
+      when: ansible_network_os == 'eos' or ansible_network_os == 'arista.eos.eos'
+      retries: "{{ verify_retries }}"
+      delay: "{{ verify_delay }}"
+      until: bgp_summary_raw is not failed
+
+    - name: Parse BGP peers (EOS)
+      ansible.builtin.set_fact:
+        bgp_peers: "{{ (bgp_summary_raw.stdout[0] | from_json).vrfs.default.peers | default({}) }}"
+      when: ansible_network_os == 'eos' or ansible_network_os == 'arista.eos.eos'
+
+    - name: Assert all expected BGP peers are Established (EOS)
+      ansible.builtin.assert:
+        that:
+          - bgp_peers[item.peer_ip] is defined
+          - bgp_peers[item.peer_ip].peerState == 'Established'
+        fail_msg: >
+          BGP peer {{ item.peer_ip }} ({{ item.description | default('') }}) is
+          {{ bgp_peers[item.peer_ip].peerState | default('missing') }} on {{ inventory_hostname }}
+        success_msg: "BGP peer {{ item.peer_ip }} is Established"
+      loop: "{{ bgp.neighbors | default([]) }}"
+      when:
+        - ansible_network_os == 'eos' or ansible_network_os == 'arista.eos.eos'
+        - bgp is defined
+        - bgp.neighbors is defined
+
+    - name: Collect interface status (EOS)
+      arista.eos.eos_command:
+        commands:
+          - show interfaces status | json
+      register: intf_status_raw
+      when: ansible_network_os == 'eos' or ansible_network_os == 'arista.eos.eos'
+
+    - name: Assert Loopback0 is connected (EOS)
+      ansible.builtin.assert:
+        that:
+          - (intf_status_raw.stdout[0] | from_json).interfaceStatuses['Loopback0'] is defined
+          - (intf_status_raw.stdout[0] | from_json).interfaceStatuses['Loopback0'].lineProtocolStatus == 'up'
+        fail_msg: "Loopback0 is not up on {{ inventory_hostname }}"
+        success_msg: "Loopback0 is up"
+      when:
+        - ansible_network_os == 'eos' or ansible_network_os == 'arista.eos.eos'
+        - loopback is defined
+
+    - name: Assert no interfaces are err-disabled (EOS)
+      ansible.builtin.assert:
+        that:
+          - >
+            (intf_status_raw.stdout[0] | from_json).interfaceStatuses.values()
+            | selectattr('lineProtocolStatus', 'equalto', 'errdisabled')
+            | list | length == 0
+        fail_msg: >
+          One or more interfaces are err-disabled on {{ inventory_hostname }}:
+          {{ (intf_status_raw.stdout[0] | from_json).interfaceStatuses.items()
+             | selectattr('1.lineProtocolStatus', 'equalto', 'errdisabled')
+             | map(attribute='0') | list }}
+        success_msg: "No err-disabled interfaces"
+      when: ansible_network_os == 'eos' or ansible_network_os == 'arista.eos.eos'
+
+    - name: Verify management reachability — ping management gateway (EOS)
+      arista.eos.eos_command:
+        commands:
+          - "ping vrf MGMT {{ management.gateway }} source {{ management.interface }} repeat 3"
+      register: mgmt_ping
+      when:
+        - ansible_network_os == 'eos' or ansible_network_os == 'arista.eos.eos'
+        - management.gateway is defined
+
+    - name: Assert management ping succeeded (EOS)
+      ansible.builtin.assert:
+        that: "'3 received' in mgmt_ping.stdout[0] or '2 received' in mgmt_ping.stdout[0]"
+        fail_msg: "Management gateway {{ management.gateway }} unreachable from {{ inventory_hostname }}"
+        success_msg: "Management gateway reachable"
+      when:
+        - ansible_network_os == 'eos' or ansible_network_os == 'arista.eos.eos'
+        - management.gateway is defined
+        - mgmt_ping is not failed
+
+    # ── FRR verification ─────────────────────────────────────────────────
+
+    - name: Collect BGP summary (FRR via vtysh)
+      ansible.builtin.command: vtysh -c "show bgp summary json"
+      register: frr_bgp_raw
+      when: platform | default('') == 'frr' or ansible_network_os == 'frr'
+      become: true
+      retries: "{{ verify_retries }}"
+      delay: "{{ verify_delay }}"
+      until: frr_bgp_raw.rc == 0
+      changed_when: false
+
+    - name: Parse FRR BGP summary
+      ansible.builtin.set_fact:
+        frr_bgp_summary: "{{ frr_bgp_raw.stdout | from_json }}"
+      when:
+        - platform | default('') == 'frr' or ansible_network_os == 'frr'
+        - frr_bgp_raw is not failed
+
+    - name: Assert FRR BGP peers are Established
+      ansible.builtin.assert:
+        that:
+          - frr_bgp_summary.ipv4Unicast.peers[item.peer_ip] is defined
+          - frr_bgp_summary.ipv4Unicast.peers[item.peer_ip].state == 'Established'
+        fail_msg: >
+          BGP peer {{ item.peer_ip }} is
+          {{ frr_bgp_summary.ipv4Unicast.peers[item.peer_ip].state | default('missing') }}
+          on {{ inventory_hostname }}
+        success_msg: "BGP peer {{ item.peer_ip }} is Established"
+      loop: "{{ bgp.neighbors | default([]) }}"
+      when:
+        - platform | default('') == 'frr' or ansible_network_os == 'frr'
+        - bgp is defined
+        - frr_bgp_summary is defined
+
+    # ── Summary ──────────────────────────────────────────────────────────
+
+    - name: Verification passed
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }}: all verification checks PASSED"

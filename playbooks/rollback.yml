@@ -1,0 +1,122 @@
+---
+# ACME Investments — Rollback Playbook
+# ─────────────────────────────────────────────────────────────────────────────
+# Restores the previous rendered config for one or more devices.
+# Triggered manually (operator decision) or automatically by the pipeline
+# when verify_state.yml fails.
+#
+# Rollback source: configs/<hostname>/state/pre_push_<timestamp>.conf
+# If no pre-push config exists, fails safely (no blind rollback).
+#
+# Usage:
+#   # Roll back using the most recent pre-push snapshot:
+#   ansible-playbook playbooks/rollback.yml --limit spine-lon-01
+#
+#   # Roll back to a specific snapshot (provide the timestamp):
+#   ansible-playbook playbooks/rollback.yml --limit spine-lon-01 \
+#     -e "rollback_timestamp=20260401T143022"
+#
+# Pipeline stage: post-verify (triggered automatically on verify failure)
+# ─────────────────────────────────────────────────────────────────────────────
+
+- name: Roll back device configurations
+  hosts: lab_active
+  gather_facts: false
+  serial: 1   # roll back one device at a time — safety first
+
+  vars:
+    configs_dir: "{{ playbook_dir }}/../configs"
+    state_dir: "{{ configs_dir }}/{{ inventory_hostname }}/state"
+    rollback_timestamp: "latest"   # override with -e rollback_timestamp=<ts>
+
+  pre_tasks:
+
+    - name: Find available pre-push snapshots
+      ansible.builtin.find:
+        paths: "{{ state_dir }}"
+        patterns: "pre_push_*.conf"
+        age_stamp: ctime
+      register: pre_push_snapshots
+      delegate_to: localhost
+
+    - name: Fail if no snapshots available
+      ansible.builtin.fail:
+        msg: >
+          No pre-push snapshots found in {{ state_dir }}.
+          Cannot roll back {{ inventory_hostname }} safely — manual intervention required.
+      when: pre_push_snapshots.files | length == 0
+
+    - name: Select rollback config (latest snapshot)
+      ansible.builtin.set_fact:
+        rollback_config: >-
+          {{ (pre_push_snapshots.files | sort(attribute='ctime') | last).path }}
+      when: rollback_timestamp == 'latest'
+
+    - name: Select rollback config (by timestamp)
+      ansible.builtin.set_fact:
+        rollback_config: "{{ state_dir }}/pre_push_{{ rollback_timestamp }}.conf"
+      when: rollback_timestamp != 'latest'
+
+    - name: Verify rollback config exists
+      ansible.builtin.stat:
+        path: "{{ rollback_config }}"
+      register: rollback_stat
+      delegate_to: localhost
+
+    - name: Fail if rollback config not found
+      ansible.builtin.fail:
+        msg: >
+          Rollback config not found: {{ rollback_config }}
+          Available snapshots: {{ pre_push_snapshots.files | map(attribute='path') | list }}
+      when: not rollback_stat.stat.exists
+
+    - name: Announce rollback
+      ansible.builtin.debug:
+        msg: >
+          ROLLBACK: {{ inventory_hostname }} → {{ rollback_config }}
+          This will replace the running config with the pre-push snapshot.
+
+  tasks:
+
+    # ── EOS rollback ─────────────────────────────────────────────────────
+
+    - name: Push rollback config to EOS device
+      community.network.napalm_install_config:
+        hostname: "{{ ansible_host }}"
+        username: "{{ ansible_user }}"
+        password: "{{ ansible_password }}"
+        dev_os: eos
+        config_file: "{{ rollback_config }}"
+        commit_changes: true
+        replace_config: true
+        get_diffs: true
+        diff_file: "{{ state_dir }}/rollback_diff_{{ ansible_date_time.iso8601_basic_short }}.txt"
+      when: ansible_network_os == 'eos' or ansible_network_os == 'arista.eos.eos'
+      register: rollback_result
+
+    # ── FRR rollback ─────────────────────────────────────────────────────
+
+    - name: Copy rollback config to FRR node
+      ansible.builtin.copy:
+        src: "{{ rollback_config }}"
+        dest: /etc/frr/frr.conf
+        mode: "0640"
+        owner: frr
+        group: frr
+      when: platform | default('') == 'frr' or ansible_network_os == 'frr'
+      become: true
+
+    - name: Reload FRR config after rollback
+      ansible.builtin.command: vtysh -f /etc/frr/frr.conf
+      when: platform | default('') == 'frr' or ansible_network_os == 'frr'
+      become: true
+      changed_when: true
+
+  post_tasks:
+
+    - name: Rollback complete — verify state
+      ansible.builtin.debug:
+        msg: >
+          Rollback applied to {{ inventory_hostname }}.
+          Run verify_state.yml to confirm recovery:
+          ansible-playbook playbooks/verify_state.yml --limit {{ inventory_hostname }}

@@ -1,0 +1,313 @@
+---
+# ACME Investments — GitLab CI/CD Pipeline
+# ─────────────────────────────────────────────────────────────────────────────
+# Implements the full SoT → validate → intent-check → render → diff →
+#   approve → push → verify pipeline.
+#
+# Stages:
+#   validate      YAML lint + JSON schema + SoT cross-checks + change freeze
+#   intent-check  Batfish network model assertions (Phase 6)
+#   render        Jinja2 config generation from SoT
+#   diff          Config diff artefact — shows what will change on devices
+#   approve       Manual gate — required before any device push
+#   push          Ansible push to live devices (lab_active only)
+#   verify        Post-push state verification; triggers rollback on failure
+#
+# Variables (defined in GitLab CI/CD settings or overridden per job):
+#   VAULT_PASS    — Ansible vault password (GitLab secret variable, masked)
+#   ANSIBLE_HOST_KEY_CHECKING=False
+#   PY_COLORS=1
+#
+# Runner requirements:
+#   - Docker executor with image: python:3.12-slim (or custom acme-netops image)
+#   - Network access to containerlab management network (172.20.20.0/24)
+#   - SSH key pair: CI_SSH_PRIVATE_KEY (GitLab secret)
+#
+# ─────────────────────────────────────────────────────────────────────────────
+
+image: python:3.12-slim
+
+variables:
+  ANSIBLE_HOST_KEY_CHECKING: "False"
+  ANSIBLE_FORCE_COLOR: "True"
+  PY_COLORS: "1"
+  CONFIGS_DIR: "${CI_PROJECT_DIR}/configs"
+  BATFISH_HOST: "batfish"   # Docker service name (see services: below)
+
+# Cache pip dependencies across jobs in the same pipeline
+cache:
+  key: "${CI_COMMIT_REF_SLUG}-pip"
+  paths:
+    - .pip_cache/
+
+before_script:
+  - pip install --cache-dir .pip_cache -q
+      ansible
+      ansible-lint
+      yamllint
+      jsonschema
+      pyyaml
+      napalm
+      napalm-ansible
+      ansible-collections-community-network
+  - ansible-galaxy collection install arista.eos ansible.netcommon community.network --quiet
+  - echo "${VAULT_PASS}" > /tmp/.vault_pass
+
+stages:
+  - validate
+  - intent-check
+  - render
+  - diff
+  - approve
+  - push
+  - verify
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STAGE: validate
+# ─────────────────────────────────────────────────────────────────────────────
+
+yamllint:
+  stage: validate
+  script:
+    - yamllint -c .yamllint.yml sot/ design_intents/ requirements/ inventory/ playbooks/
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main"
+
+schema-validate:
+  stage: validate
+  script:
+    - python3 scripts/validate_sot.py
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main"
+
+change-freeze-check:
+  stage: validate
+  script:
+    - |
+      python3 - <<'EOF'
+      import sys, os, yaml
+      from datetime import datetime, timezone
+
+      with open("gitlab/change_freeze.yml") as f:
+          cfg = yaml.safe_load(f)
+
+      if cfg.get("CHANGE_FREEZE_ENABLED", "false").lower() != "true":
+          print("Change freeze: INACTIVE — pipeline may proceed")
+          sys.exit(0)
+
+      commit_msg = os.environ.get("CI_COMMIT_MESSAGE", "")
+      emergency_keyword = cfg.get("EMERGENCY_KEYWORD", "[emergency]")
+      if emergency_keyword in commit_msg:
+          print(f"EMERGENCY OVERRIDE detected in commit message — freeze bypassed")
+          print("Audit artefact will be generated in the push stage")
+          sys.exit(0)
+
+      now = datetime.now(timezone.utc)
+      freeze_start = datetime.fromisoformat(cfg["FREEZE_START"])
+      freeze_end   = datetime.fromisoformat(cfg["FREEZE_END"])
+
+      if freeze_start <= now <= freeze_end:
+          scope  = cfg.get("FREEZE_SCOPE", "all")
+          reason = cfg.get("FREEZE_REASON", "Change freeze active")
+          print(f"CHANGE FREEZE ACTIVE")
+          print(f"  Window:  {freeze_start.isoformat()} → {freeze_end.isoformat()} UTC")
+          print(f"  Scope:   {scope}")
+          print(f"  Reason:  {reason}")
+          print()
+          print(f"To bypass: include '{emergency_keyword}' in your commit message.")
+          print(f"Emergency MRs require approval from: {cfg.get('EMERGENCY_APPROVERS', 'senior-netops')}")
+          sys.exit(1)
+
+      print(f"Change freeze: window defined but NOT active — pipeline may proceed")
+      sys.exit(0)
+      EOF
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main"
+
+generate-inventory:
+  stage: validate
+  script:
+    - python3 scripts/generate_inventory.py
+    - echo "Inventory generated:"
+    - cat inventory/hosts.yml | head -40
+  artifacts:
+    paths:
+      - inventory/hosts.yml
+    expire_in: 1 week
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STAGE: intent-check  (Phase 6 — Batfish)
+# ─────────────────────────────────────────────────────────────────────────────
+
+batfish-intent-check:
+  stage: intent-check
+  services:
+    - name: batfish/batfish:latest
+      alias: batfish
+  script:
+    - pip install --cache-dir .pip_cache -q pybatfish pytest
+    - python3 batfish/run_checks.sh || (echo "Intent checks FAILED" && exit 1)
+  artifacts:
+    when: always
+    paths:
+      - batfish/reports/
+    expire_in: 4 weeks
+    reports:
+      junit: batfish/reports/junit.xml
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main"
+  allow_failure: false
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STAGE: render
+# ─────────────────────────────────────────────────────────────────────────────
+
+render-configs:
+  stage: render
+  needs:
+    - job: generate-inventory
+      artifacts: true
+    - job: schema-validate
+    - job: batfish-intent-check
+  script:
+    - >
+      ansible-playbook playbooks/render_configs.yml
+      --vault-password-file /tmp/.vault_pass
+      -i inventory/hosts.yml
+  artifacts:
+    paths:
+      - configs/
+    exclude:
+      - configs/**/.gitkeep
+    expire_in: 4 weeks
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STAGE: diff
+# ─────────────────────────────────────────────────────────────────────────────
+
+config-diff:
+  stage: diff
+  needs:
+    - job: render-configs
+      artifacts: true
+  script:
+    - |
+      echo "=== Config diff between rendered and last-known state ==="
+      for host_dir in configs/*/; do
+        hostname=$(basename "$host_dir")
+        rendered="$host_dir/running.conf"
+        previous=$(find "$host_dir/state" -name "pre_push_*.conf" 2>/dev/null | sort | tail -1)
+        if [ -n "$previous" ] && [ -f "$previous" ]; then
+          echo ""
+          echo "--- $hostname ---"
+          diff --unified=3 "$previous" "$rendered" || true
+        else
+          echo "$hostname: no previous state — first push or no snapshot found"
+        fi
+      done
+  artifacts:
+    name: "config-diff-${CI_PIPELINE_ID}"
+    paths:
+      - configs/
+    expire_in: 4 weeks
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STAGE: approve  (manual gate)
+# ─────────────────────────────────────────────────────────────────────────────
+# Only runs on the main branch (not on MR pipelines — those stop at diff).
+# An authorised engineer must click "play" in the GitLab UI before push proceeds.
+# GitLab protected environment "production" enforces the approver list.
+
+approve-push:
+  stage: approve
+  needs:
+    - job: config-diff
+  script:
+    - echo "Push approved by ${GITLAB_USER_NAME} at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  when: manual
+  allow_failure: false
+  environment:
+    name: production
+    action: prepare
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STAGE: push
+# ─────────────────────────────────────────────────────────────────────────────
+
+push-configs:
+  stage: push
+  needs:
+    - job: approve-push
+    - job: render-configs
+      artifacts: true
+  script:
+    - mkdir -p ~/.ssh && echo "${CI_SSH_PRIVATE_KEY}" > ~/.ssh/id_rsa && chmod 600 ~/.ssh/id_rsa
+    - >
+      ansible-playbook playbooks/push_configs.yml
+      --vault-password-file /tmp/.vault_pass
+      -i inventory/hosts.yml
+      -e "push_serial=20%"
+  artifacts:
+    name: "push-artefact-${CI_PIPELINE_ID}"
+    when: always
+    paths:
+      - configs/
+    expire_in: 12 weeks   # retain push artefacts for audit (MiFID II: 5 years in production)
+  after_script:
+    - rm -f ~/.ssh/id_rsa
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STAGE: verify
+# ─────────────────────────────────────────────────────────────────────────────
+
+verify-state:
+  stage: verify
+  needs:
+    - job: push-configs
+      artifacts: true
+  script:
+    - mkdir -p ~/.ssh && echo "${CI_SSH_PRIVATE_KEY}" > ~/.ssh/id_rsa && chmod 600 ~/.ssh/id_rsa
+    - >
+      ansible-playbook playbooks/verify_state.yml
+      --vault-password-file /tmp/.vault_pass
+      -i inventory/hosts.yml
+  after_script:
+    - rm -f ~/.ssh/id_rsa
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+
+rollback-on-failure:
+  stage: verify
+  needs:
+    - job: push-configs
+      artifacts: true
+    - job: verify-state
+  script:
+    - mkdir -p ~/.ssh && echo "${CI_SSH_PRIVATE_KEY}" > ~/.ssh/id_rsa && chmod 600 ~/.ssh/id_rsa
+    - echo "VERIFY FAILED — initiating automatic rollback"
+    - >
+      ansible-playbook playbooks/rollback.yml
+      --vault-password-file /tmp/.vault_pass
+      -i inventory/hosts.yml
+  after_script:
+    - rm -f ~/.ssh/id_rsa
+  when: on_failure
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"

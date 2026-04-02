@@ -1,0 +1,127 @@
+---
+# ACME Investments — Collect State Playbook
+# ─────────────────────────────────────────────────────────────────────────────
+# Gathers structured operational state from all active devices.
+# Output is stored as JSON under configs/<hostname>/state/collected_<timestamp>.json
+# Used for: audit artefacts, drift detection baseline, pre/post change comparison,
+#           BGP prefix monitoring, interface utilisation reporting.
+#
+# Usage:
+#   ansible-playbook playbooks/collect_state.yml                      # all devices
+#   ansible-playbook playbooks/collect_state.yml --limit spine-lon-01
+#   ansible-playbook playbooks/collect_state.yml -e "label=pre_change"
+#
+# Pipeline stage: called by audit_artefact.yml and drift_detection.yml
+# ─────────────────────────────────────────────────────────────────────────────
+
+- name: Collect operational state from devices
+  hosts: lab_active
+  gather_facts: false
+
+  vars:
+    configs_dir: "{{ playbook_dir }}/../configs"
+    state_dir: "{{ configs_dir }}/{{ inventory_hostname }}/state"
+    collect_timestamp: "{{ ansible_date_time.iso8601_basic_short }}"
+    collect_label: "{{ label | default('collected') }}"
+
+  tasks:
+
+    - name: Ensure state directory exists
+      ansible.builtin.file:
+        path: "{{ state_dir }}"
+        state: directory
+        mode: "0755"
+      delegate_to: localhost
+
+    # ── EOS state collection ─────────────────────────────────────────────
+
+    - name: Collect EOS state
+      arista.eos.eos_command:
+        commands:
+          - show version | json
+          - show bgp summary | json
+          - show interfaces | json
+          - show ip route summary | json
+          - show vlan | json
+          - show logging last 100
+      register: eos_state_raw
+      when: ansible_network_os == 'eos' or ansible_network_os == 'arista.eos.eos'
+      ignore_errors: true
+
+    - name: Assemble EOS state document
+      ansible.builtin.set_fact:
+        device_state:
+          hostname: "{{ inventory_hostname }}"
+          timestamp: "{{ ansible_date_time.iso8601 }}"
+          label: "{{ collect_label }}"
+          platform: arista_eos
+          version: "{{ eos_state_raw.stdout[0] | from_json | default({}) }}"
+          bgp_summary: "{{ eos_state_raw.stdout[1] | from_json | default({}) }}"
+          interfaces: "{{ eos_state_raw.stdout[2] | from_json | default({}) }}"
+          route_summary: "{{ eos_state_raw.stdout[3] | from_json | default({}) }}"
+          vlans: "{{ eos_state_raw.stdout[4] | from_json | default({}) }}"
+          recent_logs: "{{ eos_state_raw.stdout[5] | default('') }}"
+      when: ansible_network_os == 'eos' or ansible_network_os == 'arista.eos.eos'
+
+    # ── FRR state collection ─────────────────────────────────────────────
+
+    - name: Collect FRR BGP summary
+      ansible.builtin.command: vtysh -c "show bgp summary json"
+      register: frr_bgp_raw
+      when: platform | default('') == 'frr' or ansible_network_os == 'frr'
+      become: true
+      changed_when: false
+      ignore_errors: true
+
+    - name: Collect FRR interface state
+      ansible.builtin.command: vtysh -c "show interface json"
+      register: frr_intf_raw
+      when: platform | default('') == 'frr' or ansible_network_os == 'frr'
+      become: true
+      changed_when: false
+      ignore_errors: true
+
+    - name: Collect FRR route table
+      ansible.builtin.command: vtysh -c "show ip route json"
+      register: frr_routes_raw
+      when: platform | default('') == 'frr' or ansible_network_os == 'frr'
+      become: true
+      changed_when: false
+      ignore_errors: true
+
+    - name: Assemble FRR state document
+      ansible.builtin.set_fact:
+        device_state:
+          hostname: "{{ inventory_hostname }}"
+          timestamp: "{{ ansible_date_time.iso8601 }}"
+          label: "{{ collect_label }}"
+          platform: frr
+          bgp_summary: "{{ frr_bgp_raw.stdout | from_json | default({}) }}"
+          interfaces: "{{ frr_intf_raw.stdout | from_json | default({}) }}"
+          routes: "{{ frr_routes_raw.stdout | from_json | default({}) }}"
+      when: platform | default('') == 'frr' or ansible_network_os == 'frr'
+
+    # ── Write state to disk ──────────────────────────────────────────────
+
+    - name: Write collected state JSON
+      ansible.builtin.copy:
+        content: "{{ device_state | to_nice_json }}"
+        dest: "{{ state_dir }}/{{ collect_label }}_{{ collect_timestamp }}.json"
+        mode: "0644"
+      delegate_to: localhost
+      when: device_state is defined
+
+    - name: Write latest symlink
+      ansible.builtin.file:
+        src: "{{ state_dir }}/{{ collect_label }}_{{ collect_timestamp }}.json"
+        dest: "{{ state_dir }}/latest.json"
+        state: link
+        force: true
+      delegate_to: localhost
+      when: device_state is defined
+
+    - name: Report collection
+      ansible.builtin.debug:
+        msg: >
+          {{ inventory_hostname }}: state collected →
+          {{ state_dir }}/{{ collect_label }}_{{ collect_timestamp }}.json

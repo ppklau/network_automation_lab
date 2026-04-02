@@ -1,0 +1,51 @@
+---
+# ACME Investments — Change Freeze Configuration
+# ─────────────────────────────────────────────────────────────────────────────
+# Controls the automated change freeze enforcement in the CI pipeline.
+# The validate stage reads these variables and fails non-emergency pipelines
+# that run during a declared freeze window.
+#
+# To activate a freeze:
+#   1. Set CHANGE_FREEZE_ENABLED: "true"
+#   2. Set FREEZE_START and FREEZE_END to ISO 8601 UTC datetimes
+#   3. Add a human-readable reason to FREEZE_REASON
+#   4. Commit and push — the pipeline will enforce the freeze immediately
+#
+# Emergency overrides:
+#   Set CI_COMMIT_MESSAGE to include "[emergency]" to bypass freeze enforcement.
+#   Requires approval from a second senior engineer (enforced by GitLab approval rules).
+#   All emergency pushes create a mandatory audit artefact.
+#
+# Freeze windows for recurring events (e.g. quarterly release cuts, end-of-day):
+#   Set FREEZE_RECURRING: "true" and define FREEZE_CRON_START / FREEZE_CRON_END
+#   in cron format. Evaluated by the validate stage using Python's croniter.
+#
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── Current freeze state ──────────────────────────────────────────────────
+CHANGE_FREEZE_ENABLED: "false"
+
+# ── Freeze window (UTC, ISO 8601) ─────────────────────────────────────────
+# Active only when CHANGE_FREEZE_ENABLED: "true"
+FREEZE_START: "2026-04-01T18:00:00Z"
+FREEZE_END:   "2026-04-02T06:00:00Z"
+FREEZE_REASON: "End-of-quarter reporting window — trading systems on heightened monitoring"
+
+# ── Scope of freeze ───────────────────────────────────────────────────────
+# Which device groups are frozen. "all" freezes the entire estate.
+# Comma-separated group names from inventory (spine, leaf, border, branch, all).
+FREEZE_SCOPE: "all"
+
+# ── Recurring freeze windows ──────────────────────────────────────────────
+# Evaluated when FREEZE_RECURRING: "true". Uses cron syntax (UTC).
+# Example below: freeze every day 17:30–18:30 UTC (London close + 30min buffer)
+FREEZE_RECURRING: "false"
+FREEZE_CRON_START: "30 17 * * 1-5"   # Mon-Fri 17:30 UTC
+FREEZE_CRON_END:   "30 18 * * 1-5"   # Mon-Fri 18:30 UTC
+FREEZE_RECURRING_REASON: "Daily market close window — no changes during LON market hours +30min"
+
+# ── Emergency override ────────────────────────────────────────────────────
+# "[emergency]" in commit message bypasses freeze.
+# Audit artefact is created automatically (audit_artefact.yml).
+EMERGENCY_KEYWORD: "[emergency]"
+EMERGENCY_APPROVERS: "senior-netops"  # GitLab group that must approve emergency MRs

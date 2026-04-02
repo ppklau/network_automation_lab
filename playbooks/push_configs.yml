@@ -1,0 +1,187 @@
+---
+# ACME Investments — Push Configurations Playbook
+# ─────────────────────────────────────────────────────────────────────────────
+# Connects to live devices and pushes rendered configs from configs/<hostname>/.
+# Targets only lab_state: active devices (via the lab_active inventory group).
+# Captures before/after state for audit and rollback.
+#
+# Usage:
+#   ansible-playbook playbooks/push_configs.yml
+#   ansible-playbook playbooks/push_configs.yml --limit spine-lon-01
+#   ansible-playbook playbooks/push_configs.yml --limit site_lon_dc1
+#   ansible-playbook playbooks/push_configs.yml --limit spine          # all spines
+#
+# Pre-requisites:
+#   - render_configs.yml must have run first (configs/<hostname>/running.conf must exist)
+#   - Devices must be reachable on their management IPs (or containerlab 172.20.20.x)
+#   - Vault password file: --vault-password-file ~/.vault_pass.txt
+#
+# Pipeline stage: push (runs after validate + intent-check + render + approve)
+# ─────────────────────────────────────────────────────────────────────────────
+
+- name: Push configurations to devices
+  hosts: lab_active
+  gather_facts: false
+  serial: "{{ push_serial | default('20%') }}"   # push 20% of devices at a time by default
+
+  vars:
+    configs_dir: "{{ playbook_dir }}/../configs"
+    state_dir: "{{ playbook_dir }}/../configs/{{ inventory_hostname }}/state"
+    push_timestamp: "{{ ansible_date_time.iso8601_basic_short }}"
+
+  pre_tasks:
+
+    # ── Verify rendered config exists ────────────────────────────────────
+
+    - name: Check rendered config exists
+      ansible.builtin.stat:
+        path: "{{ configs_dir }}/{{ inventory_hostname }}/running.conf"
+      register: rendered_config
+      delegate_to: localhost
+
+    - name: Fail if rendered config missing
+      ansible.builtin.fail:
+        msg: >
+          No rendered config found for {{ inventory_hostname }}.
+          Run: ansible-playbook playbooks/render_configs.yml --limit {{ inventory_hostname }}
+      when: not rendered_config.stat.exists
+      delegate_to: localhost
+
+    # ── Capture pre-push state ───────────────────────────────────────────
+
+    - name: Create state directory
+      ansible.builtin.file:
+        path: "{{ state_dir }}"
+        state: directory
+        mode: "0755"
+      delegate_to: localhost
+
+    - name: Capture pre-push running config (EOS)
+      arista.eos.eos_command:
+        commands:
+          - show running-config
+      register: pre_push_config
+      when: ansible_network_os == 'eos' or ansible_network_os == 'arista.eos.eos'
+      ignore_errors: true   # device may be partially configured; capture what we can
+
+    - name: Save pre-push config (EOS)
+      ansible.builtin.copy:
+        content: "{{ pre_push_config.stdout[0] | default('') }}"
+        dest: "{{ state_dir }}/pre_push_{{ push_timestamp }}.conf"
+        mode: "0644"
+      when:
+        - ansible_network_os == 'eos' or ansible_network_os == 'arista.eos.eos'
+        - pre_push_config is not failed
+      delegate_to: localhost
+
+    - name: Capture pre-push BGP summary (EOS)
+      arista.eos.eos_command:
+        commands:
+          - show bgp summary
+          - show interfaces status
+      register: pre_push_bgp
+      when: ansible_network_os == 'eos' or ansible_network_os == 'arista.eos.eos'
+      ignore_errors: true
+
+    - name: Save pre-push BGP state (EOS)
+      ansible.builtin.copy:
+        content: "{{ pre_push_bgp.stdout | default([]) | join('\n---\n') }}"
+        dest: "{{ state_dir }}/pre_push_bgp_{{ push_timestamp }}.txt"
+        mode: "0644"
+      when:
+        - ansible_network_os == 'eos' or ansible_network_os == 'arista.eos.eos'
+        - pre_push_bgp is not failed
+      delegate_to: localhost
+
+  tasks:
+
+    # ── Push configuration — Arista EOS ─────────────────────────────────
+    # Uses napalm_install_config for atomic replace with candidate config.
+    # This ensures a clean diff and rollback capability.
+
+    - name: Push config to EOS device (napalm replace)
+      community.network.napalm_install_config:
+        hostname: "{{ ansible_host }}"
+        username: "{{ ansible_user }}"
+        password: "{{ ansible_password }}"
+        dev_os: eos
+        config_file: "{{ configs_dir }}/{{ inventory_hostname }}/running.conf"
+        commit_changes: true
+        replace_config: true
+        get_diffs: true
+        diff_file: "{{ state_dir }}/diff_{{ push_timestamp }}.txt"
+      when: ansible_network_os == 'eos' or ansible_network_os == 'arista.eos.eos'
+      register: eos_push_result
+
+    - name: Log EOS push result
+      ansible.builtin.debug:
+        msg: >
+          {{ inventory_hostname }}: push {{ 'SUCCESS' if not eos_push_result.failed else 'FAILED' }}
+          | diff saved to {{ state_dir }}/diff_{{ push_timestamp }}.txt
+      when: ansible_network_os == 'eos' or ansible_network_os == 'arista.eos.eos'
+
+    # ── Push configuration — FRR ─────────────────────────────────────────
+    # FRR nodes (firewall, border stubs, branches) use vtysh to load config.
+    # The rendered frr.conf is copied to the container and loaded via vtysh.
+
+    - name: Copy FRR running config to node
+      ansible.builtin.copy:
+        src: "{{ configs_dir }}/{{ inventory_hostname }}/running.conf"
+        dest: /etc/frr/frr.conf
+        mode: "0640"
+        owner: frr
+        group: frr
+      when: platform | default('') == 'frr' or ansible_network_os == 'frr'
+      become: true
+
+    - name: Reload FRR config via vtysh
+      ansible.builtin.command: vtysh -f /etc/frr/frr.conf
+      when: platform | default('') == 'frr' or ansible_network_os == 'frr'
+      become: true
+      register: frr_reload_result
+      changed_when: frr_reload_result.rc == 0
+
+    - name: Log FRR reload result
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }}: FRR reload {{ 'SUCCESS' if frr_reload_result.rc == 0 else 'FAILED' }}"
+      when: platform | default('') == 'frr' or ansible_network_os == 'frr'
+
+  post_tasks:
+
+    # ── Capture post-push state ──────────────────────────────────────────
+
+    - name: Capture post-push BGP summary (EOS)
+      arista.eos.eos_command:
+        commands:
+          - show bgp summary
+          - show interfaces status
+      register: post_push_bgp
+      when: ansible_network_os == 'eos' or ansible_network_os == 'arista.eos.eos'
+      ignore_errors: true
+
+    - name: Save post-push BGP state (EOS)
+      ansible.builtin.copy:
+        content: "{{ post_push_bgp.stdout | default([]) | join('\n---\n') }}"
+        dest: "{{ state_dir }}/post_push_bgp_{{ push_timestamp }}.txt"
+        mode: "0644"
+      when:
+        - ansible_network_os == 'eos' or ansible_network_os == 'arista.eos.eos'
+        - post_push_bgp is not failed
+      delegate_to: localhost
+
+    # ── Write push summary ───────────────────────────────────────────────
+
+    - name: Write push summary record
+      ansible.builtin.copy:
+        content: |
+          hostname: {{ inventory_hostname }}
+          timestamp: {{ push_timestamp }}
+          platform: {{ platform | default(ansible_network_os) }}
+          result: {{ 'success' if not (eos_push_result is defined and eos_push_result.failed) else 'failed' }}
+          rendered_config: {{ configs_dir }}/{{ inventory_hostname }}/running.conf
+          diff: {{ state_dir }}/diff_{{ push_timestamp }}.txt
+          pre_state: {{ state_dir }}/pre_push_bgp_{{ push_timestamp }}.txt
+          post_state: {{ state_dir }}/post_push_bgp_{{ push_timestamp }}.txt
+        dest: "{{ state_dir }}/push_record_{{ push_timestamp }}.yml"
+        mode: "0644"
+      delegate_to: localhost
