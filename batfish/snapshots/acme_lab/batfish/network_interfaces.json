@@ -1,0 +1,29 @@
+{
+  "interfaceLocationBlacklist": [],
+  "nodeRolesData": {
+    "defaultDimension": "role",
+    "roleDimensions": [
+      {
+        "name": "role",
+        "roles": [
+          { "name": "spine",  "wildcardExpression": "^spine-.*" },
+          { "name": "leaf",   "wildcardExpression": "^leaf-.*" },
+          { "name": "border", "wildcardExpression": "^border-.*" },
+          { "name": "fw",     "wildcardExpression": "^fw-.*" },
+          { "name": "branch", "wildcardExpression": "^branch-.*" }
+        ]
+      },
+      {
+        "name": "site",
+        "roles": [
+          { "name": "lon-dc1",      "wildcardExpression": ".*-lon-0[1-9]$" },
+          { "name": "nyc-dc1",      "wildcardExpression": ".*-nyc-0[1-9]$" },
+          { "name": "sin-dc1",      "wildcardExpression": ".*-sin-0[1-9]$" },
+          { "name": "fra-dc1",      "wildcardExpression": ".*-fra-0[1-9]$" },
+          { "name": "branch-lon",   "wildcardExpression": "^branch-lon-.*" },
+          { "name": "branch-nyc",   "wildcardExpression": "^branch-nyc-.*" }
+        ]
+      }
+    ]
+  }
+}
