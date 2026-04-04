@@ -1,0 +1,227 @@
+---
+# playbooks/decommission.yml
+#
+# ACME Investments — Device Decommission Workflow
+# Implements: Modules 1.2.1, 1.2.2
+#
+# Gracefully decommissions a device from the ACME network:
+#   Phase 1: Pre-checks (confirms device is safe to decommission)
+#   Phase 2: BGP withdrawal (graceful-shutdown, drain traffic)
+#   Phase 3: Confirmation gate (human confirmation before destructive steps)
+#   Phase 4: Interface zero-out (shutdown all data-plane interfaces)
+#   Phase 5: SoT update (set lab_state: decommissioned)
+#   Phase 6: Archive (copy device record to state/decommissioned/)
+#
+# ⚠ This playbook is partially destructive. Phase 3 requires explicit
+#   confirmation. For lab use, pass --extra-vars "confirmed=yes" to skip
+#   the interactive pause.
+#
+# Parameters:
+#   target_node  — hostname to decommission (use --limit)
+#   reason       — reason for decommission (required)
+#   confirmed    — "yes" to skip interactive confirmation gate
+#
+# Usage:
+#   ansible-playbook playbooks/decommission.yml \
+#     --limit branch-lon-01 \
+#     --extra-vars "reason='Branch office closed' confirmed=yes"
+
+- name: Phase 1 — Pre-checks
+  hosts: "{{ ansible_limit | default('none') }}"
+  gather_facts: false
+  vars:
+    reason: "{{ reason | default('Not specified') }}"
+    decommission_timestamp: "{{ lookup('pipe', 'date -u +%Y-%m-%dT%H:%M:%SZ') }}"
+  tasks:
+    - name: Verify target was specified
+      ansible.builtin.assert:
+        that: ansible_limit is defined
+        fail_msg: "Use --limit to specify the device to decommission. This playbook must not run against all hosts."
+
+    - name: Verify reason provided
+      ansible.builtin.assert:
+        that:
+          - reason is defined
+          - reason | length > 5
+        fail_msg: "Provide --extra-vars \"reason='<description>'\" to document why this device is being decommissioned."
+
+    - name: Check device SoT file exists
+      ansible.builtin.stat:
+        path: "{{ playbook_dir }}/../sot/devices/{{ site }}/{{ inventory_hostname }}.yml"
+      register: sot_file
+      delegate_to: localhost
+      failed_when: not sot_file.stat.exists
+
+    - name: Verify device is not a spine or route reflector
+      ansible.builtin.assert:
+        that: role not in ['spine']
+        fail_msg: >
+          {{ inventory_hostname }} is a spine (route reflector). Decommissioning a spine
+          without replacing it would violate INTENT-008 (dual-spine redundancy).
+          Provision a replacement spine first.
+
+    - name: Confirm device is reachable
+      arista.eos.eos_command:
+        commands: ["show version | json"]
+      register: version_check
+      when: platform == 'arista_eos'
+      failed_when: false
+
+    - name: Pre-check summary
+      ansible.builtin.debug:
+        msg: |
+          Pre-checks passed for decommission of {{ inventory_hostname }}.
+          Role   : {{ role }}
+          Site   : {{ site }}
+          Reason : {{ reason }}
+          Timestamp: {{ decommission_timestamp }}
+
+- name: Phase 2 — BGP withdrawal
+  hosts: "{{ ansible_limit | default('none') }}"
+  gather_facts: false
+  tasks:
+    - name: Apply BGP graceful-shutdown (EOS)
+      when: platform == 'arista_eos'
+      arista.eos.eos_config:
+        lines:
+          - "graceful-restart-helper"
+        parents:
+          - "router bgp {{ bgp.local_as | default(65001) }}"
+
+    - name: Apply BGP graceful-shutdown (FRR)
+      when: platform == 'frr'
+      ansible.builtin.raw: |
+        vtysh -c "configure terminal" -c "bgp graceful-shutdown" -c "end" -c "write"
+      become: true
+
+    - name: Wait for traffic to drain (30 seconds)
+      ansible.builtin.wait_for:
+        timeout: 30
+      delegate_to: localhost
+
+    - name: Withdraw all BGP prefixes (FRR — remove network statements)
+      when: platform == 'frr'
+      ansible.builtin.raw: |
+        vtysh -c "configure terminal" \
+              -c "router bgp {{ bgp.local_as | default(65100) }}" \
+              -c "no network 0.0.0.0/0" \
+              -c "end" -c "write"
+      become: true
+      failed_when: false
+
+- name: Phase 3 — Confirmation gate
+  hosts: localhost
+  gather_facts: false
+  vars:
+    confirmed: "{{ confirmed | default('no') }}"
+  tasks:
+    - name: Interactive confirmation (if not pre-confirmed)
+      when: confirmed | lower != 'yes'
+      ansible.builtin.pause:
+        prompt: |
+
+          ════════════════════════════════════════════════════════════════
+          DECOMMISSION CONFIRMATION REQUIRED
+          ════════════════════════════════════════════════════════════════
+          Device  : {{ ansible_limit }}
+          Reason  : {{ hostvars[groups['lab_active'] | first].reason | default('Not specified') }}
+
+          The next phases will:
+            - Shut down all data-plane interfaces
+            - Update the SoT (lab_state: decommissioned)
+            - Archive the device record
+
+          This cannot be undone without manual SoT restoration.
+
+          Type 'yes' to continue, anything else to abort:
+      register: gate_input
+      failed_when: gate_input.user_input | lower != 'yes'
+
+- name: Phase 4 — Interface zero-out
+  hosts: "{{ ansible_limit | default('none') }}"
+  gather_facts: false
+  tasks:
+    - name: Shutdown all data-plane interfaces (EOS)
+      when: platform == 'arista_eos'
+      arista.eos.eos_config:
+        lines:
+          - "shutdown"
+        parents:
+          - "interface {{ item.name }}"
+      loop: "{{ interfaces | default([]) }}"
+      when: item.name not in ['Management0', 'Loopback0']
+
+    - name: Shutdown all data-plane interfaces (FRR)
+      when: platform == 'frr'
+      ansible.builtin.raw: |
+        vtysh -c "configure terminal" \
+              -c "interface {{ item.name }}" \
+              -c "shutdown" \
+              -c "exit" \
+              -c "end" -c "write"
+      loop: "{{ interfaces | default([]) }}"
+      when: item.name not in ['lo', 'eth0']
+      become: true
+
+- name: Phase 5 — SoT update
+  hosts: localhost
+  gather_facts: false
+  vars:
+    decommission_timestamp: "{{ lookup('pipe', 'date -u +%Y-%m-%dT%H:%M:%SZ') }}"
+    reason: "{{ reason | default('Not specified') }}"
+    target: "{{ ansible_limit }}"
+  tasks:
+    - name: Read current device SoT file
+      ansible.builtin.slurp:
+        src: "{{ playbook_dir }}/../sot/devices/{{ hostvars[target].site }}/{{ target }}.yml"
+      register: sot_current
+
+    - name: Update lab_state to decommissioned
+      ansible.builtin.replace:
+        path: "{{ playbook_dir }}/../sot/devices/{{ hostvars[target].site }}/{{ target }}.yml"
+        regexp: '^lab_state:.*$'
+        replace: >-
+          lab_state: decommissioned
+          decommission_date: "{{ decommission_timestamp }}"
+          decommission_reason: "{{ reason }}"
+          decommission_engineer: "{{ ansible_env.USER | default('automation') }}"
+
+- name: Phase 6 — Archive device record
+  hosts: localhost
+  gather_facts: false
+  vars:
+    decommission_timestamp: "{{ lookup('pipe', 'date +%Y%m%d_%H%M%S') }}"
+    target: "{{ ansible_limit }}"
+  tasks:
+    - name: Create decommission archive directory
+      ansible.builtin.file:
+        path: "{{ playbook_dir }}/../state/decommissioned"
+        state: directory
+        mode: '0755'
+
+    - name: Archive device SoT record
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../sot/devices/{{ hostvars[target].site }}/{{ target }}.yml"
+        dest: "{{ playbook_dir }}/../state/decommissioned/{{ target }}_{{ decommission_timestamp }}.yml"
+
+    - name: Archive rendered config
+      ansible.builtin.copy:
+        src: "{{ configs_output_dir }}/{{ target }}/running.conf"
+        dest: "{{ playbook_dir }}/../state/decommissioned/{{ target }}_{{ decommission_timestamp }}.conf"
+      failed_when: false
+
+    - name: Decommission complete
+      ansible.builtin.debug:
+        msg: |
+          ════════════════════════════════════════════════════════════════
+          DECOMMISSION COMPLETE: {{ target }}
+          ════════════════════════════════════════════════════════════════
+          SoT updated  : lab_state set to decommissioned
+          Archive      : state/decommissioned/{{ target }}_{{ decommission_timestamp }}.yml
+
+          Next steps:
+          1. Commit the SoT change: git add sot/ && git commit -m "Decommission {{ target }}"
+          2. Regenerate inventory: python3 scripts/generate_inventory.py
+          3. Verify device no longer appears in active inventory:
+             ansible-playbook playbooks/verify_state.yml  ({{ target }} should be absent)
+          ════════════════════════════════════════════════════════════════

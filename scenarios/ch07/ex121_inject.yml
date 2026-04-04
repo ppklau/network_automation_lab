@@ -1,0 +1,57 @@
+---
+# scenarios/ch07/ex121_inject.yml
+#
+# Exercise 1.2.1 — Decommission a branch office
+# Setup: pre-stages branch-lon-01 for decommission
+#
+# Context: ACME's Leeds branch office (branch-lon-01) is being closed.
+# The building lease expires at end of month. All staff have been relocated
+# to the London HQ. The IT team has removed the physical router. You need
+# to cleanly remove it from the network.
+#
+# The inject playbook creates the pre-conditions (the branch is "about to be
+# decommissioned" — BGP is still running, config still exists).
+# The reader runs decommission.yml to complete the process.
+
+- name: Set up decommission scenario for branch-lon-01
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Write scenario breadcrumb
+      ansible.builtin.copy:
+        content: |
+          scenario: ex121_decommission_branch
+          injected_at: "{{ lookup('pipe', 'date -u +%Y-%m-%dT%H:%M:%SZ') }}"
+          target: branch-lon-01
+          context: >
+            ACME Leeds branch office closure. Building lease expired.
+            Staff relocated to London HQ. Physical router removed from rack.
+            Network team must clean up the BGP configuration and SoT.
+          pre_conditions:
+            - branch-lon-01 is running in the lab (lab_state: active)
+            - BGP session to border-lon-01 is Established
+            - prefix 10.100.0.0/29 is advertised to WAN peers
+          expected_post_state:
+            - branch-lon-01 BGP sessions withdrawn
+            - prefix 10.100.0.0/29 absent from border-lon-01 route table
+            - SoT lab_state changed to decommissioned
+            - device record archived in state/decommissioned/
+        dest: /tmp/scenario_active.txt
+
+    - name: Confirm setup
+      ansible.builtin.debug:
+        msg: |
+          SCENARIO SET UP: Decommission branch-lon-01
+
+          The ACME Leeds branch is being closed. The physical router has been
+          removed. Your task is to decommission it cleanly from the network.
+
+          Your task:
+            1. Confirm branch-lon-01 is currently active:
+               ansible-playbook playbooks/daily_health_check.yml --limit branch-lon-01
+            2. Run the decommission playbook:
+               ansible-playbook playbooks/decommission.yml \
+                 --limit branch-lon-01 \
+                 --extra-vars "reason='Leeds branch closure — lease ended' confirmed=yes"
+            3. Commit the SoT change: git add sot/ && git commit -m "Decommission branch-lon-01"
+            4. Verify: ansible-playbook scenarios/ch07/ex121_verify.yml

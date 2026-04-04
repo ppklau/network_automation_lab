@@ -1,0 +1,162 @@
+---
+# scenarios/ch07/ex88_verify.yml — Exercise 8.8 SoT hygiene verification
+
+- name: Verify ex88 — SoT hygiene issues detected and fixed
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Check breadcrumb exists
+      ansible.builtin.stat:
+        path: /tmp/scenario_active.txt
+      register: breadcrumb
+
+    - name: Fail if breadcrumb missing
+      ansible.builtin.fail:
+        msg: "Run ex88_inject.yml first."
+      when: not breadcrumb.stat.exists
+
+    - name: Run sot_hygiene.py and capture output
+      ansible.builtin.command:
+        cmd: python3 scripts/sot_hygiene.py --json
+      register: hygiene_output
+      failed_when: false
+      changed_when: false
+
+    - name: Parse hygiene report
+      ansible.builtin.set_fact:
+        hygiene_report: "{{ hygiene_output.stdout | from_json }}"
+
+    - name: Assert no duplicate ASNs (HYG-003 or HYG-007 on branch-lon-02)
+      ansible.builtin.assert:
+        that: >-
+          hygiene_report.issues
+          | selectattr('node', 'equalto', 'branch-lon-02')
+          | selectattr('check', 'search', 'duplicate|asn')
+          | list
+          | length == 0
+        fail_msg: >
+          branch-lon-02 still has a duplicate ASN issue in the hygiene report.
+          Fix uk_branches.yml: change branch-lon-02 asn back to 65101.
+        success_msg: "✓ No duplicate ASN detected for branch-lon-02."
+
+    - name: Verify branch-lon-02 ASN in uk_branches.yml
+      ansible.builtin.shell: |
+        python3 -c "
+        import yaml, sys
+        data = yaml.safe_load(open('sot/devices/branches/uk_branches.yml'))
+        branches = data.get('branches', [])
+        for b in branches:
+            if b.get('hostname') == 'branch-lon-02':
+                asn = b.get('asn')
+                print(asn)
+                sys.exit(0 if asn == 65101 else 1)
+        print('not_found')
+        sys.exit(1)
+        "
+      register: asn_check
+      failed_when: asn_check.rc != 0 or asn_check.stdout.strip() != '65101'
+
+    - name: Assert branch-lon-02 ASN is 65101
+      ansible.builtin.assert:
+        that: asn_check.stdout.strip() == '65101'
+        fail_msg: >
+          branch-lon-02 ASN is '{{ asn_check.stdout.strip() }}', expected 65101.
+          Edit sot/devices/branches/uk_branches.yml and restore the correct ASN.
+        success_msg: "✓ branch-lon-02 ASN = 65101 (correct, no duplicate)."
+
+    - name: Verify leaf-lon-04 Ethernet1 has a description
+      ansible.builtin.shell: |
+        python3 -c "
+        import yaml, sys
+        data = yaml.safe_load(open('sot/devices/lon-dc1/leaf-lon-04.yml'))
+        interfaces = data.get('interfaces', [])
+        for iface in interfaces:
+            if iface.get('name') == 'Ethernet1':
+                desc = iface.get('description', '')
+                has_desc = bool(desc and desc.strip())
+                print('present' if has_desc else 'missing')
+                sys.exit(0 if has_desc else 1)
+        print('not_found')
+        sys.exit(1)
+        "
+      register: eth1_check
+      failed_when: eth1_check.rc != 0 or eth1_check.stdout.strip() != 'present'
+
+    - name: Assert Ethernet1 description restored
+      ansible.builtin.assert:
+        that: eth1_check.stdout.strip() == 'present'
+        fail_msg: >
+          leaf-lon-04 Ethernet1 still has no description in the SoT.
+          Edit sot/devices/lon-dc1/leaf-lon-04.yml and restore the description.
+        success_msg: "✓ leaf-lon-04 Ethernet1 description present."
+
+    - name: Verify leaf-lon-04 Ethernet2 has a description
+      ansible.builtin.shell: |
+        python3 -c "
+        import yaml, sys
+        data = yaml.safe_load(open('sot/devices/lon-dc1/leaf-lon-04.yml'))
+        interfaces = data.get('interfaces', [])
+        for iface in interfaces:
+            if iface.get('name') == 'Ethernet2':
+                desc = iface.get('description', '')
+                has_desc = bool(desc and desc.strip())
+                print('present' if has_desc else 'missing')
+                sys.exit(0 if has_desc else 1)
+        print('not_found')
+        sys.exit(1)
+        "
+      register: eth2_check
+      failed_when: eth2_check.rc != 0 or eth2_check.stdout.strip() != 'present'
+
+    - name: Assert Ethernet2 description restored
+      ansible.builtin.assert:
+        that: eth2_check.stdout.strip() == 'present'
+        fail_msg: >
+          leaf-lon-04 Ethernet2 still has no description in the SoT.
+          Edit sot/devices/lon-dc1/leaf-lon-04.yml and restore the description.
+        success_msg: "✓ leaf-lon-04 Ethernet2 description present."
+
+    - name: Run hygiene check one final time — must be clean
+      ansible.builtin.command:
+        cmd: python3 scripts/sot_hygiene.py --json
+      register: final_hygiene
+      failed_when: false
+      changed_when: false
+
+    - name: Parse final hygiene report
+      ansible.builtin.set_fact:
+        final_report: "{{ final_hygiene.stdout | from_json }}"
+
+    - name: Assert no critical issues remain
+      ansible.builtin.assert:
+        that: final_report.summary.critical == 0
+        fail_msg: >
+          The SoT still has {{ final_report.summary.critical }} critical issue(s).
+          Run: python3 scripts/sot_hygiene.py
+          Fix each CRITICAL item before re-running this verify.
+        success_msg: "✓ SoT hygiene: 0 critical issues."
+
+    - name: Remove breadcrumb
+      ansible.builtin.file:
+        path: /tmp/scenario_active.txt
+        state: absent
+
+    - name: Exercise 8.8 passed
+      ansible.builtin.debug:
+        msg: |
+          ✓ Exercise 8.8 PASSED
+          SoT hygiene issues detected and fixed:
+            - branch-lon-02 ASN restored to 65101 (no duplicate)
+            - leaf-lon-04 Ethernet1 description restored
+            - leaf-lon-04 Ethernet2 description restored
+            - sot_hygiene.py reports 0 critical issues
+
+          Key takeaway: Copy-paste errors in SoT files are the most common
+          source of configuration drift in teams that manage many devices.
+          Running sot_hygiene.py as a CI gate catches these before they
+          reach the network — a duplicate ASN would cause BGP to fail at
+          provisioning time rather than silently misconfigure a router.
+
+          The HYG-002 (missing descriptions) check might seem cosmetic but
+          descriptions are mandatory in MiFID II change records: an interface
+          with no description cannot be unambiguously identified in an audit.

@@ -1,0 +1,80 @@
+---
+# scenarios/ch07/ex86_verify.yml — Exercise 8.6 maintenance window verification
+
+- name: Verify ex86 — leaf-lon-04 maintenance mode exited cleanly
+  hosts: leaf-lon-04
+  gather_facts: false
+  tasks:
+    - name: Check breadcrumb exists
+      ansible.builtin.stat:
+        path: /tmp/scenario_active.txt
+      register: breadcrumb
+      delegate_to: localhost
+
+    - name: Fail if breadcrumb missing
+      ansible.builtin.fail:
+        msg: "Run ex86_inject.yml first."
+      when: not breadcrumb.stat.exists
+
+    - name: Collect running config
+      arista.eos.eos_command:
+        commands:
+          - show running-config
+          - show bgp summary | json
+      register: eos_output
+
+    - name: Assert graceful-shutdown not in BGP config
+      ansible.builtin.assert:
+        that: "'graceful-restart-helper' not in eos_output.stdout[0]"
+        fail_msg: >
+          BGP graceful-shutdown (graceful-restart-helper) is still configured on leaf-lon-04.
+          Run: ansible-playbook playbooks/maintenance_window.yml --limit leaf-lon-04 --extra-vars "action=exit"
+        success_msg: "✓ BGP graceful-shutdown removed."
+
+    - name: Assert maintenance banner not present
+      ansible.builtin.assert:
+        that: "'MAINTENANCE MODE ACTIVE' not in eos_output.stdout[0]"
+        fail_msg: "Maintenance banner still present on leaf-lon-04."
+        success_msg: "✓ Maintenance banner cleared."
+
+    - name: Check maintenance state file is gone
+      ansible.builtin.stat:
+        path: "{{ playbook_dir }}/../../state/maintenance_leaf-lon-04.yml"
+      register: maint_state_file
+      delegate_to: localhost
+
+    - name: Assert maintenance state record removed
+      ansible.builtin.assert:
+        that: not maint_state_file.stat.exists
+        fail_msg: "Maintenance state record still exists at state/maintenance_leaf-lon-04.yml. The exit playbook should remove it."
+        success_msg: "✓ Maintenance state record removed."
+
+    - name: Verify BGP sessions Established (wait up to 60s)
+      arista.eos.eos_command:
+        commands:
+          - show bgp summary | json
+        wait_for:
+          - "result[0].vrfs.default.peers is defined"
+        retries: 6
+        interval: 10
+
+    - name: Remove breadcrumb
+      ansible.builtin.file:
+        path: /tmp/scenario_active.txt
+        state: absent
+      delegate_to: localhost
+
+    - name: Exercise 8.6 passed
+      ansible.builtin.debug:
+        msg: |
+          ✓ Exercise 8.6 PASSED
+          leaf-lon-04 maintenance mode exited cleanly:
+            - BGP graceful-shutdown removed
+            - Maintenance banner cleared
+            - State record cleaned up
+            - BGP sessions re-established
+
+          Key takeaway: Maintenance state records (state/maintenance_*.yml)
+          are the mechanism for tracking open maintenance windows. A scheduled
+          job that scans for stale records (> 8 hours) and alerts would catch
+          this automatically. This is the basis for Module 11.2 (auto-remediation).

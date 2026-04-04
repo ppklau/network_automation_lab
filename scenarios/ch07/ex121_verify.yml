@@ -1,0 +1,101 @@
+---
+# scenarios/ch07/ex121_verify.yml — Exercise 1.2.1 decommission verification
+
+- name: Verify ex121 — branch-lon-01 cleanly decommissioned
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Check breadcrumb exists
+      ansible.builtin.stat:
+        path: /tmp/scenario_active.txt
+      register: breadcrumb
+
+    - name: Fail if breadcrumb missing
+      ansible.builtin.fail:
+        msg: "Run ex121_inject.yml first."
+      when: not breadcrumb.stat.exists
+
+    - name: Check SoT lab_state is decommissioned
+      ansible.builtin.shell: |
+        python3 -c "
+        import yaml, sys, glob
+
+        # Search for branch-lon-01 in any SoT file
+        for f in glob.glob('sot/devices/**/*.yml', recursive=True) + glob.glob('sot/devices/branches/*.yml'):
+            try:
+                data = yaml.safe_load(open(f))
+                if isinstance(data, dict):
+                    if data.get('hostname') == 'branch-lon-01':
+                        state = data.get('lab_state', 'unknown')
+                        print(state)
+                        sys.exit(0 if state == 'decommissioned' else 1)
+                elif isinstance(data, dict) and 'branches' in data:
+                    for b in data.get('branches', []):
+                        if b.get('hostname') == 'branch-lon-01':
+                            state = b.get('lab_state', 'unknown')
+                            print(state)
+                            sys.exit(0 if state == 'decommissioned' else 1)
+            except Exception:
+                pass
+        print('not_found')
+        sys.exit(1)
+        "
+      register: sot_state_check
+      failed_when: sot_state_check.rc != 0 or sot_state_check.stdout.strip() != 'decommissioned'
+
+    - name: Assert SoT lab_state is decommissioned
+      ansible.builtin.assert:
+        that: sot_state_check.stdout.strip() == 'decommissioned'
+        fail_msg: >
+          branch-lon-01 SoT lab_state is '{{ sot_state_check.stdout.strip() }}', expected 'decommissioned'.
+          Run the decommission playbook and commit the SoT change.
+        success_msg: "✓ SoT updated: branch-lon-01 lab_state = decommissioned."
+
+    - name: Check archive exists
+      ansible.builtin.find:
+        paths: "{{ playbook_dir }}/../state/decommissioned"
+        patterns: "branch-lon-01_*.yml"
+      register: archive_find
+
+    - name: Assert archive was created
+      ansible.builtin.assert:
+        that: archive_find.matched > 0
+        fail_msg: "No archive found in state/decommissioned/ for branch-lon-01."
+        success_msg: "✓ Device record archived."
+
+    - name: Check branch-lon-01 not in generated inventory
+      ansible.builtin.shell: |
+        python3 scripts/generate_inventory.py > /dev/null 2>&1
+        python3 -c "
+        import yaml
+        inv = yaml.safe_load(open('inventory/hosts.yml'))
+        all_hosts = inv.get('all', {}).get('children', {}).get('lab_active', {}).get('hosts', {})
+        print('absent' if 'branch-lon-01' not in all_hosts else 'present')
+        "
+      register: inventory_check
+
+    - name: Assert branch-lon-01 absent from active inventory
+      ansible.builtin.assert:
+        that: inventory_check.stdout.strip() == 'absent'
+        fail_msg: "branch-lon-01 still appears in the active inventory. Regenerate after SoT update."
+        success_msg: "✓ branch-lon-01 absent from active inventory."
+
+    - name: Remove breadcrumb
+      ansible.builtin.file:
+        path: /tmp/scenario_active.txt
+        state: absent
+
+    - name: Exercise 1.2.1 passed
+      ansible.builtin.debug:
+        msg: |
+          ✓ Exercise 1.2.1 PASSED
+          branch-lon-01 has been cleanly decommissioned:
+            - SoT lab_state: decommissioned
+            - Device record archived in state/decommissioned/
+            - branch-lon-01 absent from active inventory
+
+          Key takeaway: A decommission that used to require an engineer to
+          manually remove BGP neighbors from border-lon-01, zero interfaces,
+          update spreadsheets, and file a closure ticket now takes one
+          pipeline run and a git commit. The audit trail is complete:
+          git history shows who ran the decommission, when, and why.

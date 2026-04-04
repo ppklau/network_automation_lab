@@ -18,5 +18,12 @@ part4/11-change-freeze.md
 part5/12-intent-verification.md
 part5/13-compliance-as-code.md
 
+part6/14-day2-overview.md
+part6/15-health-and-drift.md
+part6/16-compliance-reporting.md
+part6/17-bgp-monitoring.md
+part6/18-maintenance-operations.md
+part6/19-decommission-and-hygiene.md
+
 appendix/A-glossary.md
 appendix/B-quick-reference.md

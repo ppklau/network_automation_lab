@@ -1,0 +1,61 @@
+---
+# scenarios/ch07/ex81_verify.yml
+#
+# Exercise 8.1 verification — confirms the BGP auth mismatch is resolved
+
+- name: Verify ex81 — BGP auth mismatch resolved
+  hosts: branch-lon-01
+  gather_facts: false
+  tasks:
+    - name: Check breadcrumb exists (exercise was injected)
+      ansible.builtin.stat:
+        path: /tmp/scenario_active.txt
+      register: breadcrumb
+      become: true
+      failed_when: not breadcrumb.stat.exists
+
+    - name: Read breadcrumb scenario name
+      ansible.builtin.slurp:
+        src: /tmp/scenario_active.txt
+      register: breadcrumb_content
+      become: true
+
+    - name: Confirm correct scenario
+      ansible.builtin.assert:
+        that: "'ex81_bgp_auth_mismatch' in (breadcrumb_content.content | b64decode)"
+        fail_msg: "Breadcrumb does not match ex81. Was the correct inject playbook run?"
+
+    - name: Check BGP session to border-lon-01 is Established
+      ansible.builtin.raw: |
+        python3 -c "
+        import subprocess, json, sys
+        r = subprocess.run('vtysh -c \"show bgp summary json\"',
+                           shell=True, capture_output=True, text=True)
+        data = json.loads(r.stdout)
+        peers = data.get('ipv4Unicast', {}).get('peers', {})
+        border_peer = peers.get('10.100.0.2', {})
+        state = border_peer.get('state', 'absent')
+        print(state)
+        sys.exit(0 if state == 'Established' else 1)
+        "
+      register: bgp_check
+      changed_when: false
+      failed_when: bgp_check.rc != 0
+
+    - name: Remove breadcrumb on success
+      ansible.builtin.file:
+        path: /tmp/scenario_active.txt
+        state: absent
+      become: true
+
+    - name: Exercise 8.1 passed
+      ansible.builtin.debug:
+        msg: |
+          ✓ Exercise 8.1 PASSED
+          BGP session branch-lon-01 ↔ border-lon-01 is Established.
+          The auth mismatch was correctly diagnosed and remediated via pipeline.
+
+          Key takeaway: The daily health check detected the session drop.
+          The root cause (auth mismatch vs reachability) was identified because
+          the peer was reachable (pings worked) but the session was Idle.
+          Correct diagnosis → correct fix (SoT vault update, not routing change).

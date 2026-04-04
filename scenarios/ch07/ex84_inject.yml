@@ -1,0 +1,56 @@
+---
+# scenarios/ch07/ex84_inject.yml
+#
+# Exercise 8.4 — BGP Prefix Monitor
+# Fault: Route-map on border-lon-01 incorrectly blocks branch-lon-01 prefix
+#
+# Simulates: a route-map change on border-lon-01 inadvertently added a deny
+# entry that suppresses the branch-lon-01 /29 prefix from being advertised
+# to WAN peers. The prefix count at border-nyc-01 drops from 2 to 1.
+#
+# The reader must:
+#   1. Run bgp_prefix_monitor.yml to detect the deviation
+#   2. Trace the problem: which peer, which node, what prefix is missing?
+#   3. Find the root cause in the route-map config
+#   4. Remediate via pipeline
+
+- name: Inject BGP prefix suppression on border-lon-01
+  hosts: border-lon-01
+  gather_facts: false
+  tasks:
+    - name: Add deny entry blocking branch-lon-01 prefix in WAN export route-map
+      arista.eos.eos_config:
+        lines:
+          - route-map RM_INTERDC_SUMMARISE deny 5
+          - match ip address prefix-list PL_DENY_BRANCH_LON
+        before:
+          - ip prefix-list PL_DENY_BRANCH_LON seq 5 permit 10.100.0.0/29
+
+    - name: Write breadcrumb
+      ansible.builtin.copy:
+        content: |
+          scenario: ex84_prefix_suppression
+          injected_at: "{{ lookup('pipe', 'date -u +%Y-%m-%dT%H:%M:%SZ') }}"
+          fault: "Route-map RM_INTERDC_SUMMARISE deny 5 added on border-lon-01"
+          effect: "branch-lon-01 prefix 10.100.0.0/29 suppressed from WAN advertisements"
+          symptom: "border-nyc-01 sees 1 prefix from LON instead of expected 2"
+          root_cause: "Deny entry in WAN export route-map on border-lon-01 (OOB change)"
+          remediation: "ansible-playbook playbooks/push_configs.yml --limit border-lon-01"
+        dest: /tmp/scenario_active.txt
+      delegate_to: localhost
+
+    - name: Confirm injection
+      ansible.builtin.debug:
+        msg: |
+          FAULT INJECTED: branch-lon-01 prefix suppressed at border-lon-01
+
+          Effect: border-nyc-01 will no longer see 10.100.0.0/29 from London.
+          The BGP session remains Established — no alarms from session monitoring.
+          Only prefix count monitoring will catch this.
+
+          Your task:
+            1. Run: ansible-playbook playbooks/bgp_prefix_monitor.yml
+            2. Identify which peer/node has a prefix count deviation
+            3. Investigate the route-map on border-lon-01
+            4. Remediate via pipeline
+            5. Verify: ansible-playbook scenarios/ch07/ex84_verify.yml

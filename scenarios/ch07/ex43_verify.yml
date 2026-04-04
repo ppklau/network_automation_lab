@@ -1,0 +1,57 @@
+---
+# scenarios/ch07/ex43_verify.yml — Exercise 4.3 compliance verification
+
+- name: Verify ex43 — Telnet disabled, compliance restored
+  hosts: leaf-lon-02
+  gather_facts: false
+  tasks:
+    - name: Check breadcrumb exists
+      ansible.builtin.stat:
+        path: /tmp/scenario_active.txt
+      register: breadcrumb
+      delegate_to: localhost
+
+    - name: Fail if breadcrumb missing
+      ansible.builtin.fail:
+        msg: "Run ex43_inject.yml first."
+      when: not breadcrumb.stat.exists
+
+    - name: Collect running config
+      arista.eos.eos_command:
+        commands:
+          - show running-config
+      register: running_config
+
+    - name: Assert Telnet is not enabled
+      ansible.builtin.assert:
+        that: "'ip telnet server enable' not in running_config.stdout[0]"
+        fail_msg: >
+          Telnet is still enabled on leaf-lon-02 (REQ-017 violation).
+          Run: ansible-playbook playbooks/push_configs.yml --limit leaf-lon-02
+        success_msg: "✓ Telnet is disabled. REQ-017 compliant."
+
+    - name: Assert 'no ip telnet' is present (EOS syntax)
+      ansible.builtin.assert:
+        that: >
+          'no ip telnet server enable' in running_config.stdout[0] or
+          'ip telnet server enable' not in running_config.stdout[0]
+        success_msg: "✓ Telnet explicitly disabled."
+        fail_msg: "Telnet configuration is ambiguous — check manually."
+
+    - name: Remove breadcrumb
+      ansible.builtin.file:
+        path: /tmp/scenario_active.txt
+        state: absent
+      delegate_to: localhost
+
+    - name: Exercise 4.3 passed
+      ansible.builtin.debug:
+        msg: |
+          ✓ Exercise 4.3 PASSED
+          Telnet is disabled on leaf-lon-02. REQ-017 compliance restored.
+
+          Key takeaway: The compliance report catches Telnet before the next
+          audit. Without automated compliance checking, this violation might
+          persist for weeks — or only be discovered during a regulatory audit.
+          Automated daily compliance checks make this a 10-minute detection,
+          not a 3-month discovery.

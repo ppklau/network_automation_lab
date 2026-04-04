@@ -1,0 +1,80 @@
+---
+# scenarios/ch07/ex88_inject.yml
+#
+# Exercise 8.8 — SoT Hygiene
+# Fault: Duplicate ASN + missing interface descriptions introduced into SoT
+#
+# This inject playbook modifies SoT files directly (not device configs),
+# simulating the kind of copy-paste errors that happen when adding new devices.
+# The reader must detect and fix these issues using the hygiene linter.
+#
+# Changes introduced:
+#   1. uk_branches.yml: branch-lon-02 ASN changed to 65100 (duplicate of branch-lon-01)
+#   2. leaf-lon-04.yml: interface descriptions removed from two interfaces
+#
+# NOTE: This inject does NOT push any config to devices.
+#       All fixes are in the SoT YAML only.
+
+- name: Inject SoT hygiene issues
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Read uk_branches.yml
+      ansible.builtin.slurp:
+        src: "{{ playbook_dir }}/../sot/devices/branches/uk_branches.yml"
+      register: branches_content
+
+    - name: Introduce duplicate ASN in uk_branches.yml
+      ansible.builtin.replace:
+        path: "{{ playbook_dir }}/../sot/devices/branches/uk_branches.yml"
+        # Find branch-lon-02's ASN and change it to 65100 (same as branch-lon-01)
+        regexp: '(hostname:\s*branch-lon-02\n(?:.*\n)*?\s*asn:\s*)65101'
+        replace: '\g<1>65100'
+
+    - name: Read leaf-lon-04.yml
+      ansible.builtin.slurp:
+        src: "{{ playbook_dir }}/../sot/devices/lon-dc1/leaf-lon-04.yml"
+      register: leaf04_content
+
+    - name: Remove description from Ethernet1 on leaf-lon-04
+      ansible.builtin.replace:
+        path: "{{ playbook_dir }}/../sot/devices/lon-dc1/leaf-lon-04.yml"
+        regexp: '(\s*- name: Ethernet1\n)\s*description:.*\n'
+        replace: '\1'
+
+    - name: Remove description from Ethernet2 on leaf-lon-04
+      ansible.builtin.replace:
+        path: "{{ playbook_dir }}/../sot/devices/lon-dc1/leaf-lon-04.yml"
+        regexp: '(\s*- name: Ethernet2\n)\s*description:.*\n'
+        replace: '\1'
+
+    - name: Write scenario breadcrumb
+      ansible.builtin.copy:
+        content: |
+          scenario: ex88_sot_hygiene
+          injected_at: "{{ lookup('pipe', 'date -u +%Y-%m-%dT%H:%M:%SZ') }}"
+          issues_introduced:
+            - "branch-lon-02 ASN changed to 65100 (duplicate of branch-lon-01)"
+            - "leaf-lon-04 Ethernet1 description removed"
+            - "leaf-lon-04 Ethernet2 description removed"
+          remediation:
+            - "Fix branch-lon-02 ASN back to 65101 in uk_branches.yml"
+            - "Restore descriptions on leaf-lon-04 Ethernet1 and Ethernet2"
+          validate_cmd: "python3 scripts/sot_hygiene.py"
+        dest: /tmp/scenario_active.txt
+
+    - name: Confirm injection
+      ansible.builtin.debug:
+        msg: |
+          FAULT INJECTED: 3 SoT hygiene issues introduced
+
+          Issue 1: branch-lon-02 now has ASN 65100 (duplicate of branch-lon-01)
+          Issue 2: leaf-lon-04 Ethernet1 has no description
+          Issue 3: leaf-lon-04 Ethernet2 has no description
+
+          Your task:
+            1. Run: python3 scripts/sot_hygiene.py
+            2. Identify all issues in the report
+            3. Fix the SoT YAML files
+            4. Re-run to confirm clean
+            5. Verify: ansible-playbook scenarios/ch07/ex88_verify.yml

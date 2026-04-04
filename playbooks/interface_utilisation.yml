@@ -1,0 +1,140 @@
+---
+# playbooks/interface_utilisation.yml
+#
+# ACME Investments — Interface Utilisation Report
+# Implements: Module 8.3
+#
+# Collects interface counter data from all active EOS nodes and calculates
+# utilisation based on interface bandwidth. Flags interfaces above the
+# threshold (default: 80%). Writes a Prometheus metrics file for Grafana.
+#
+# Usage:
+#   ansible-playbook playbooks/interface_utilisation.yml
+#   ansible-playbook playbooks/interface_utilisation.yml --extra-vars "threshold=70"
+
+- name: Collect interface counters
+  hosts: lab_active
+  gather_facts: false
+  vars:
+    utilisation_timestamp: "{{ lookup('pipe', 'date +%Y%m%d_%H%M%S') }}"
+    threshold: "{{ threshold | default(80) | int }}"
+  tasks:
+    - name: Collect interface counters (EOS)
+      when: platform == 'arista_eos'
+      arista.eos.eos_command:
+        commands:
+          - "show interfaces | json"
+      register: eos_interfaces
+      failed_when: false
+
+    - name: Calculate EOS utilisation
+      when: platform == 'arista_eos' and eos_interfaces is not failed
+      ansible.builtin.set_fact:
+        interface_utilisation: "{{ lookup('template', playbook_dir + '/../templates/utilisation/eos_calc.j2') | from_json }}"
+      vars:
+        intfs: "{{ (eos_interfaces.stdout[0] | from_json).interfaces }}"
+        node: "{{ inventory_hostname }}"
+        ts: "{{ utilisation_timestamp }}"
+        high_threshold: "{{ threshold }}"
+
+    - name: Skip utilisation calculation for FRR nodes
+      when: platform == 'frr'
+      ansible.builtin.set_fact:
+        interface_utilisation:
+          hostname: "{{ inventory_hostname }}"
+          platform: frr
+          timestamp: "{{ utilisation_timestamp }}"
+          interfaces: []
+          high_utilisation: []
+          note: "FRR nodes do not expose interface rate counters via vtysh — use SNMP or Prometheus node_exporter."
+
+    - name: Write per-device utilisation JSON
+      when: interface_utilisation is defined
+      ansible.builtin.copy:
+        content: "{{ interface_utilisation | to_nice_json }}"
+        dest: "{{ playbook_dir }}/../reports/utilisation_{{ inventory_hostname }}_{{ utilisation_timestamp }}.json"
+      delegate_to: localhost
+
+- name: Generate utilisation report and Prometheus metrics
+  hosts: localhost
+  gather_facts: false
+  vars:
+    utilisation_timestamp: "{{ lookup('pipe', 'date +%Y%m%d_%H%M%S') }}"
+    threshold: "{{ threshold | default(80) | int }}"
+  tasks:
+    - name: Assemble all utilisation data
+      ansible.builtin.set_fact:
+        all_utilisation: >-
+          {{ groups['lab_active']
+             | map('extract', hostvars, 'interface_utilisation')
+             | select('defined') | list }}
+
+    - name: Identify high-utilisation interfaces
+      ansible.builtin.set_fact:
+        high_utilisation_summary: >-
+          {{ all_utilisation | map(attribute='high_utilisation') | flatten | list }}
+
+    - name: Write Prometheus metrics file
+      ansible.builtin.copy:
+        content: |
+          # HELP acme_interface_utilisation_percent Interface utilisation percentage
+          # TYPE acme_interface_utilisation_percent gauge
+          {% for node_data in all_utilisation %}
+          {% for intf in node_data.get('interfaces', []) %}
+          acme_interface_utilisation_percent{node="{{ node_data.hostname }}",interface="{{ intf.name }}",direction="in"} {{ intf.in_utilisation_pct | default(0) }}
+          acme_interface_utilisation_percent{node="{{ node_data.hostname }}",interface="{{ intf.name }}",direction="out"} {{ intf.out_utilisation_pct | default(0) }}
+          {% endfor %}
+          {% endfor %}
+          # HELP acme_interface_errors_total Interface error counter total
+          # TYPE acme_interface_errors_total counter
+          {% for node_data in all_utilisation %}
+          {% for intf in node_data.get('interfaces', []) %}
+          acme_interface_errors_total{node="{{ node_data.hostname }}",interface="{{ intf.name }}"} {{ intf.errors | default(0) }}
+          {% endfor %}
+          {% endfor %}
+        dest: "{{ playbook_dir }}/../monitoring/prometheus/network_utilisation.prom"
+
+    - name: Write utilisation report
+      ansible.builtin.copy:
+        content: |
+          ================================================================
+          ACME Investments — Interface Utilisation Report
+          {{ utilisation_timestamp }}
+          Alert threshold: {{ threshold }}%
+          ================================================================
+
+          {% if high_utilisation_summary | length > 0 %}
+          ⚠ HIGH UTILISATION INTERFACES (>{{ threshold }}%):
+          {% for h in high_utilisation_summary %}
+          [ALERT] {{ h.node }} {{ h.interface }} — In: {{ h.in_pct }}% Out: {{ h.out_pct }}%
+          {% endfor %}
+          {% else %}
+          ✓ No interfaces above {{ threshold }}% utilisation threshold.
+          {% endif %}
+
+          Per-Node Summary
+          ----------------
+          {% for node_data in all_utilisation %}
+          {{ node_data.hostname }} ({{ node_data.platform }})
+          {% if node_data.note is defined %}
+            Note: {{ node_data.note }}
+          {% else %}
+          {% for intf in node_data.get('interfaces', []) %}
+            {{ intf.name }}: in={{ intf.in_utilisation_pct | default(0) }}% out={{ intf.out_utilisation_pct | default(0) }}%{% if intf.errors | default(0) > 0 %} ERRORS={{ intf.errors }}{% endif %}
+
+          {% endfor %}
+          {% endif %}
+
+          {% endfor %}
+          ================================================================
+          Prometheus metrics: monitoring/prometheus/network_utilisation.prom
+          ================================================================
+        dest: "{{ playbook_dir }}/../reports/utilisation_{{ utilisation_timestamp }}.txt"
+
+    - name: Display report
+      ansible.builtin.command: "cat {{ playbook_dir }}/../reports/utilisation_{{ utilisation_timestamp }}.txt"
+      changed_when: false
+      register: report_out
+
+    - ansible.builtin.debug:
+        msg: "{{ report_out.stdout_lines }}"

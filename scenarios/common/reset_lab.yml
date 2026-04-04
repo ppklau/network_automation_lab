@@ -1,0 +1,107 @@
+---
+# scenarios/common/reset_lab.yml
+#
+# Returns the lab to a known-good state identical to the current SoT.
+# Run at the start of every exercise chapter.
+#
+# What it does:
+#   1. Renders all configs from the SoT (idempotent — same output every time)
+#   2. Pushes rendered configs to all active nodes at 100% serial (all at once)
+#   3. Clears any active scenario breadcrumb files
+#   4. Waits for BGP convergence
+#
+# Usage:
+#   ansible-playbook scenarios/common/reset_lab.yml
+#   ansible-playbook scenarios/common/reset_lab.yml --limit leaf-lon-01
+
+- name: Render all configs from SoT
+  ansible.builtin.import_playbook: ../../playbooks/render_configs.yml
+
+- name: Push rendered configs to all active nodes
+  hosts: lab_active
+  gather_facts: false
+  serial: "100%"
+  vars:
+    push_serial: "100%"
+  tasks:
+    - name: Push config (EOS)
+      when: platform == 'arista_eos'
+      community.network.napalm_install_config:
+        hostname: "{{ ansible_host }}"
+        username: "{{ ansible_user }}"
+        password: "{{ ansible_password }}"
+        dev_os: eos
+        config_file: "{{ configs_output_dir }}/{{ inventory_hostname }}/running.conf"
+        replace_config: true
+        get_diffs: false     # skip diff on reset — speed matters
+        commit_changes: true
+      no_log: true
+
+    - name: Push config (FRR)
+      when: platform == 'frr'
+      block:
+        - name: Copy frr.conf to device
+          ansible.builtin.copy:
+            src: "{{ configs_output_dir }}/{{ inventory_hostname }}/running.conf"
+            dest: /etc/frr/frr.conf
+            owner: frr
+            group: frr
+            mode: '0640'
+          become: true
+
+        - name: Reload FRR config
+          ansible.builtin.command: vtysh -f /etc/frr/frr.conf
+          become: true
+          changed_when: true
+
+    - name: Clear scenario breadcrumb
+      ansible.builtin.file:
+        path: /tmp/scenario_active.txt
+        state: absent
+      failed_when: false   # absent is fine if it was never created
+      become: true
+
+- name: Wait for BGP convergence
+  hosts: lab_active
+  gather_facts: false
+  tasks:
+    - name: Wait for BGP sessions to be Established (EOS)
+      when: platform == 'arista_eos'
+      arista.eos.eos_command:
+        commands:
+          - show bgp summary | json
+        wait_for:
+          - "result[0].vrfs.default.peers is defined"
+        retries: 12
+        interval: 5
+      register: bgp_wait_eos
+      failed_when: false
+
+    - name: Wait for BGP sessions to be Established (FRR)
+      when: platform == 'frr'
+      ansible.builtin.raw: |
+        for i in $(seq 1 12); do
+          result=$(vtysh -c "show bgp summary json" 2>/dev/null | python3 -c "
+        import sys, json
+        d = json.load(sys.stdin)
+        peers = d.get('ipv4Unicast', {}).get('peers', {})
+        not_up = [p for p,v in peers.items() if v.get('state','') != 'Established']
+        print(len(not_up))
+        " 2>/dev/null || echo "1")
+          [ "$result" = "0" ] && exit 0
+          sleep 5
+        done
+        exit 1
+      changed_when: false
+      failed_when: false
+
+- name: Confirm reset complete
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Reset complete
+      ansible.builtin.debug:
+        msg: >
+          Lab reset to known-good state.
+          All configs match current SoT. BGP convergence wait complete.
+          Run 'ansible-playbook scenarios/common/verify_lab_healthy.yml' to confirm.

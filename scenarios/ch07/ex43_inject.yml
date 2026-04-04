@@ -1,0 +1,51 @@
+---
+# scenarios/ch07/ex43_inject.yml
+#
+# Exercise 4.3 — Compliance Report
+# Fault: Telnet re-enabled OOB on leaf-lon-02 (REQ-017 violation)
+#
+# Simulates: a network engineer re-enabled Telnet during an emergency
+# troubleshooting session (SSH keys were corrupted) and forgot to disable it.
+# This is a REQ-017 (no Telnet) compliance violation.
+#
+# The reader must:
+#   1. Run compliance_report.yml and identify the violation
+#   2. Understand why Telnet is prohibited (REQ-017, MiFID II implication)
+#   3. Remediate via pipeline push
+#   4. Verify compliance report passes
+
+- name: Re-enable Telnet on leaf-lon-02 (compliance violation)
+  hosts: leaf-lon-02
+  gather_facts: false
+  tasks:
+    - name: Enable Telnet (REQ-017 violation)
+      arista.eos.eos_config:
+        lines:
+          - ip telnet server enable
+
+    - name: Write scenario breadcrumb
+      ansible.builtin.copy:
+        content: |
+          scenario: ex43_telnet_enabled
+          injected_at: "{{ lookup('pipe', 'date -u +%Y-%m-%dT%H:%M:%SZ') }}"
+          target_device: leaf-lon-02
+          fault: "Telnet re-enabled on leaf-lon-02"
+          violation: "REQ-017 — all management access must use SSH only"
+          regulatory_implication: >
+            Telnet transmits credentials in plaintext. On a TRADING zone device,
+            this creates a credential interception risk that violates FCA SYSC 8.1
+            operational resilience requirements.
+          remediation: "ansible-playbook playbooks/push_configs.yml --limit leaf-lon-02"
+        dest: /tmp/scenario_active.txt
+      delegate_to: localhost
+
+    - name: Confirm injection
+      ansible.builtin.debug:
+        msg: |
+          FAULT INJECTED: Telnet enabled on leaf-lon-02 (REQ-017 violation)
+
+          Your task:
+            1. Run: ansible-playbook playbooks/compliance_report.yml --limit leaf-lon-02
+            2. Identify the violation and the regulatory requirement it breaks
+            3. Remediate via pipeline (push SoT-rendered config)
+            4. Verify: ansible-playbook scenarios/ch07/ex43_verify.yml

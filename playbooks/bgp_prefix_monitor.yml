@@ -1,0 +1,158 @@
+---
+# playbooks/bgp_prefix_monitor.yml
+#
+# ACME Investments — BGP Prefix Count Monitor
+# Implements: Module 8.4
+# Refs: INTENT-005 (BGP standards), INTENT-006 (route summarisation), REQ-021
+#
+# Compares current BGP prefix counts per peer against baselines defined in
+# sot/bgp/prefix_baselines.yml. Alerts if:
+#   - Prefix count drops below (baseline - tolerance)  → peer may have withdrawn
+#   - Prefix count exceeds baseline for fra-dc1 peers  → possible TRADING leak
+#
+# Output:
+#   reports/bgp_prefix_<timestamp>.json — machine-readable
+#   reports/bgp_prefix_<timestamp>.txt  — human-readable
+#
+# Exit code: 0 = all counts within tolerance, 1 = deviation detected
+
+- name: Collect BGP prefix counts
+  hosts: lab_active
+  gather_facts: false
+  vars:
+    monitor_timestamp: "{{ lookup('pipe', 'date +%Y%m%d_%H%M%S') }}"
+    baselines: "{{ lookup('file', playbook_dir + '/../sot/bgp/prefix_baselines.yml') | from_yaml }}"
+  tasks:
+    - name: Collect BGP peer prefix counts (EOS)
+      when: platform == 'arista_eos'
+      arista.eos.eos_command:
+        commands:
+          - "show bgp summary vrf all | json"
+      register: eos_bgp_summary
+      failed_when: false
+
+    - name: Extract EOS peer prefix counts
+      when: platform == 'arista_eos' and eos_bgp_summary is not failed
+      ansible.builtin.set_fact:
+        peer_prefix_counts: >-
+          {{
+            (eos_bgp_summary.stdout[0] | from_json).vrfs.values()
+            | map(attribute='peers') | map('dict2items') | flatten
+            | map(attribute='key', 'value')
+            | items2dict(key_name='peer_ip', value_name='data')
+          }}
+
+    - name: Collect BGP peer prefix counts (FRR)
+      when: platform == 'frr'
+      ansible.builtin.raw: vtysh -c "show bgp summary json" 2>/dev/null
+      register: frr_bgp_summary
+      changed_when: false
+      failed_when: false
+
+    - name: Extract FRR peer prefix counts
+      when: platform == 'frr' and frr_bgp_summary is not failed
+      ansible.builtin.set_fact:
+        peer_prefix_counts: >-
+          {{ (frr_bgp_summary.stdout | from_json).get('ipv4Unicast', {}).get('peers', {}) }}
+
+    - name: Evaluate baselines for this node
+      when: peer_prefix_counts is defined
+      ansible.builtin.set_fact:
+        baseline_results: >-
+          {% set ns = namespace(results=[]) %}
+          {% for b in baselines.prefix_baselines if b.node == inventory_hostname %}
+          {% set peer_data = peer_prefix_counts.get(b.peer, {}) %}
+          {% set current = peer_data.get('prefixReceivedCount', peer_data.get('msgRcvd', -1)) | int %}
+          {% set expected = b.expected_prefixes | int %}
+          {% set tol = b.tolerance | int %}
+          {% set status = 'OK' if (current >= expected - tol and current <= expected + tol + 2) else 'ALERT' %}
+          {% set ns.results = ns.results + [{'node': inventory_hostname, 'peer': b.peer, 'peer_asn': b.peer_asn,
+               'description': b.peer_description, 'expected': expected, 'current': current,
+               'tolerance': tol, 'status': status, 'timestamp': monitor_timestamp,
+               'compliance_note': b.get('compliance_note', '')}] %}
+          {% endfor %}
+          {{ ns.results }}
+
+    - name: Write per-node results
+      when: baseline_results is defined
+      ansible.builtin.copy:
+        content: "{{ baseline_results | to_nice_json }}"
+        dest: "{{ playbook_dir }}/../reports/bgp_prefix_{{ inventory_hostname }}_{{ monitor_timestamp }}.json"
+      delegate_to: localhost
+
+- name: Aggregate and report
+  hosts: localhost
+  gather_facts: false
+  vars:
+    monitor_timestamp: "{{ lookup('pipe', 'date +%Y%m%d_%H%M%S') }}"
+  tasks:
+    - name: Collect all results
+      ansible.builtin.set_fact:
+        all_results: >-
+          {{ groups['lab_active']
+             | map('extract', hostvars, 'baseline_results')
+             | select('defined') | flatten | list }}
+
+    - name: Calculate summary
+      ansible.builtin.set_fact:
+        monitor_summary:
+          timestamp: "{{ monitor_timestamp }}"
+          peers_monitored: "{{ all_results | length }}"
+          peers_ok: "{{ all_results | selectattr('status', 'eq', 'OK') | list | length }}"
+          peers_alert: "{{ all_results | selectattr('status', 'eq', 'ALERT') | list | length }}"
+          alerts: "{{ all_results | selectattr('status', 'eq', 'ALERT') | list }}"
+
+    - name: Write aggregate JSON
+      ansible.builtin.copy:
+        content: "{{ {'summary': monitor_summary, 'results': all_results} | to_nice_json }}"
+        dest: "{{ playbook_dir }}/../reports/bgp_prefix_{{ monitor_timestamp }}.json"
+
+    - name: Write prefix monitor report
+      ansible.builtin.copy:
+        content: |
+          ================================================================
+          ACME Investments — BGP Prefix Count Monitor
+          {{ monitor_timestamp }}
+          ================================================================
+
+          Peers monitored: {{ monitor_summary.peers_monitored }}
+          OK             : {{ monitor_summary.peers_ok }}
+          ALERT          : {{ monitor_summary.peers_alert }}
+
+          {% if monitor_summary.alerts | length > 0 %}
+          ⚠ ALERTS — Prefix count deviations detected:
+          {% for a in monitor_summary.alerts %}
+          [ALERT] {{ a.node }} ← {{ a.peer }} (AS{{ a.peer_asn }}, {{ a.description }})
+                  Expected: {{ a.expected }} ± {{ a.tolerance }}  Current: {{ a.current }}
+          {% if a.compliance_note %}
+                  Note: {{ a.compliance_note }}
+          {% endif %}
+          {% endfor %}
+          {% else %}
+          ✓ All BGP prefix counts within baseline tolerance.
+          {% endif %}
+
+          Per-Peer Detail
+          ---------------
+          {% for r in all_results %}
+          {{ '✓' if r.status == 'OK' else '⚠' }} {{ r.node }} ← {{ r.peer }} ({{ r.description }})
+             Expected: {{ r.expected }}, Current: {{ r.current }}, Status: {{ r.status }}
+          {% endfor %}
+
+          ================================================================
+          Baseline definitions: sot/bgp/prefix_baselines.yml
+          ================================================================
+        dest: "{{ playbook_dir }}/../reports/bgp_prefix_{{ monitor_timestamp }}.txt"
+
+    - name: Display report
+      ansible.builtin.command: "cat {{ playbook_dir }}/../reports/bgp_prefix_{{ monitor_timestamp }}.txt"
+      changed_when: false
+      register: report_out
+
+    - ansible.builtin.debug:
+        msg: "{{ report_out.stdout_lines }}"
+
+    - name: Fail on any alert
+      ansible.builtin.fail:
+        msg: "BGP prefix count deviations detected. See reports/bgp_prefix_{{ monitor_timestamp }}.txt"
+      when: monitor_summary.peers_alert | int > 0

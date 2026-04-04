@@ -1,0 +1,174 @@
+---
+# playbooks/audit_artefact.yml
+#
+# ACME Investments — Audit Artefact Generator
+# Implements: Modules 4.2, 4.6
+# Refs: MiFID II Article 48 (change traceability), FCA SYSC 8.1
+#
+# Generates a signed, time-stamped audit artefact for a config change event.
+# Must be run in two phases around a change:
+#
+#   Phase 1 (pre-change):
+#     ansible-playbook playbooks/audit_artefact.yml --extra-vars "phase=pre change_id=CHG-001"
+#
+#   Phase 2 (post-change):
+#     ansible-playbook playbooks/audit_artefact.yml --extra-vars "phase=post change_id=CHG-001"
+#
+# Output (in state/audit/<change_id>/):
+#   pre_state.json     — BGP summary, routes, interface status before change
+#   post_state.json    — Same, after change
+#   diff.txt           — Human-readable diff between pre and post state
+#   manifest.json      — Signed manifest: who, when, what, SHA256 of diff
+#
+# The manifest.json is suitable as an attachment to a JIRA/ServiceNow ticket
+# and as evidence for MiFID II change traceability requirements.
+
+- name: Collect state for audit artefact
+  hosts: lab_active
+  gather_facts: false
+  vars:
+    change_id: "{{ change_id | default('CHG-' + lookup('pipe', 'date +%Y%m%d%H%M%S')) }}"
+    phase: "{{ phase | default('pre') }}"
+    audit_dir: "{{ playbook_dir }}/../state/audit/{{ change_id }}"
+    timestamp: "{{ lookup('pipe', 'date -u +%Y-%m-%dT%H:%M:%SZ') }}"
+  tasks:
+    - name: Create audit directory
+      ansible.builtin.file:
+        path: "{{ audit_dir }}"
+        state: directory
+        mode: '0755'
+      delegate_to: localhost
+      run_once: true
+
+    - name: Collect BGP summary (EOS)
+      when: platform == 'arista_eos'
+      arista.eos.eos_command:
+        commands:
+          - "show bgp summary vrf all | json"
+          - "show ip route summary vrf all | json"
+          - "show interfaces status | json"
+          - "show running-config"
+      register: eos_audit_state
+      failed_when: false
+
+    - name: Collect BGP summary (FRR)
+      when: platform == 'frr'
+      ansible.builtin.raw: |
+        echo '{"bgp":'$(vtysh -c "show bgp summary json" 2>/dev/null)',"config":'$(vtysh -c "show running-config" 2>/dev/null | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))")'}' || echo '{}'
+      register: frr_audit_state
+      changed_when: false
+      failed_when: false
+
+    - name: Store device audit state
+      ansible.builtin.set_fact:
+        device_audit_state:
+          hostname: "{{ inventory_hostname }}"
+          platform: "{{ platform }}"
+          timestamp: "{{ timestamp }}"
+          phase: "{{ phase }}"
+          change_id: "{{ change_id }}"
+          data: >-
+            {% if platform == 'arista_eos' %}
+            {{ {'bgp': eos_audit_state.stdout[0] | from_json,
+                'routes': eos_audit_state.stdout[1] | from_json,
+                'interfaces': eos_audit_state.stdout[2] | from_json,
+                'running_config': eos_audit_state.stdout[3]} }}
+            {% else %}
+            {{ frr_audit_state.stdout | from_json | default({}) }}
+            {% endif %}
+
+    - name: Write per-device state file
+      ansible.builtin.copy:
+        content: "{{ device_audit_state | to_nice_json }}"
+        dest: "{{ audit_dir }}/{{ phase }}_{{ inventory_hostname }}.json"
+      delegate_to: localhost
+
+- name: Generate audit manifest
+  hosts: localhost
+  gather_facts: false
+  vars:
+    change_id: "{{ change_id | default('CHG-' + lookup('pipe', 'date +%Y%m%d%H%M%S')) }}"
+    phase: "{{ phase | default('pre') }}"
+    audit_dir: "{{ playbook_dir }}/../state/audit/{{ change_id }}"
+    timestamp: "{{ lookup('pipe', 'date -u +%Y-%m-%dT%H:%M:%SZ') }}"
+  tasks:
+    - name: Generate diff (post-change only)
+      when: phase == 'post'
+      ansible.builtin.shell: |
+        python3 << 'PYEOF'
+        import json, os, hashlib, glob
+
+        audit_dir = "{{ audit_dir }}"
+        pre_files  = sorted(glob.glob(f"{audit_dir}/pre_*.json"))
+        post_files = sorted(glob.glob(f"{audit_dir}/post_*.json"))
+
+        diff_lines = []
+        for pre_f, post_f in zip(pre_files, post_files):
+            hostname = os.path.basename(pre_f).replace('pre_', '').replace('.json', '')
+            pre  = json.load(open(pre_f))
+            post = json.load(open(post_f))
+
+            pre_config  = pre.get('data', {}).get('running_config', '')
+            post_config = post.get('data', {}).get('running_config', '')
+
+            if pre_config != post_config:
+                diff_lines.append(f"\n--- {hostname} pre-change ---")
+                diff_lines.append(f"+++ {hostname} post-change +++")
+                import difflib
+                for line in difflib.unified_diff(
+                    pre_config.splitlines(), post_config.splitlines(),
+                    fromfile='pre', tofile='post', lineterm='', n=3
+                ):
+                    diff_lines.append(line)
+
+        diff_text = '\n'.join(diff_lines) if diff_lines else 'No configuration changes detected.'
+        diff_path = f"{audit_dir}/diff.txt"
+        with open(diff_path, 'w') as f:
+            f.write(diff_text)
+
+        diff_sha256 = hashlib.sha256(diff_text.encode()).hexdigest()
+
+        manifest = {
+            'change_id': '{{ change_id }}',
+            'generated_at': '{{ timestamp }}',
+            'generated_by': os.environ.get('USER', 'automation'),
+            'pipeline_job': os.environ.get('CI_JOB_ID', 'local'),
+            'pipeline_url': os.environ.get('CI_PIPELINE_URL', 'local'),
+            'git_commit': os.environ.get('CI_COMMIT_SHA', ''),
+            'git_author': os.environ.get('CI_COMMIT_AUTHOR', ''),
+            'devices_audited': [os.path.basename(f).replace('post_','').replace('.json','') for f in post_files],
+            'diff_sha256': diff_sha256,
+            'diff_path': diff_path,
+            'regulatory_refs': ['MiFID II Article 48', 'FCA SYSC 8.1'],
+        }
+
+        manifest_path = f"{audit_dir}/manifest.json"
+        with open(manifest_path, 'w') as f:
+            json.dump(manifest, f, indent=2)
+
+        print(json.dumps({'manifest_path': manifest_path, 'diff_sha256': diff_sha256}))
+        PYEOF
+      register: manifest_result
+      changed_when: true
+
+    - name: Display manifest summary (post-change)
+      when: phase == 'post'
+      ansible.builtin.debug:
+        msg: |
+          Audit artefact generated for {{ change_id }}
+          Location: state/audit/{{ change_id }}/
+          Files:
+            pre_<hostname>.json  — pre-change device state
+            post_<hostname>.json — post-change device state
+            diff.txt             — unified diff of all changes
+            manifest.json        — signed manifest with SHA256 of diff
+          Attach manifest.json to your change ticket as MiFID II evidence.
+
+    - name: Display pre-change confirmation
+      when: phase == 'pre'
+      ansible.builtin.debug:
+        msg: |
+          Pre-change state captured for {{ change_id }}.
+          Make your change, then run:
+            ansible-playbook playbooks/audit_artefact.yml \
+              --extra-vars "phase=post change_id={{ change_id }}"

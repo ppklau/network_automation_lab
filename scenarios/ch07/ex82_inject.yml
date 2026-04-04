@@ -1,0 +1,61 @@
+---
+# scenarios/ch07/ex82_inject.yml
+#
+# Exercise 8.2 — Drift Detection
+# Fault: Out-of-band interface description change on leaf-lon-03
+#
+# Simulates: an engineer SSH'd into leaf-lon-03 during a troubleshooting
+# session and changed an interface description. They forgot to update the SoT.
+# The device now differs from what the SoT would generate — this is drift.
+#
+# The reader must:
+#   1. Run drift_detection.yml to find the drift
+#   2. Understand what changed and classify the severity
+#   3. Remediate by pushing the SoT-rendered config
+#   4. Verify drift is zero
+
+- name: Inject OOB configuration drift on leaf-lon-03
+  hosts: leaf-lon-03
+  gather_facts: false
+  tasks:
+    - name: Change interface description OOB (simulating engineer SSH session)
+      arista.eos.eos_config:
+        lines:
+          - description "TEMP_DEBUG_SESSION - P2P to spine-lon-01 -- DO NOT LEAVE"
+        parents:
+          - interface Ethernet1
+
+    - name: Change NTP server OOB (simulating a 'quick fix')
+      arista.eos.eos_config:
+        lines:
+          - ntp server 8.8.8.8 prefer
+          - no ntp server {{ platform_defaults.ntp.servers[0] | default('192.168.1.1') }}
+      failed_when: false   # ok if the original server ref differs
+
+    - name: Write scenario breadcrumb
+      ansible.builtin.copy:
+        content: |
+          scenario: ex82_config_drift
+          injected_at: "{{ lookup('pipe', 'date -u +%Y-%m-%dT%H:%M:%SZ') }}"
+          target_device: leaf-lon-03
+          fault_1: "Interface Ethernet1 description changed to TEMP_DEBUG_SESSION..."
+          fault_2: "NTP server 8.8.8.8 added (not in SoT)"
+          severity_hint: "fault_1=INFORMATIONAL, fault_2=WARNING"
+          root_cause: "Engineer made OOB changes during troubleshooting, forgot to update SoT"
+          remediation: "ansible-playbook playbooks/push_configs.yml --limit leaf-lon-03"
+        dest: /tmp/scenario_active.txt
+      delegate_to: localhost
+
+    - name: Confirm injection
+      ansible.builtin.debug:
+        msg: |
+          FAULT INJECTED: leaf-lon-03 has 2 OOB changes
+          - Interface Ethernet1 description modified
+          - NTP server 8.8.8.8 added (not in SoT)
+
+          Your task:
+            1. Run: ansible-playbook playbooks/drift_detection.yml --limit leaf-lon-03
+            2. Identify the drifted config sections and classify severity
+            3. Decide: is this INFORMATIONAL, WARNING, or CRITICAL?
+            4. Remediate via pipeline
+            5. Verify: ansible-playbook scenarios/ch07/ex82_verify.yml

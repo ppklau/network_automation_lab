@@ -1,0 +1,119 @@
+---
+# playbooks/sot_hygiene.yml
+#
+# ACME Investments — SoT Hygiene Check
+# Implements: Module 8.8
+#
+# Runs the SoT hygiene linter (scripts/sot_hygiene.py) and surfaces
+# issues as an Ansible report. Used as a periodic BAU check — typically
+# run monthly or before a compliance review.
+#
+# Output:
+#   reports/hygiene_<timestamp>.json — machine-readable
+#   reports/hygiene_<timestamp>.txt  — human-readable
+#
+# Exit code mirrors sot_hygiene.py:
+#   0 = no issues
+#   1 = warnings only (non-blocking but should be reviewed)
+#   2 = critical issues (should be remediated before next audit)
+#
+# Usage:
+#   ansible-playbook playbooks/sot_hygiene.yml
+#   ansible-playbook playbooks/sot_hygiene.yml --extra-vars "strict=true"
+
+- name: Run SoT hygiene linter
+  hosts: localhost
+  gather_facts: false
+  vars:
+    hygiene_timestamp: "{{ lookup('pipe', 'date +%Y%m%d_%H%M%S') }}"
+    strict: "{{ strict | default(false) }}"
+  tasks:
+    - name: Ensure reports directory exists
+      ansible.builtin.file:
+        path: "{{ playbook_dir }}/../reports"
+        state: directory
+        mode: '0755'
+
+    - name: Run hygiene linter (JSON output)
+      ansible.builtin.command:
+        cmd: >
+          python3 scripts/sot_hygiene.py --json
+          {{ '--strict' if strict | bool else '' }}
+        chdir: "{{ playbook_dir }}/.."
+      register: hygiene_result
+      failed_when: hygiene_result.rc == 2   # only fail on critical
+      changed_when: false
+
+    - name: Parse hygiene results
+      ansible.builtin.set_fact:
+        hygiene_data: "{{ hygiene_result.stdout | from_json }}"
+
+    - name: Write hygiene JSON report
+      ansible.builtin.copy:
+        content: "{{ hygiene_data | to_nice_json }}"
+        dest: "{{ playbook_dir }}/../reports/hygiene_{{ hygiene_timestamp }}.json"
+
+    - name: Write human-readable hygiene report
+      ansible.builtin.copy:
+        content: |
+          ================================================================
+          ACME Investments — SoT Hygiene Report
+          {{ hygiene_timestamp }}
+          ================================================================
+
+          Devices checked : {{ hygiene_data.devices_checked }}
+          Issues found    : {{ hygiene_data.issues_found }}
+            CRITICAL      : {{ hygiene_data.critical }}
+            WARNING       : {{ hygiene_data.warnings }}
+            INFO          : {{ hygiene_data.info }}
+
+          ================================================================
+          {% for severity in ['CRITICAL', 'WARNING', 'INFO'] %}
+          {% set matching = hygiene_data.issues | selectattr('severity', 'eq', severity) | list %}
+          {% if matching | length > 0 %}
+          {{ severity }} ({{ matching | length }}):
+          {% for issue in matching %}
+          [{{ issue.code }}] {{ issue.node }} — {{ issue.check }}
+            {{ issue.message }}
+          {% endfor %}
+
+          {% endif %}
+          {% endfor %}
+          {% if hygiene_data.issues | length == 0 %}
+          ✓ No hygiene issues found. SoT is clean.
+          {% endif %}
+          ================================================================
+          Remediation guidance:
+            HYG-001: Rename device to match <role>-<site>-<nn> convention
+            HYG-002: Add descriptions to all interfaces in device SoT files
+            HYG-003: No action required (informational only)
+            HYG-004: Update vault.yml with real passwords before production
+            HYG-005: Archive or remove stale sot_only device records
+            HYG-006: Remove duplicate entries from compliance_tags list
+            HYG-007: Add missing mandatory fields to device SoT file
+          ================================================================
+        dest: "{{ playbook_dir }}/../reports/hygiene_{{ hygiene_timestamp }}.txt"
+
+    - name: Display report
+      ansible.builtin.command: "cat {{ playbook_dir }}/../reports/hygiene_{{ hygiene_timestamp }}.txt"
+      changed_when: false
+      register: report_out
+
+    - ansible.builtin.debug:
+        msg: "{{ report_out.stdout_lines }}"
+
+    - name: Fail on critical hygiene issues
+      ansible.builtin.fail:
+        msg: >
+          SoT hygiene check found CRITICAL issues.
+          Review reports/hygiene_{{ hygiene_timestamp }}.txt and remediate
+          before the next compliance review window.
+      when: hygiene_data.critical | int > 0
+
+    - name: Warn on hygiene warnings
+      when: hygiene_data.warnings | int > 0
+      ansible.builtin.debug:
+        msg: >
+          SoT hygiene check found {{ hygiene_data.warnings }} WARNING(s).
+          These are non-blocking but should be addressed in the next sprint.
+          See reports/hygiene_{{ hygiene_timestamp }}.txt for details.

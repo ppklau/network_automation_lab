@@ -1,0 +1,58 @@
+---
+# scenarios/ch07/ex81_inject.yml
+#
+# Exercise 8.1 — Daily Health Check
+# Fault: BGP MD5 password mismatch on branch-lon-01
+#
+# Simulates: a technician changed the BGP password on branch-lon-01 during
+# a maintenance window and did not update the SoT. The session will drop
+# because the peer (border-lon-01) still uses the SoT password.
+#
+# The reader must:
+#   1. Run the daily health check to identify the fault
+#   2. Determine root cause (auth mismatch, not reachability)
+#   3. Correct the password in vault.yml and push via pipeline
+#   4. Verify the session re-establishes
+#
+# Breadcrumb: /tmp/scenario_active.txt on branch-lon-01
+
+- name: Inject BGP auth mismatch on branch-lon-01
+  hosts: branch-lon-01
+  gather_facts: false
+  tasks:
+    - name: Change BGP MD5 password directly (OOB — simulating technician error)
+      ansible.builtin.raw: |
+        vtysh \
+          -c "configure terminal" \
+          -c "router bgp 65100" \
+          -c "neighbor 10.100.0.2 password WRONG_PASSWORD_NOT_IN_SOT" \
+          -c "end" \
+          -c "write"
+      become: true
+      changed_when: true
+
+    - name: Write scenario breadcrumb
+      ansible.builtin.copy:
+        content: |
+          scenario: ex81_bgp_auth_mismatch
+          injected_at: "{{ lookup('pipe', 'date -u +%Y-%m-%dT%H:%M:%SZ') }}"
+          fault: "BGP MD5 password on branch-lon-01 changed to WRONG_PASSWORD_NOT_IN_SOT"
+          target_peer: "10.100.0.2 (border-lon-01)"
+          symptom: "BGP session branch-lon-01 <-> border-lon-01 will drop within 90 seconds"
+          root_cause: "Out-of-band password change on branch-lon-01 not reflected in SoT vault.yml"
+          remediation_hint: "Run daily_health_check.yml to detect, then push corrected config via pipeline"
+        dest: /tmp/scenario_active.txt
+      become: true
+
+    - name: Confirm injection
+      ansible.builtin.debug:
+        msg: |
+          FAULT INJECTED: branch-lon-01 BGP auth mismatch
+          The BGP session to border-lon-01 will drop within 90 seconds.
+          You will NOT be told the password that was set. Use the tooling to diagnose.
+
+          Your task:
+            1. Run: ansible-playbook playbooks/daily_health_check.yml
+            2. Identify the failing session and determine root cause
+            3. Remediate via the pipeline (update vault.yml + push)
+            4. Verify: ansible-playbook scenarios/ch07/ex81_verify.yml

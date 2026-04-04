@@ -1,0 +1,199 @@
+---
+# playbooks/maintenance_window.yml
+#
+# ACME Investments — Maintenance Window Management
+# Implements: Module 8.6
+#
+# Applies or removes maintenance mode on a target device.
+#
+# Maintenance mode (action: enter):
+#   - Sets BGP graceful-shutdown on all sessions (signals peers to depref routes)
+#   - Sets a maintenance banner on the device
+#   - Records maintenance state in state/maintenance_active.yml
+#
+# Exit maintenance (action: exit):
+#   - Removes BGP graceful-shutdown
+#   - Restores standard operational banner
+#   - Removes maintenance state record
+#
+# Parameters:
+#   target_node   — device(s) to put into maintenance (required)
+#   action        — "enter" or "exit" (required)
+#   window_reason — description of maintenance work (required for enter)
+#   window_end    — expected end time, ISO 8601 (optional)
+#   approved_by   — name of approving engineer (optional)
+#
+# Usage:
+#   # Enter maintenance
+#   ansible-playbook playbooks/maintenance_window.yml \
+#     --limit border-lon-01 \
+#     --extra-vars "action=enter window_reason='Optic replacement on Ethernet3' approved_by='Jane Smith'"
+#
+#   # Exit maintenance
+#   ansible-playbook playbooks/maintenance_window.yml \
+#     --limit border-lon-01 \
+#     --extra-vars "action=exit"
+
+- name: Validate parameters
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Check required parameters
+      ansible.builtin.assert:
+        that:
+          - action is defined
+          - action in ['enter', 'exit']
+        fail_msg: "Parameter 'action' is required and must be 'enter' or 'exit'."
+
+    - name: Check window_reason for enter
+      when: action == 'enter'
+      ansible.builtin.assert:
+        that:
+          - window_reason is defined
+          - window_reason | length > 5
+        fail_msg: "Parameter 'window_reason' is required when action=enter."
+
+- name: Enter maintenance mode
+  hosts: "{{ ansible_limit | default('lab_active') }}"
+  gather_facts: false
+  vars:
+    action: "{{ action }}"
+    window_reason: "{{ window_reason | default('Unspecified maintenance') }}"
+    window_start: "{{ lookup('pipe', 'date -u +%Y-%m-%dT%H:%M:%SZ') }}"
+    window_end: "{{ window_end | default('Not specified') }}"
+    approved_by: "{{ approved_by | default('Self-approved') }}"
+    maintenance_banner: |
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !! MAINTENANCE MODE ACTIVE                          !!
+      !! Reason : {{ window_reason[:44] }}
+      !! Started: {{ window_start }}
+      !! End    : {{ window_end[:44] }}
+      !! Approved by: {{ approved_by[:36] }}
+      !! Do NOT make config changes to this device.       !!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  when: action == 'enter'
+  tasks:
+    - name: Apply BGP graceful-shutdown (EOS)
+      when: platform == 'arista_eos'
+      arista.eos.eos_config:
+        lines:
+          - router bgp {{ bgp.local_as }}
+          - graceful-restart-helper
+        match: line
+      vars:
+        bgp: "{{ hostvars[inventory_hostname].bgp | default({'local_as': 65001}) }}"
+
+    - name: Apply maintenance banner (EOS)
+      when: platform == 'arista_eos'
+      arista.eos.eos_config:
+        lines:
+          - "banner motd @"
+          - "{{ maintenance_banner }}"
+          - "@"
+
+    - name: Apply BGP graceful-shutdown (FRR)
+      when: platform == 'frr'
+      ansible.builtin.raw: |
+        vtysh -c "configure terminal" \
+              -c "bgp graceful-shutdown" \
+              -c "end" \
+              -c "write"
+      become: true
+
+    - name: Apply maintenance banner (FRR)
+      when: platform == 'frr'
+      ansible.builtin.lineinfile:
+        path: /etc/issue.net
+        line: "** MAINTENANCE MODE ACTIVE — {{ window_reason }} — {{ window_start }} **"
+        create: true
+      become: true
+
+    - name: Record maintenance state
+      ansible.builtin.copy:
+        content: |
+          hostname: {{ inventory_hostname }}
+          action: maintenance_active
+          reason: "{{ window_reason }}"
+          started: "{{ window_start }}"
+          scheduled_end: "{{ window_end }}"
+          approved_by: "{{ approved_by }}"
+        dest: "{{ playbook_dir }}/../state/maintenance_{{ inventory_hostname }}.yml"
+      delegate_to: localhost
+
+    - name: Confirm maintenance mode entered
+      ansible.builtin.debug:
+        msg: |
+          MAINTENANCE MODE ENTERED: {{ inventory_hostname }}
+          Reason: {{ window_reason }}
+          BGP graceful-shutdown applied — peers will prefer alternate paths.
+          To exit: ansible-playbook playbooks/maintenance_window.yml --limit {{ inventory_hostname }} --extra-vars "action=exit"
+
+- name: Exit maintenance mode
+  hosts: "{{ ansible_limit | default('lab_active') }}"
+  gather_facts: false
+  vars:
+    action: "{{ action }}"
+  when: action == 'exit'
+  tasks:
+    - name: Check that maintenance record exists
+      ansible.builtin.stat:
+        path: "{{ playbook_dir }}/../state/maintenance_{{ inventory_hostname }}.yml"
+      register: maint_state
+      delegate_to: localhost
+
+    - name: Warn if no maintenance record found
+      when: not maint_state.stat.exists
+      ansible.builtin.debug:
+        msg: >
+          WARNING: No maintenance state record found for {{ inventory_hostname }}.
+          Proceeding with exit anyway — check device config manually.
+
+    - name: Remove BGP graceful-shutdown (EOS)
+      when: platform == 'arista_eos'
+      arista.eos.eos_config:
+        lines:
+          - "no graceful-restart-helper"
+        parents:
+          - "router bgp {{ bgp.local_as }}"
+      vars:
+        bgp: "{{ hostvars[inventory_hostname].bgp | default({'local_as': 65001}) }}"
+
+    - name: Restore operational banner (EOS)
+      when: platform == 'arista_eos'
+      arista.eos.eos_config:
+        lines:
+          - "banner motd @"
+          - "Authorised access only. All activity is monitored and logged."
+          - "@"
+
+    - name: Remove BGP graceful-shutdown (FRR)
+      when: platform == 'frr'
+      ansible.builtin.raw: |
+        vtysh -c "configure terminal" \
+              -c "no bgp graceful-shutdown" \
+              -c "end" \
+              -c "write"
+      become: true
+
+    - name: Remove maintenance state record
+      ansible.builtin.file:
+        path: "{{ playbook_dir }}/../state/maintenance_{{ inventory_hostname }}.yml"
+        state: absent
+      delegate_to: localhost
+
+    - name: Verify BGP sessions recovering (EOS)
+      when: platform == 'arista_eos'
+      arista.eos.eos_command:
+        commands:
+          - "show bgp summary | json"
+        wait_for:
+          - "result[0].vrfs.default.peers is defined"
+        retries: 6
+        interval: 10
+
+    - name: Confirm maintenance mode exited
+      ansible.builtin.debug:
+        msg: |
+          MAINTENANCE MODE EXITED: {{ inventory_hostname }}
+          BGP graceful-shutdown removed. Sessions should re-establish within 60s.
+          Run 'ansible-playbook playbooks/verify_state.yml --limit {{ inventory_hostname }}' to confirm.

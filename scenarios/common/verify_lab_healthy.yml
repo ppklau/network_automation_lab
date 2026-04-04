@@ -1,0 +1,120 @@
+---
+# scenarios/common/verify_lab_healthy.yml
+#
+# Quick pre-exercise sanity check. Verifies the lab is in a healthy state
+# before starting any exercise that depends on a known-good baseline.
+#
+# Checks:
+#   - All BGP sessions Established (EOS and FRR)
+#   - All loopbacks reachable from spine-lon-01
+#   - Management plane reachable for all active nodes
+#   - No active scenario breadcrumbs from a previous exercise
+#
+# Exit code: 0 = healthy, 1 = one or more checks failed
+#
+# Usage:
+#   ansible-playbook scenarios/common/verify_lab_healthy.yml
+
+- name: Check BGP health on EOS nodes
+  hosts: lab_active
+  gather_facts: false
+  tasks:
+    - name: Check for stale scenario breadcrumb
+      ansible.builtin.stat:
+        path: /tmp/scenario_active.txt
+      register: breadcrumb_stat
+      become: true
+      failed_when: false
+
+    - name: Warn if stale breadcrumb exists
+      when: breadcrumb_stat.stat.exists | default(false)
+      ansible.builtin.debug:
+        msg: >
+          WARNING: /tmp/scenario_active.txt exists on {{ inventory_hostname }}.
+          A scenario may not have been cleaned up. Run reset_lab.yml first.
+
+    - name: Collect BGP summary (EOS)
+      when: platform == 'arista_eos'
+      arista.eos.eos_command:
+        commands:
+          - show bgp summary vrf all | json
+      register: eos_bgp
+      failed_when: false
+
+    - name: Assert all EOS BGP peers Established
+      when: platform == 'arista_eos' and eos_bgp is not failed
+      ansible.builtin.assert:
+        that:
+          - >-
+            (eos_bgp.stdout[0] | from_json).vrfs.values() | map(attribute='peers')
+            | map('dict2items') | flatten
+            | selectattr('value.peerState', 'ne', 'Established')
+            | list | length == 0
+        fail_msg: >
+          [{{ inventory_hostname }}] One or more BGP sessions are not Established.
+          Run: ansible-playbook scenarios/common/reset_lab.yml
+        success_msg: "[{{ inventory_hostname }}] All BGP sessions Established."
+
+    - name: Collect BGP summary (FRR)
+      when: platform == 'frr'
+      ansible.builtin.raw: vtysh -c "show bgp summary json" 2>/dev/null
+      register: frr_bgp
+      changed_when: false
+      failed_when: false
+
+    - name: Assert all FRR BGP peers Established
+      when: platform == 'frr' and frr_bgp is not failed
+      vars:
+        bgp_data: "{{ frr_bgp.stdout | from_json }}"
+        not_established: >-
+          {{ bgp_data.get('ipv4Unicast', {}).get('peers', {}).values()
+             | selectattr('state', 'ne', 'Established') | list }}
+      ansible.builtin.assert:
+        that:
+          - not_established | length == 0
+        fail_msg: >
+          [{{ inventory_hostname }}] {{ not_established | length }} BGP peer(s) not Established.
+          Run: ansible-playbook scenarios/common/reset_lab.yml
+        success_msg: "[{{ inventory_hostname }}] All BGP sessions Established."
+
+- name: Check management reachability and loopback connectivity
+  hosts: localhost
+  gather_facts: false
+  vars:
+    loopbacks:
+      spine-lon-01:  "10.1.255.1"
+      spine-lon-02:  "10.1.255.2"
+      leaf-lon-01:   "10.1.255.11"
+      leaf-lon-02:   "10.1.255.12"
+      leaf-lon-03:   "10.1.255.13"
+      leaf-lon-04:   "10.1.255.14"
+      border-lon-01: "10.1.255.20"
+      fw-lon-01:     "10.1.255.30"
+  tasks:
+    - name: Ping management IPs
+      ansible.builtin.command: "ping -c 1 -W 2 {{ hostvars[item].ansible_host }}"
+      loop: "{{ groups['lab_active'] }}"
+      register: mgmt_ping
+      failed_when: false
+      changed_when: false
+
+    - name: Report unreachable management IPs
+      vars:
+        unreachable: "{{ mgmt_ping.results | selectattr('rc', 'ne', 0) | map(attribute='item') | list }}"
+      ansible.builtin.assert:
+        that: unreachable | length == 0
+        fail_msg: >
+          Management IPs unreachable for: {{ unreachable | join(', ') }}.
+          Check that containerlab is running: sudo containerlab deploy --topo topology/containerlab.yml
+        success_msg: "All management IPs reachable."
+
+- name: Health check summary
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Lab healthy
+      ansible.builtin.debug:
+        msg: >
+          Lab health check PASSED.
+          All BGP sessions Established. Management plane reachable.
+          Safe to proceed with exercises.

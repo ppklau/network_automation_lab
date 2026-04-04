@@ -1,0 +1,81 @@
+---
+# scenarios/ch07/ex86_inject.yml
+#
+# Exercise 8.6 — Maintenance Window
+# Fault: leaf-lon-04 left in maintenance mode after a previous window
+#
+# Simulates: a maintenance window for leaf-lon-04 ended but the engineer
+# forgot to run the exit-maintenance step. The device is still in BGP
+# graceful-shutdown, meaning its routes are deprioritised by all peers.
+# Traffic is flowing (via the other leaf) but ECMP is broken.
+#
+# The reader must:
+#   1. Run the health check to see that leaf-lon-04 BGP sessions are
+#      in a non-optimal state (graceful-shutdown community applied)
+#   2. Check the maintenance state record
+#   3. Run maintenance_window.yml with action=exit to clean up
+
+- name: Put leaf-lon-04 into maintenance mode (simulating a forgotten window)
+  hosts: leaf-lon-04
+  gather_facts: false
+  tasks:
+    - name: Apply BGP graceful-shutdown
+      arista.eos.eos_config:
+        lines:
+          - graceful-restart-helper
+        parents:
+          - router bgp 65001
+
+    - name: Apply maintenance banner
+      arista.eos.eos_config:
+        lines:
+          - "banner motd @"
+          - "!! MAINTENANCE MODE ACTIVE — window started 3 days ago"
+          - "!! This banner should have been removed. Engineer forgot to exit maintenance."
+          - "@"
+
+    - name: Write maintenance state record (simulating a forgotten state file)
+      ansible.builtin.copy:
+        content: |
+          hostname: leaf-lon-04
+          action: maintenance_active
+          reason: "Optic replacement on Ethernet1 — emergency P2P fix"
+          started: "{{ lookup('pipe', 'date -u -d \"-3 days\" +%Y-%m-%dT%H:%M:%SZ') }}"
+          scheduled_end: "{{ lookup('pipe', 'date -u -d \"-2 days 22 hours\" +%Y-%m-%dT%H:%M:%SZ') }}"
+          approved_by: "Alex Chen"
+          status: "FORGOTTEN — window ended 2 days 22 hours ago"
+        dest: "{{ playbook_dir }}/../../state/maintenance_leaf-lon-04.yml"
+      delegate_to: localhost
+
+    - name: Write scenario breadcrumb
+      ansible.builtin.copy:
+        content: |
+          scenario: ex86_stuck_maintenance
+          injected_at: "{{ lookup('pipe', 'date -u +%Y-%m-%dT%H:%M:%SZ') }}"
+          target_device: leaf-lon-04
+          fault: "BGP graceful-shutdown active, maintenance state record 3 days old"
+          symptom: "leaf-lon-04 routes deprioritised by all peers — ECMP broken"
+          impact: "Traffic still flows but leaf-lon-04 is not carrying its share of load"
+          remediation: >
+            ansible-playbook playbooks/maintenance_window.yml
+              --limit leaf-lon-04
+              --extra-vars "action=exit"
+        dest: /tmp/scenario_active.txt
+      delegate_to: localhost
+
+    - name: Confirm injection
+      ansible.builtin.debug:
+        msg: |
+          FAULT INJECTED: leaf-lon-04 stuck in maintenance mode
+
+          The device has been in maintenance mode for "3 days" (simulated).
+          BGP graceful-shutdown is active — peers deprioritise leaf-lon-04 routes.
+          Traffic is flowing but ECMP is degraded.
+
+          Your task:
+            1. Check state/maintenance_leaf-lon-04.yml — what does it say?
+            2. Run: ansible-playbook playbooks/daily_health_check.yml
+            3. Identify the abnormal BGP state on leaf-lon-04
+            4. Exit maintenance: ansible-playbook playbooks/maintenance_window.yml \
+                 --limit leaf-lon-04 --extra-vars "action=exit"
+            5. Verify: ansible-playbook scenarios/ch07/ex86_verify.yml

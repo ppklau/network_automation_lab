@@ -1,0 +1,60 @@
+{# templates/utilisation/eos_calc.j2
+   Calculates interface utilisation from EOS 'show interfaces | json' output.
+   Input vars (set by interface_utilisation.yml):
+     - interfaces_json       : parsed JSON from 'show interfaces | json'
+     - utilisation_threshold : integer percent (default 80)
+     - inventory_hostname
+   Output: list of per-interface dicts written to utilisation_data fact
+#}
+{% set results = [] %}
+
+{% for iface_name, iface_data in interfaces_json.get('interfaces', {}).items() %}
+  {# Skip loopback, management, and VLAN interfaces #}
+  {% if iface_name.startswith('Loopback') or iface_name.startswith('Management') or iface_name.startswith('Vlan') %}
+    {# skip #}
+  {% else %}
+    {% set counters = iface_data.get('interfaceCounters', {}) %}
+    {% set bandwidth = iface_data.get('bandwidth', 0) %}
+
+    {# EOS provides inOctets / outOctets as running counters.
+       Rate calculation requires two samples; interface_utilisation.yml
+       collects a second sample after a 60s interval and passes the delta
+       as in_rate_bps / out_rate_bps (bits per second) pre-computed.
+       When only one sample is available (first run), rate will be 0. #}
+    {% set in_rate_bps  = iface_data.get('in_rate_bps',  counters.get('inBitsRate',  0)) %}
+    {% set out_rate_bps = iface_data.get('out_rate_bps', counters.get('outBitsRate', 0)) %}
+
+    {# Utilisation as a percentage of interface bandwidth #}
+    {% if bandwidth > 0 %}
+      {% set in_util  = (in_rate_bps  / bandwidth * 100) | round(2) %}
+      {% set out_util = (out_rate_bps / bandwidth * 100) | round(2) %}
+    {% else %}
+      {% set in_util  = 0 %}
+      {% set out_util = 0 %}
+    {% endif %}
+
+    {% set max_util = [in_util, out_util] | max %}
+    {% set alert = max_util > utilisation_threshold %}
+
+    {% set in_errors  = counters.get('inputErrorsDetail', {}).get('totalInErrors', 0) %}
+    {% set out_errors = counters.get('outputErrorsDetail', {}).get('totalOutErrors', 0) %}
+    {% set link_status = iface_data.get('lineProtocolStatus', 'unknown') %}
+
+    {% set _ = results.append({
+      'hostname':       inventory_hostname,
+      'interface':      iface_name,
+      'link_status':    link_status,
+      'bandwidth_bps':  bandwidth,
+      'in_rate_bps':    in_rate_bps,
+      'out_rate_bps':   out_rate_bps,
+      'in_util_pct':    in_util,
+      'out_util_pct':   out_util,
+      'max_util_pct':   max_util,
+      'alert':          alert,
+      'in_errors':      in_errors,
+      'out_errors':     out_errors
+    }) %}
+  {% endif %}
+{% endfor %}
+
+{{ results | to_json }}

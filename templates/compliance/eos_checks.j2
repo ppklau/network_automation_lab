@@ -1,0 +1,165 @@
+{# templates/compliance/eos_checks.j2
+   Evaluates collected EOS show command output against ACME compliance standards.
+   Input vars (set by compliance_report.yml):
+     - running_config   : stdout of 'show running-config'
+     - bgp_summary      : parsed JSON from 'show bgp summary vrf all | json'
+     - ntp_status       : stdout of 'show ntp status'
+     - snmp_config      : stdout of 'show snmp'
+     - interfaces_json  : parsed JSON from 'show interfaces | json'
+     - inventory_hostname
+   Output fact: compliance_result (dict with checks list and pass/fail counts)
+#}
+{% set checks = [] %}
+
+{# ─── REQ-017: Telnet disabled ───────────────────────────────────────────── #}
+{% if 'ip telnet server enable' in running_config %}
+  {% set _ = checks.append({
+    'code': 'REQ-017',
+    'check': 'telnet_disabled',
+    'status': 'FAIL',
+    'severity': 'CRITICAL',
+    'detail': 'ip telnet server enable is present — Telnet must be disabled on all devices',
+    'remediation': 'conf t → no ip telnet server enable → write mem'
+  }) %}
+{% else %}
+  {% set _ = checks.append({
+    'code': 'REQ-017',
+    'check': 'telnet_disabled',
+    'status': 'PASS',
+    'severity': 'CRITICAL',
+    'detail': 'Telnet is disabled'
+  }) %}
+{% endif %}
+
+{# ─── REQ-004: SSH configured ─────────────────────────────────────────────── #}
+{% if 'management ssh' in running_config and 'no shutdown' in running_config %}
+  {% set _ = checks.append({
+    'code': 'REQ-004',
+    'check': 'ssh_configured',
+    'status': 'PASS',
+    'severity': 'CRITICAL',
+    'detail': 'SSH management access is configured'
+  }) %}
+{% else %}
+  {% set _ = checks.append({
+    'code': 'REQ-004',
+    'check': 'ssh_configured',
+    'status': 'FAIL',
+    'severity': 'CRITICAL',
+    'detail': 'SSH management access is not configured or shutdown',
+    'remediation': 'Ensure management ssh / no shutdown block is present'
+  }) %}
+{% endif %}
+
+{# ─── REQ-008: BGP MD5 authentication on all peers ───────────────────────── #}
+{% set bgp_fail = [] %}
+{% for vrf_name, vrf_data in bgp_summary.get('vrfs', {}).items() %}
+  {% for peer_ip, peer_data in vrf_data.get('peers', {}).items() %}
+    {# Check that each neighbor has password configured in running config #}
+    {% set neighbor_block = 'neighbor ' ~ peer_ip ~ ' password' %}
+    {% if neighbor_block not in running_config %}
+      {% set _ = bgp_fail.append(peer_ip) %}
+    {% endif %}
+  {% endfor %}
+{% endfor %}
+{% if bgp_fail | length == 0 %}
+  {% set _ = checks.append({
+    'code': 'REQ-008',
+    'check': 'bgp_md5_all',
+    'status': 'PASS',
+    'severity': 'CRITICAL',
+    'detail': 'All BGP neighbors have MD5 authentication configured'
+  }) %}
+{% else %}
+  {% set _ = checks.append({
+    'code': 'REQ-008',
+    'check': 'bgp_md5_all',
+    'status': 'FAIL',
+    'severity': 'CRITICAL',
+    'detail': 'BGP peers without MD5: ' ~ bgp_fail | join(', '),
+    'remediation': 'Add neighbor <ip> password <vault_ref> for each peer listed'
+  }) %}
+{% endif %}
+
+{# ─── REQ-012: NTP synchronised ───────────────────────────────────────────── #}
+{% if 'synchronised' in ntp_status or 'synchronized' in ntp_status %}
+  {% set _ = checks.append({
+    'code': 'REQ-012',
+    'check': 'ntp_synchronised',
+    'status': 'PASS',
+    'severity': 'WARNING',
+    'detail': 'NTP is synchronised'
+  }) %}
+{% else %}
+  {% set _ = checks.append({
+    'code': 'REQ-012',
+    'check': 'ntp_synchronised',
+    'status': 'FAIL',
+    'severity': 'WARNING',
+    'detail': 'NTP is not synchronised — MiFID II requires accurate timestamps on all network events',
+    'remediation': 'Verify NTP server reachability; check ntp server entries in SoT'
+  }) %}
+{% endif %}
+
+{# ─── REQ-019: SNMP community strings not default ─────────────────────────── #}
+{% if 'public' in snmp_config or 'private' in snmp_config %}
+  {% set _ = checks.append({
+    'code': 'REQ-019',
+    'check': 'snmp_no_default_community',
+    'status': 'FAIL',
+    'severity': 'CRITICAL',
+    'detail': 'Default SNMP community string (public/private) detected',
+    'remediation': 'Replace with vault-managed community string; remove public/private'
+  }) %}
+{% else %}
+  {% set _ = checks.append({
+    'code': 'REQ-019',
+    'check': 'snmp_no_default_community',
+    'status': 'PASS',
+    'severity': 'CRITICAL',
+    'detail': 'No default SNMP community strings detected'
+  }) %}
+{% endif %}
+
+{# ─── REQ-022: No interfaces in error-disabled state ─────────────────────── #}
+{% set err_disabled = [] %}
+{% for iface_name, iface_data in interfaces_json.get('interfaces', {}).items() %}
+  {% if iface_data.get('interfaceStatus') == 'errdisabled' %}
+    {% set _ = err_disabled.append(iface_name) %}
+  {% endif %}
+{% endfor %}
+{% if err_disabled | length == 0 %}
+  {% set _ = checks.append({
+    'code': 'REQ-022',
+    'check': 'no_err_disabled',
+    'status': 'PASS',
+    'severity': 'WARNING',
+    'detail': 'No interfaces in err-disabled state'
+  }) %}
+{% else %}
+  {% set _ = checks.append({
+    'code': 'REQ-022',
+    'check': 'no_err_disabled',
+    'status': 'FAIL',
+    'severity': 'WARNING',
+    'detail': 'Interfaces in err-disabled: ' ~ err_disabled | join(', '),
+    'remediation': 'Investigate root cause; clear with: shutdown / no shutdown'
+  }) %}
+{% endif %}
+
+{# ─── Produce structured result ───────────────────────────────────────────── #}
+{% set critical_fails = checks | selectattr('severity', 'equalto', 'CRITICAL') | selectattr('status', 'equalto', 'FAIL') | list %}
+{% set warning_fails  = checks | selectattr('severity', 'equalto', 'WARNING')  | selectattr('status', 'equalto', 'FAIL') | list %}
+{% set passes         = checks | selectattr('status', 'equalto', 'PASS') | list %}
+
+{{ {
+  'hostname': inventory_hostname,
+  'checks': checks,
+  'summary': {
+    'total': checks | length,
+    'pass': passes | length,
+    'critical_fail': critical_fails | length,
+    'warning_fail': warning_fails | length,
+    'overall': 'FAIL' if critical_fails | length > 0 else ('WARN' if warning_fails | length > 0 else 'PASS')
+  }
+} | to_nice_json }}

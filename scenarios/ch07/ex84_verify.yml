@@ -1,0 +1,66 @@
+---
+# scenarios/ch07/ex84_verify.yml — Exercise 8.4 BGP prefix monitor verification
+
+- name: Verify ex84 — branch prefix restored at WAN peers
+  hosts: border-nyc-01
+  gather_facts: false
+  tasks:
+    - name: Check breadcrumb exists
+      ansible.builtin.stat:
+        path: /tmp/scenario_active.txt
+      register: breadcrumb
+      delegate_to: localhost
+
+    - name: Fail if breadcrumb missing
+      ansible.builtin.fail:
+        msg: "Run ex84_inject.yml first."
+      when: not breadcrumb.stat.exists
+
+    - name: Check BGP prefix count at border-nyc-01 (from border-lon-01 peer)
+      ansible.builtin.raw: |
+        python3 -c "
+        import subprocess, json, sys
+
+        r = subprocess.run('vtysh -c \"show bgp neighbor 10.0.1.0 json\"',
+                           shell=True, capture_output=True, text=True)
+        try:
+            data = json.loads(r.stdout)
+            # Get prefix count from neighbor
+            peer = list(data.values())[0] if data else {}
+            prefix_count = peer.get('addressFamilyInfo', {}).get('IPv4 Unicast', {}).get('acceptedPrefixCounter', -1)
+            print(prefix_count)
+            sys.exit(0 if prefix_count >= 2 else 1)
+        except Exception as e:
+            print(f'parse_error: {e}', file=sys.stderr)
+            sys.exit(1)
+        "
+      register: prefix_count_check
+      changed_when: false
+      failed_when: prefix_count_check.rc != 0
+
+    - name: Assert prefix count is back to baseline
+      ansible.builtin.assert:
+        that: prefix_count_check.stdout | int >= 2
+        fail_msg: >
+          border-nyc-01 still only sees {{ prefix_count_check.stdout }} prefix(es) from LON.
+          Expected 2 (LON DC supernet + UK branch supernet).
+          Remediate: ansible-playbook playbooks/push_configs.yml --limit border-lon-01
+        success_msg: "✓ border-nyc-01 sees correct prefix count from LON ({{ prefix_count_check.stdout }})."
+
+    - name: Remove breadcrumb
+      ansible.builtin.file:
+        path: /tmp/scenario_active.txt
+        state: absent
+      delegate_to: localhost
+
+    - name: Exercise 8.4 passed
+      ansible.builtin.debug:
+        msg: |
+          ✓ Exercise 8.4 PASSED
+          branch-lon-01 prefix is visible at border-nyc-01 again.
+
+          Key takeaway: BGP session monitoring would NOT have caught this.
+          The session stayed Established throughout. Only prefix count
+          monitoring detected the deviation. This is a class of failure
+          that is invisible without proactive monitoring — and surprisingly
+          common when route-maps are changed manually.

@@ -1,0 +1,66 @@
+---
+# scenarios/ch07/ex82_verify.yml — Exercise 8.2 drift detection verification
+
+- name: Verify ex82 — drift remediated on leaf-lon-03
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Check breadcrumb exists
+      ansible.builtin.stat:
+        path: /tmp/scenario_active.txt
+      register: breadcrumb
+
+    - name: Fail if breadcrumb missing
+      ansible.builtin.fail:
+        msg: "Breadcrumb /tmp/scenario_active.txt not found. Run ex82_inject.yml first."
+      when: not breadcrumb.stat.exists
+
+- name: Check leaf-lon-03 drift is zero
+  hosts: leaf-lon-03
+  gather_facts: false
+  tasks:
+    - name: Collect running config
+      arista.eos.eos_command:
+        commands:
+          - show running-config
+      register: running_config
+
+    - name: Read SoT-rendered config
+      ansible.builtin.slurp:
+        src: "{{ configs_output_dir }}/leaf-lon-03/running.conf"
+      register: rendered_config
+      delegate_to: localhost
+
+    - name: Verify TEMP_DEBUG_SESSION not in running config
+      ansible.builtin.assert:
+        that: "'TEMP_DEBUG_SESSION' not in running_config.stdout[0]"
+        fail_msg: >
+          OOB description change still present on leaf-lon-03.
+          Push the SoT-rendered config: ansible-playbook playbooks/push_configs.yml --limit leaf-lon-03
+        success_msg: "✓ OOB description change has been remediated."
+
+    - name: Verify 8.8.8.8 NTP server not in running config
+      ansible.builtin.assert:
+        that: "'ntp server 8.8.8.8' not in running_config.stdout[0]"
+        fail_msg: >
+          OOB NTP server change still present on leaf-lon-03.
+          Push the SoT-rendered config: ansible-playbook playbooks/push_configs.yml --limit leaf-lon-03
+        success_msg: "✓ OOB NTP server change has been remediated."
+
+    - name: Remove breadcrumb
+      ansible.builtin.file:
+        path: /tmp/scenario_active.txt
+        state: absent
+      delegate_to: localhost
+
+    - name: Exercise 8.2 passed
+      ansible.builtin.debug:
+        msg: |
+          ✓ Exercise 8.2 PASSED
+          Both OOB changes on leaf-lon-03 have been remediated.
+          The device now matches the SoT-rendered config.
+
+          Key takeaway: Drift detection caught two distinct types of drift:
+          - INFORMATIONAL: description change (no functional impact)
+          - WARNING: NTP server change (functional, but not compliance-critical)
+          Both were remediated by a single pipeline push — no manual CLI required.

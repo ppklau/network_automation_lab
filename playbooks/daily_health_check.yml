@@ -1,0 +1,245 @@
+---
+# playbooks/daily_health_check.yml
+#
+# ACME Investments — Daily Network Health Check
+# Implements: Module 8.1
+#
+# Collects BGP neighbour status, interface error counters, NTP sync state,
+# and management reachability for all active nodes. Produces:
+#   - state/health_<timestamp>.json  — structured per-device data
+#   - reports/health_<timestamp>.txt — human-readable summary
+#
+# A non-zero exit code indicates at least one critical health check failed.
+#
+# Usage:
+#   ansible-playbook playbooks/daily_health_check.yml
+#   ansible-playbook playbooks/daily_health_check.yml --limit border-lon-01
+
+- name: Collect health data from EOS nodes
+  hosts: lab_active
+  gather_facts: false
+  vars:
+    report_timestamp: "{{ lookup('pipe', 'date +%Y%m%d_%H%M%S') }}"
+  tasks:
+    - name: Collect BGP summary (EOS)
+      when: platform == 'arista_eos'
+      arista.eos.eos_command:
+        commands:
+          - "show bgp summary vrf all | json"
+          - "show interfaces | json"
+          - "show ntp status | json"
+          - "show version | json"
+      register: eos_health_raw
+      failed_when: false
+
+    - name: Parse EOS health data
+      when: platform == 'arista_eos' and eos_health_raw is not failed
+      ansible.builtin.set_fact:
+        device_health:
+          hostname: "{{ inventory_hostname }}"
+          platform: arista_eos
+          timestamp: "{{ report_timestamp }}"
+          bgp:
+            vrfs: "{{ (eos_health_raw.stdout[0] | from_json).vrfs }}"
+            sessions_total: >-
+              {{ (eos_health_raw.stdout[0] | from_json).vrfs.values()
+                 | map(attribute='peers') | map('length') | sum }}
+            sessions_established: >-
+              {{ (eos_health_raw.stdout[0] | from_json).vrfs.values()
+                 | map(attribute='peers') | map('dict2items') | flatten
+                 | selectattr('value.peerState', 'eq', 'Established') | list | length }}
+            sessions_not_established: >-
+              {{ (eos_health_raw.stdout[0] | from_json).vrfs.values()
+                 | map(attribute='peers') | map('dict2items') | flatten
+                 | selectattr('value.peerState', 'ne', 'Established')
+                 | map(attribute='key') | list }}
+          interfaces:
+            error_ports: >-
+              {{ (eos_health_raw.stdout[1] | from_json).interfaces | dict2items
+                 | selectattr('value.interfaceCounters.inputErrors', 'gt', 0)
+                 | map(attribute='key') | list }}
+            down_ports: >-
+              {{ (eos_health_raw.stdout[1] | from_json).interfaces | dict2items
+                 | selectattr('value.lineProtocolStatus', 'eq', 'down')
+                 | rejectattr('value.interfaceType', 'eq', 'routed')
+                 | map(attribute='key') | list }}
+          ntp:
+            raw: "{{ eos_health_raw.stdout[2] | from_json }}"
+            synced: >-
+              {{ (eos_health_raw.stdout[2] | from_json).get('status', '') == 'synchronised' }}
+          version: >-
+            {{ (eos_health_raw.stdout[3] | from_json).get('version', 'unknown') }}
+
+    - name: Collect health data (FRR)
+      when: platform == 'frr'
+      ansible.builtin.raw: |
+        python3 -c "
+        import subprocess, json, sys
+
+        def run(cmd):
+            r = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+            return r.stdout.strip()
+
+        bgp_raw = run('vtysh -c \"show bgp summary json\"')
+        try:
+            bgp = json.loads(bgp_raw)
+        except Exception:
+            bgp = {}
+
+        peers = bgp.get('ipv4Unicast', {}).get('peers', {})
+        established = [p for p,v in peers.items() if v.get('state') == 'Established']
+        not_up = [p for p,v in peers.items() if v.get('state') != 'Established']
+
+        ntp_raw = run('chronyc tracking 2>/dev/null || ntpq -p 2>/dev/null || echo no_ntp')
+        ntp_synced = 'Reference ID' in ntp_raw or '*' in ntp_raw
+
+        result = {
+            'bgp': {
+                'sessions_total': len(peers),
+                'sessions_established': len(established),
+                'sessions_not_established': not_up,
+            },
+            'ntp': {'synced': ntp_synced, 'raw': ntp_raw[:200]},
+            'interfaces': {'error_ports': [], 'down_ports': []},
+        }
+        print(json.dumps(result))
+        "
+      register: frr_health_raw
+      changed_when: false
+      failed_when: false
+
+    - name: Parse FRR health data
+      when: platform == 'frr' and frr_health_raw is not failed
+      ansible.builtin.set_fact:
+        device_health: "{{ frr_health_raw.stdout | from_json | combine({'hostname': inventory_hostname, 'platform': 'frr', 'timestamp': report_timestamp}) }}"
+
+    - name: Store health data as JSON
+      ansible.builtin.copy:
+        content: "{{ device_health | to_nice_json }}"
+        dest: "{{ playbook_dir }}/../state/health_{{ inventory_hostname }}_{{ report_timestamp }}.json"
+      delegate_to: localhost
+      when: device_health is defined
+
+- name: Aggregate and report
+  hosts: localhost
+  gather_facts: false
+  vars:
+    report_timestamp: "{{ lookup('pipe', 'date +%Y%m%d_%H%M%S') }}"
+  tasks:
+    - name: Assemble aggregate health data
+      ansible.builtin.set_fact:
+        all_health: >-
+          {{ groups['lab_active']
+             | map('extract', hostvars, 'device_health')
+             | select('defined') | list }}
+
+    - name: Calculate summary statistics
+      ansible.builtin.set_fact:
+        health_summary:
+          timestamp: "{{ report_timestamp }}"
+          nodes_checked: "{{ all_health | length }}"
+          bgp_sessions_total: "{{ all_health | sum(attribute='bgp.sessions_total') }}"
+          bgp_sessions_established: "{{ all_health | sum(attribute='bgp.sessions_established') }}"
+          nodes_with_bgp_issues: >-
+            {{ all_health
+               | selectattr('bgp.sessions_not_established', 'ne', [])
+               | map(attribute='hostname') | list }}
+          nodes_with_interface_errors: >-
+            {{ all_health
+               | selectattr('interfaces.error_ports', 'ne', [])
+               | map(attribute='hostname') | list }}
+          nodes_ntp_not_synced: >-
+            {{ all_health
+               | rejectattr('ntp.synced')
+               | map(attribute='hostname') | list }}
+          status: >-
+            {% if all_health | selectattr('bgp.sessions_not_established', 'ne', []) | list | length > 0 %}
+            CRITICAL
+            {% elif all_health | rejectattr('ntp.synced') | list | length > 0 %}
+            WARNING
+            {% else %}
+            HEALTHY
+            {% endif %}
+
+    - name: Write aggregate health JSON
+      ansible.builtin.copy:
+        content: "{{ health_summary | to_nice_json }}"
+        dest: "{{ playbook_dir }}/../state/health_{{ report_timestamp }}.json"
+
+    - name: Ensure reports directory exists
+      ansible.builtin.file:
+        path: "{{ playbook_dir }}/../reports"
+        state: directory
+        mode: '0755'
+
+    - name: Write human-readable health report
+      ansible.builtin.copy:
+        content: |
+          ================================================================
+          ACME Investments — Network Health Report
+          {{ report_timestamp }}
+          ================================================================
+
+          Overall Status: {{ health_summary.status }}
+
+          BGP Summary
+          -----------
+          Total sessions monitored : {{ health_summary.bgp_sessions_total }}
+          Sessions Established     : {{ health_summary.bgp_sessions_established }}
+          Sessions NOT Established : {{ health_summary.bgp_sessions_total | int - health_summary.bgp_sessions_established | int }}
+
+          {% if health_summary.nodes_with_bgp_issues | length > 0 %}
+          ⚠ BGP ISSUES on: {{ health_summary.nodes_with_bgp_issues | join(', ') }}
+          {% else %}
+          ✓ All BGP sessions Established
+          {% endif %}
+
+          Interface Health
+          ----------------
+          {% if health_summary.nodes_with_interface_errors | length > 0 %}
+          ⚠ Interface errors on: {{ health_summary.nodes_with_interface_errors | join(', ') }}
+          {% else %}
+          ✓ No interface error counters
+          {% endif %}
+
+          NTP Sync
+          --------
+          {% if health_summary.nodes_ntp_not_synced | length > 0 %}
+          ⚠ NTP NOT synced on: {{ health_summary.nodes_ntp_not_synced | join(', ') }}
+          {% else %}
+          ✓ All nodes NTP synchronised
+          {% endif %}
+
+          Per-Device Detail
+          -----------------
+          {% for h in all_health %}
+          {{ h.hostname }} ({{ h.platform }})
+            BGP: {{ h.bgp.sessions_established }}/{{ h.bgp.sessions_total }} Established
+          {% if h.bgp.sessions_not_established | length > 0 %}
+            NOT ESTABLISHED: {{ h.bgp.sessions_not_established | join(', ') }}
+          {% endif %}
+          {% if h.interfaces.error_ports | length > 0 %}
+            ERROR PORTS: {{ h.interfaces.error_ports | join(', ') }}
+          {% endif %}
+            NTP: {{ 'synced' if h.ntp.synced else 'NOT SYNCED' }}
+          {% endfor %}
+
+          ================================================================
+          Full JSON: state/health_{{ report_timestamp }}.json
+          ================================================================
+        dest: "{{ playbook_dir }}/../reports/health_{{ report_timestamp }}.txt"
+
+    - name: Display report
+      ansible.builtin.command: "cat {{ playbook_dir }}/../reports/health_{{ report_timestamp }}.txt"
+      changed_when: false
+      register: report_output
+
+    - ansible.builtin.debug:
+        msg: "{{ report_output.stdout_lines }}"
+
+    - name: Fail if status is CRITICAL
+      ansible.builtin.fail:
+        msg: >
+          Health check CRITICAL: one or more BGP sessions are not Established.
+          See reports/health_{{ report_timestamp }}.txt for details.
+      when: health_summary.status == 'CRITICAL'
