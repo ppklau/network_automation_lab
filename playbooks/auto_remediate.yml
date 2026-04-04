@@ -1,0 +1,199 @@
+---
+# playbooks/auto_remediate.yml
+#
+# ACME Investments — Self-Healing Auto-Remediation
+# Implements: Module 11.2
+#
+# Conditions for auto-remediation (ALL must be true):
+#   1. Drift detected (max_severity CRITICAL or WARNING)
+#   2. Outside business hours (before 07:00 or after 19:00 UTC)
+#   3. Single device has drift
+#   4. No change freeze active (/tmp/change_freeze_active must not exist)
+#
+# If all conditions met: push remediation config, run Batfish post-check.
+# If any condition fails: report drift, exit non-zero.
+#
+# Usage:
+#   ansible-playbook playbooks/auto_remediate.yml
+#   ansible-playbook playbooks/auto_remediate.yml --extra-vars "force=true"
+#   (force=true bypasses business-hours and single-device checks — NOT for production)
+
+- name: Run drift detection
+  import_playbook: drift_detection.yml
+  ignore_errors: true
+
+- name: Evaluate auto-remediation gate
+  hosts: localhost
+  gather_facts: false
+  vars:
+    force: false
+  tasks:
+    - name: Gather current UTC hour
+      set_fact:
+        current_hour_utc: "{{ lookup('pipe', 'date -u +%H') | int }}"
+
+    - name: Check for change freeze file
+      stat:
+        path: /tmp/change_freeze_active
+      register: change_freeze_stat
+
+    - name: Collect drifted hostnames from hostvars
+      set_fact:
+        drifted_devices: >-
+          {{ groups['all'] | select('in', hostvars)
+             | selectattr('hostvars[item].drift_detected', 'defined')
+             | selectattr('hostvars[item].drift_detected', 'equalto', true)
+             | list }}
+      vars:
+        item: "{{ omit }}"
+      # Simplified: iterate over all hosts and build the drifted list
+      run_once: true
+
+    - name: Build drifted devices list from hostvars
+      set_fact:
+        drifted_devices: >-
+          {{ groups['all'] | map('extract', hostvars)
+             | selectattr('drift_detected', 'defined')
+             | selectattr('drift_detected', 'equalto', true)
+             | map(attribute='inventory_hostname')
+             | list }}
+      run_once: true
+      ignore_errors: true
+
+    - name: Fallback drifted devices to empty list if undefined
+      set_fact:
+        drifted_devices: "{{ drifted_devices | default([]) }}"
+
+    - name: Collect max severity across drifted devices
+      set_fact:
+        drift_max_severity: >-
+          {{ groups['all']
+             | map('extract', hostvars)
+             | selectattr('drift_max_severity', 'defined')
+             | map(attribute='drift_max_severity')
+             | list
+             | first | default('NONE') }}
+      ignore_errors: true
+
+    - name: Fallback drift_max_severity if undefined
+      set_fact:
+        drift_max_severity: "{{ drift_max_severity | default('NONE') }}"
+
+    - name: Evaluate gate — outside business hours
+      set_fact:
+        gate_outside_hours: >-
+          {{ (force | bool) or
+             (current_hour_utc | int < 7) or
+             (current_hour_utc | int >= 19) }}
+
+    - name: Evaluate gate — single device drifted
+      set_fact:
+        gate_single_device: >-
+          {{ (force | bool) or
+             (drifted_devices | length == 1) }}
+
+    - name: Evaluate gate — no change freeze
+      set_fact:
+        gate_no_freeze: "{{ not change_freeze_stat.stat.exists }}"
+
+    - name: Evaluate gate — drift is actionable
+      set_fact:
+        gate_drift_actionable: >-
+          {{ drift_max_severity in ['CRITICAL', 'WARNING'] }}
+
+    - name: Determine remediation_approved and block reason
+      set_fact:
+        remediation_approved: >-
+          {{ gate_outside_hours | bool and
+             gate_single_device | bool and
+             gate_no_freeze | bool and
+             gate_drift_actionable | bool }}
+        remediation_blocked_reason: >-
+          {% if not gate_drift_actionable | bool %}
+          No actionable drift detected (max_severity={{ drift_max_severity }}).
+          {% elif not gate_no_freeze | bool %}
+          Change freeze is active (/tmp/change_freeze_active exists). Skipping auto-remediation.
+          {% elif not gate_outside_hours | bool %}
+          Current UTC hour ({{ current_hour_utc }}) is within business hours (07:00–19:00). Auto-remediation blocked.
+          {% elif not gate_single_device | bool %}
+          {{ drifted_devices | length }} devices have drift ({{ drifted_devices | join(', ') }}). Auto-remediation requires exactly 1 drifted device.
+          {% else %}
+          All gates passed — remediation approved.
+          {% endif %}
+
+    - name: Show remediation decision
+      debug:
+        msg:
+          - "Remediation approved: {{ remediation_approved }}"
+          - "Reason: {{ remediation_blocked_reason | trim }}"
+          - "Drifted devices: {{ drifted_devices }}"
+          - "Max severity: {{ drift_max_severity }}"
+          - "Current UTC hour: {{ current_hour_utc }}"
+          - "Change freeze active: {{ change_freeze_stat.stat.exists }}"
+
+    - name: Set drifted_device fact for use in subsequent plays
+      set_fact:
+        drifted_device: "{{ drifted_devices | first | default('') }}"
+
+- name: Auto-remediate drifted device
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Skip if remediation not approved
+      meta: end_play
+      when: not (hostvars['localhost'].remediation_approved | default(false) | bool)
+
+    - name: Import push_configs for the drifted device
+      import_playbook: push_configs.yml
+      vars:
+        target_hosts: "{{ hostvars['localhost'].drifted_device }}"
+      when: hostvars['localhost'].remediation_approved | default(false) | bool
+
+    - name: Run Batfish post-remediation validation
+      command: bash batfish/run_checks.sh
+      args:
+        chdir: "{{ playbook_dir }}/.."
+      register: batfish_post_result
+      changed_when: false
+      failed_when: batfish_post_result.rc != 0
+
+    - name: Show Batfish post-check output
+      debug:
+        var: batfish_post_result.stdout_lines
+
+    - name: Report successful auto-remediation
+      debug:
+        msg:
+          - "Auto-remediation completed successfully."
+          - "Device: {{ hostvars['localhost'].drifted_device }}"
+          - "Batfish post-check: PASSED"
+
+- name: Report block reason
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Skip if remediation was approved
+      meta: end_play
+      when: hostvars['localhost'].remediation_approved | default(false) | bool
+
+    - name: Show block reason
+      debug:
+        msg: "{{ hostvars['localhost'].remediation_blocked_reason | trim }}"
+
+    - name: Write drift report
+      copy:
+        content: |
+          Auto-Remediation Blocked
+          ========================
+          Timestamp (UTC): {{ lookup('pipe', 'date -u +"%Y-%m-%dT%H:%M:%SZ"') }}
+          Blocked reason:  {{ hostvars['localhost'].remediation_blocked_reason | trim }}
+          Drifted devices: {{ hostvars['localhost'].drifted_devices | join(', ') }}
+          Max severity:    {{ hostvars['localhost'].drift_max_severity }}
+        dest: /tmp/drift_report_{{ lookup('pipe', 'date -u +%Y%m%d_%H%M%S') }}.txt
+      ignore_errors: true
+
+    - name: Fail with block reason
+      fail:
+        msg: >-
+          Auto-remediation blocked: {{ hostvars['localhost'].remediation_blocked_reason | trim }}
+          Review the drift report in /tmp/ for details.

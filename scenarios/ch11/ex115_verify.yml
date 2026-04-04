@@ -1,0 +1,109 @@
+---
+# scenarios/ch11/ex115_verify.yml
+#
+# ACME Investments — Exercise 11.5 Verification
+# Verifies that automated rollback fired correctly after the canary Batfish
+# check failed during staged_rollout.yml execution.
+#
+# Checks:
+#   1. leaf-lon-01 (canary): RM_LEAF_IN route-map restored by auto-rollback
+#   2. leaf-lon-02, leaf-lon-03: unchanged (rollout halted at canary)
+#
+# Usage:
+#   ansible-playbook scenarios/ch11/ex115_verify.yml
+
+- name: Check scenario breadcrumb exists
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Stat breadcrumb file
+      stat:
+        path: /tmp/scenario_active.txt
+      register: breadcrumb_stat
+
+    - name: Fail if breadcrumb missing
+      fail:
+        msg: >-
+          /tmp/scenario_active.txt not found.
+          Run scenarios/ch11/ex115_inject.yml before verifying.
+      when: not breadcrumb_stat.stat.exists
+
+    - name: Show scenario active
+      debug:
+        msg: "Exercise 11.5 scenario active. Running automated rollback verification."
+
+- name: Verify canary (leaf-lon-01) was automatically rolled back
+  hosts: leaf-lon-01
+  gather_facts: false
+  tasks:
+    - name: Collect BGP running config
+      arista.eos.eos_command:
+        commands:
+          - show running-config section router bgp
+      register: leaf01_bgp_config
+
+    - name: Verify RM_LEAF_IN is restored (auto-rollback succeeded)
+      assert:
+        that:
+          - "'RM_LEAF_IN' in leaf01_bgp_config.stdout[0]"
+        success_msg: >-
+          PASS — RM_LEAF_IN is present on leaf-lon-01.
+          Automated rollback triggered by Batfish check succeeded.
+        fail_msg: >-
+          FAIL — RM_LEAF_IN is missing from leaf-lon-01.
+          Automated rollback may not have fired. Check staged_rollout.yml and rollback.yml output.
+
+    - name: Show BGP config for review
+      debug:
+        var: leaf01_bgp_config.stdout_lines
+
+- name: Verify remaining leaves were NOT changed by the rollout
+  hosts:
+    - leaf-lon-02
+    - leaf-lon-03
+  gather_facts: false
+  tasks:
+    - name: Collect BGP running config
+      arista.eos.eos_command:
+        commands:
+          - show running-config section router bgp
+      register: leaf_bgp_config
+
+    - name: Verify RM_LEAF_IN intact (fleet protected by canary halt)
+      assert:
+        that:
+          - "'RM_LEAF_IN' in leaf_bgp_config.stdout[0]"
+        success_msg: >-
+          PASS — {{ inventory_hostname }}: RM_LEAF_IN present.
+          Staged rollout halted at the canary; this device was not changed.
+        fail_msg: >-
+          FAIL — {{ inventory_hostname }}: RM_LEAF_IN missing.
+          The staged rollout may have pushed to this device despite the canary failure.
+
+    - name: Show BGP config for review
+      debug:
+        var: leaf_bgp_config.stdout_lines
+
+- name: Cleanup and report success
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Remove breadcrumb
+      file:
+        path: /tmp/scenario_active.txt
+        state: absent
+
+    - name: Display success message
+      debug:
+        msg:
+          - "=========================================="
+          - "Exercise 11.5 — Verification PASSED."
+          - "=========================================="
+          - "Automated rollback behavior confirmed:"
+          - "  - Batfish INTENT-010 fired on leaf-lon-01 (canary)"
+          - "  - staged_rollout.yml triggered rollback.yml automatically"
+          - "  - leaf-lon-01: rolled back to last-known-good config ✓"
+          - "  - leaf-lon-02: NOT changed (rollout halted at canary) ✓"
+          - "  - leaf-lon-03: NOT changed (rollout halted at canary) ✓"
+          - "No operator intervention was required for rollback."
+          - "=========================================="

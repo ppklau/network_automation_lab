@@ -1,0 +1,48 @@
+---
+# capstone/scenarios/scenario-b.yml
+#
+# ACME Investments — Capstone Scenario B: Route Loop
+# Used by: capstone/inject_fault.sh and Exercise 12.2
+#
+# Fault: A static route has been added to spine-lon-01 pointing
+#        10.0.0.0/8 → 10.100.255.254 (a non-existent next-hop in the MGMT VRF).
+#        This creates a black-hole for all RFC 1918 traffic on spine-lon-01
+#        and will cause Batfish path-trace assertions to fail.
+#
+# Symptoms:
+#   - batfish test_path_trace failures
+#   - Traceroute from spine-lon-01 to branch prefixes loops or drops
+#   - BGP sessions remain up (control plane healthy, data plane broken)
+#
+# Root cause: ad-hoc troubleshooting static route not cleaned up
+# Remediation: push_configs.yml --limit spine-lon-01
+
+- name: "Scenario B — Breadcrumb"
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Write scenario breadcrumb
+      ansible.builtin.copy:
+        content: "Capstone Scenario B — Route Loop\n"
+        dest: /tmp/scenario_active.txt
+        mode: "0644"
+
+- name: "Scenario B — Inject black-hole static route on spine-lon-01"
+  hosts: spine-lon-01
+  gather_facts: false
+  tasks:
+    - name: Add static route 10.0.0.0/8 pointing to non-existent next-hop
+      arista.eos.eos_config:
+        lines:
+          - ip route 10.0.0.0/8 10.100.255.254
+
+- name: "Scenario B — Notify operator"
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Print scenario notification
+      ansible.builtin.debug:
+        msg: >-
+          Scenario B injected.
+          A route loop / black-hole has been introduced on spine-lon-01.
+          Diagnose using available tooling.

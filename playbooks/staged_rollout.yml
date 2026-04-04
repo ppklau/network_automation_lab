@@ -1,0 +1,195 @@
+---
+# playbooks/staged_rollout.yml
+#
+# ACME Investments — Staged (Canary) Rollout
+# Implements: Modules 11.3, 11.5
+#
+# Applies a SoT-rendered config change in two stages:
+#   Stage 1: Canary device (default: first device in target group)
+#   Stage 2: Remaining devices — only if canary stage passes
+#
+# If the canary Batfish check fails, the playbook halts and triggers
+# automatic rollback of the canary device (Exercise 11.5).
+#
+# Usage:
+#   ansible-playbook playbooks/staged_rollout.yml \
+#     --extra-vars "target_group=site_lon_dc1 canary_device=leaf-lon-01"
+#
+#   ansible-playbook playbooks/staged_rollout.yml \
+#     --extra-vars "target_group=site_lon_dc1"   # auto-selects canary
+#
+# Variables:
+#   target_group    - Ansible inventory group to roll out to (required)
+#   canary_device   - Hostname to use as canary (default: first in group)
+#   auto_rollback   - Roll back canary on failure (default: true)
+
+- name: Render configs for target group
+  import_playbook: render_configs.yml
+  vars:
+    target_hosts: "{{ target_group }}"
+
+- name: Stage 1 — Push canary device
+  hosts: localhost
+  gather_facts: false
+  vars:
+    target_group: "{{ target_group | default('all') }}"
+    canary_device: "{{ canary_device | default('') }}"
+    auto_rollback: "{{ auto_rollback | default(true) }}"
+  tasks:
+    - name: Resolve canary device (auto-select first in group if not specified)
+      set_fact:
+        resolved_canary: >-
+          {{ canary_device if canary_device != ''
+             else (groups[target_group] | first) }}
+
+    - name: Show canary selection
+      debug:
+        msg: "Canary device selected: {{ resolved_canary }}"
+
+    - name: Import push_configs for canary device
+      import_playbook: push_configs.yml
+      vars:
+        target_hosts: "{{ resolved_canary }}"
+
+- name: Stage 1 — Verify canary
+  hosts: localhost
+  gather_facts: false
+  vars:
+    target_group: "{{ target_group | default('all') }}"
+    canary_device: "{{ canary_device | default('') }}"
+  tasks:
+    - name: Resolve canary device
+      set_fact:
+        resolved_canary: >-
+          {{ canary_device if canary_device != ''
+             else (groups[target_group] | first) }}
+
+    - name: Import verify_state for canary device
+      import_playbook: verify_state.yml
+      vars:
+        target_hosts: "{{ resolved_canary }}"
+      ignore_errors: true
+      register: canary_verify_result
+
+    - name: Run Batfish post-push check for canary
+      shell: >
+        cd {{ playbook_dir }}/.. && bash batfish/run_checks.sh 2>&1
+      register: canary_batfish_result
+      changed_when: false
+      ignore_errors: true
+
+    - name: Show canary Batfish output
+      debug:
+        var: canary_batfish_result.stdout_lines
+
+    - name: Evaluate canary pass/fail
+      set_fact:
+        canary_pass: >-
+          {{ (canary_verify_result is not defined or
+              canary_verify_result.failed is not defined or
+              not canary_verify_result.failed | bool) and
+             canary_batfish_result.rc == 0 }}
+
+    - name: Report canary validation result
+      debug:
+        msg: "Canary validation: {{ 'PASSED' if canary_pass | bool else 'FAILED' }}"
+
+- name: Stage 1 — Rollback canary on failure
+  hosts: localhost
+  gather_facts: false
+  vars:
+    target_group: "{{ target_group | default('all') }}"
+    canary_device: "{{ canary_device | default('') }}"
+    auto_rollback: "{{ auto_rollback | default(true) }}"
+  tasks:
+    - name: Resolve canary device
+      set_fact:
+        resolved_canary: >-
+          {{ canary_device if canary_device != ''
+             else (groups[target_group] | first) }}
+
+    - name: Skip rollback if canary passed
+      meta: end_play
+      when: hostvars['localhost'].canary_pass | default(true) | bool
+
+    - name: Skip rollback if auto_rollback disabled
+      meta: end_play
+      when: not (auto_rollback | bool)
+
+    - name: Trigger automatic rollback for canary device
+      import_playbook: rollback.yml
+      vars:
+        target_hosts: "{{ resolved_canary }}"
+      when: not (hostvars['localhost'].canary_pass | default(true) | bool)
+
+    - name: Halt with rollback notice
+      fail:
+        msg: >-
+          Canary device {{ resolved_canary }} failed post-push validation.
+          Rollback applied. Remaining devices were NOT changed.
+
+- name: Stage 2 — Push remaining devices
+  hosts: "{{ target_group | default('all') }}"
+  gather_facts: false
+  serial: "25%"
+  vars:
+    target_group: "{{ target_group | default('all') }}"
+    canary_device: "{{ canary_device | default('') }}"
+  tasks:
+    - name: Resolve canary for exclusion
+      set_fact:
+        resolved_canary: >-
+          {{ canary_device if canary_device != ''
+             else (groups[target_group] | first) }}
+      run_once: true
+
+    - name: Skip this host if it is the canary
+      meta: end_host
+      when: inventory_hostname == resolved_canary
+
+    - name: Skip entire stage if canary did not pass
+      meta: end_host
+      when: not (hostvars['localhost'].canary_pass | default(false) | bool)
+
+    - name: Import push_configs for this device
+      import_playbook: push_configs.yml
+      vars:
+        target_hosts: "{{ inventory_hostname }}"
+
+- name: Stage 2 — Verify remaining devices
+  hosts: localhost
+  gather_facts: false
+  vars:
+    target_group: "{{ target_group | default('all') }}"
+    canary_device: "{{ canary_device | default('') }}"
+  tasks:
+    - name: Skip stage 2 verification if canary did not pass
+      meta: end_play
+      when: not (hostvars['localhost'].canary_pass | default(false) | bool)
+
+    - name: Resolve canary device
+      set_fact:
+        resolved_canary: >-
+          {{ canary_device if canary_device != ''
+             else (groups[target_group] | first) }}
+
+    - name: Determine remaining devices (exclude canary)
+      set_fact:
+        remaining_devices: >-
+          {{ groups[target_group]
+             | reject('equalto', resolved_canary)
+             | list
+             | join(',') }}
+
+    - name: Import verify_state for remaining devices
+      import_playbook: verify_state.yml
+      vars:
+        target_hosts: "{{ remaining_devices }}"
+      when: remaining_devices != ''
+
+    - name: Report stage 2 completion
+      debug:
+        msg:
+          - "Staged rollout complete."
+          - "Canary: {{ resolved_canary }} — PASSED"
+          - "Remaining devices pushed: {{ remaining_devices }}"

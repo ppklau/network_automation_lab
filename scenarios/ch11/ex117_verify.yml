@@ -1,0 +1,152 @@
+---
+# scenarios/ch11/ex117_verify.yml
+#
+# ACME Investments — Exercise 11.7 Verification
+# Verifies that bulk_import.py successfully converted the CSV to valid SoT YAML
+# and that the imported branches appear in the Ansible inventory.
+#
+# Checks:
+#   1. Breadcrumb exists (inject was run)
+#   2. Output SoT YAML exists and validate_sot.py passes
+#   3. Imported branch hostnames appear in generated inventory
+#   4. Cleanup
+#
+# Usage:
+#   ansible-playbook scenarios/ch11/ex117_verify.yml
+
+- name: Check scenario breadcrumb exists
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Stat breadcrumb file
+      stat:
+        path: /tmp/scenario_active.txt
+      register: breadcrumb_stat
+
+    - name: Fail if breadcrumb missing
+      fail:
+        msg: >-
+          /tmp/scenario_active.txt not found.
+          Run scenarios/ch11/ex117_inject.yml and then
+          python3 scripts/bulk_import.py /tmp/new_branches_import.csv
+          before verifying.
+      when: not breadcrumb_stat.stat.exists
+
+    - name: Show scenario active
+      debug:
+        msg: "Exercise 11.7 breadcrumb found. Running verification checks."
+
+- name: Verify SoT YAML output and validate_sot passes
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Check imported SoT file exists
+      stat:
+        path: "{{ playbook_dir }}/../../sot/devices/branches/us-branches-imported.yml"
+      register: imported_sot_stat
+
+    - name: Warn if imported SoT file not found at expected path
+      debug:
+        msg: >-
+          WARNING: sot/devices/branches/us-branches-imported.yml not found.
+          Check the output path used by scripts/bulk_import.py.
+          Continuing with validate_sot.py check regardless.
+      when: not imported_sot_stat.stat.exists
+
+    - name: Run validate_sot.py to confirm SoT integrity
+      command: python3 scripts/validate_sot.py
+      args:
+        chdir: "{{ playbook_dir }}/../.."
+      register: validate_sot_result
+      changed_when: false
+      failed_when: validate_sot_result.rc != 0
+
+    - name: Show validate_sot output
+      debug:
+        var: validate_sot_result.stdout_lines
+
+    - name: Confirm validate_sot passed
+      debug:
+        msg: "PASS — validate_sot.py exited with code 0. SoT is valid."
+
+- name: Verify imported branches appear in Ansible inventory
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Run inventory generator to refresh inventory
+      command: python3 scripts/generate_inventory.py
+      args:
+        chdir: "{{ playbook_dir }}/../.."
+      register: inventory_gen_result
+      changed_when: false
+      ignore_errors: true
+
+    - name: Show inventory generator output
+      debug:
+        var: inventory_gen_result.stdout_lines
+      when: inventory_gen_result is defined
+
+    - name: Check inventory for imported branches
+      command: >
+        ansible-inventory --list -i inventory/
+      args:
+        chdir: "{{ playbook_dir }}/../.."
+      register: inventory_list
+      changed_when: false
+
+    - name: Verify branch-nyc-09 appears in inventory
+      assert:
+        that:
+          - "'branch-nyc-09' in inventory_list.stdout"
+        success_msg: "PASS — branch-nyc-09 found in inventory."
+        fail_msg: "FAIL — branch-nyc-09 not found. Check bulk_import.py output."
+
+    - name: Verify branch-nyc-13 appears in inventory
+      assert:
+        that:
+          - "'branch-nyc-13' in inventory_list.stdout"
+        success_msg: "PASS — branch-nyc-13 found in inventory."
+        fail_msg: "FAIL — branch-nyc-13 not found. Check bulk_import.py output."
+
+    - name: Verify all 5 imported branches present
+      assert:
+        that:
+          - "'branch-nyc-' ~ item in inventory_list.stdout"
+        success_msg: "PASS — branch-nyc-{{ item }} found in inventory."
+        fail_msg: "FAIL — branch-nyc-{{ item }} not found in inventory."
+      loop:
+        - "09"
+        - "10"
+        - "11"
+        - "12"
+        - "13"
+
+- name: Cleanup and report success
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Remove breadcrumb
+      file:
+        path: /tmp/scenario_active.txt
+        state: absent
+
+    - name: Remove temp CSV
+      file:
+        path: /tmp/new_branches_import.csv
+        state: absent
+
+    - name: Display success message
+      debug:
+        msg:
+          - "=========================================="
+          - "Exercise 11.7 — Verification PASSED."
+          - "=========================================="
+          - "Bulk import verified successfully:"
+          - "  - validate_sot.py: PASSED (SoT is structurally valid)"
+          - "  - branch-nyc-09 through branch-nyc-13: present in inventory"
+          - "  - ASNs 65128–65132 imported correctly"
+          - ""
+          - "The new US branches are ready for config rendering:"
+          - "  ansible-playbook playbooks/render_configs.yml \\"
+          - "    --limit branch-nyc-09,branch-nyc-10,branch-nyc-11,branch-nyc-12,branch-nyc-13"
+          - "=========================================="

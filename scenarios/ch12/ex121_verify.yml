@@ -1,0 +1,122 @@
+---
+# scenarios/ch12/ex121_verify.yml
+#
+# ACME Investments — Exercise 12.1 Verify: New Frankfurt Office Opening
+#
+# Checks that fra-branch-05 was correctly added to eu-branches.yml,
+# that the SoT passes validation, and that trading_zone_prohibited is set.
+
+- name: Check scenario breadcrumb
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Check /tmp/scenario_active.txt exists
+      ansible.builtin.stat:
+        path: /tmp/scenario_active.txt
+      register: breadcrumb
+
+    - name: Fail if inject was not run
+      ansible.builtin.fail:
+        msg: >
+          /tmp/scenario_active.txt not found.
+          Run: ansible-playbook scenarios/ch12/ex121_inject.yml first.
+      when: not breadcrumb.stat.exists
+
+- name: Verify fra-branch-05 added to SoT
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Read eu-branches.yml
+      ansible.builtin.slurp:
+        src: "{{ playbook_dir }}/../../sot/devices/branches/eu-branches.yml"
+      register: eu_branches_raw
+
+    - name: Parse eu-branches.yml
+      ansible.builtin.set_fact:
+        eu_branches: "{{ eu_branches_raw.content | b64decode | from_yaml }}"
+
+    - name: Extract branch hostnames
+      ansible.builtin.set_fact:
+        branch_hostnames: "{{ eu_branches.branches | map(attribute='hostname') | list }}"
+
+    - name: Verify fra-branch-05 is present
+      ansible.builtin.assert:
+        that:
+          - "'fra-branch-05' in branch_hostnames"
+        fail_msg: >
+          fra-branch-05 not found in sot/devices/branches/eu-branches.yml.
+          Add the branch entry as specified in /tmp/new_office_spec.txt.
+        success_msg: "fra-branch-05 found in eu-branches.yml."
+
+    - name: Get fra-branch-05 entry
+      ansible.builtin.set_fact:
+        fra_branch_05: >-
+          {{ eu_branches.branches
+             | selectattr('hostname', 'eq', 'fra-branch-05')
+             | first }}
+
+    - name: Verify trading_zone_prohibited is set at file level
+      ansible.builtin.assert:
+        that:
+          - eu_branches.trading_zone_prohibited is defined
+          - eu_branches.trading_zone_prohibited == true
+        fail_msg: >
+          trading_zone_prohibited: true is missing from eu-branches.yml top level.
+          Frankfurt sites must explicitly prohibit the TRADING zone (INTENT-003, REQ-007).
+        success_msg: "trading_zone_prohibited: true confirmed."
+
+    - name: Verify compliance tags include bafin and mifid2
+      ansible.builtin.assert:
+        that:
+          - "'bafin' in eu_branches.compliance_tags"
+          - "'mifid2' in eu_branches.compliance_tags"
+        fail_msg: "eu-branches.yml must include compliance_tags: [bafin, mifid2]."
+        success_msg: "BaFin/MiFID II compliance tags confirmed."
+
+- name: Run SoT validation
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Run validate_sot.py
+      ansible.builtin.command:
+        cmd: python3 scripts/validate_sot.py
+        chdir: "{{ playbook_dir }}/../../"
+      register: validate_result
+      changed_when: false
+      failed_when: validate_result.rc != 0
+
+    - name: Show validation output
+      ansible.builtin.debug:
+        msg: "{{ validate_result.stdout_lines }}"
+
+    - name: Confirm validation passed
+      ansible.builtin.assert:
+        that:
+          - validate_result.rc == 0
+        fail_msg: "validate_sot.py failed — fix the SoT errors before proceeding."
+        success_msg: "SoT validation passed."
+
+- name: Cleanup and confirm
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Remove scenario breadcrumb
+      ansible.builtin.file:
+        path: /tmp/scenario_active.txt
+        state: absent
+
+    - name: Remove spec file
+      ansible.builtin.file:
+        path: /tmp/new_office_spec.txt
+        state: absent
+
+    - ansible.builtin.debug:
+        msg:
+          - "Exercise 12.1 complete."
+          - ""
+          - "fra-branch-05 correctly provisioned in eu-branches.yml."
+          - "trading_zone_prohibited: true confirmed — MiFID II ring-fence enforced."
+          - "SoT validation passed."
+          - ""
+          - "Next: run ansible-playbook playbooks/render_configs.yml --limit fra-branch-05"
+          - "Then: pytest batfish/tests/test_frankfurt_isolation.py -v"

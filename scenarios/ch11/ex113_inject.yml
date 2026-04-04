@@ -1,0 +1,95 @@
+---
+# scenarios/ch11/ex113_inject.yml
+#
+# ACME Investments — Exercise 11.3 Fault Injection
+# Injects a breaking BGP route-map change on leaf-lon-01 (canary device)
+# for the staged rollout exercise.
+#
+# Scenario:
+#   The SoT was updated to roll out a new route-map policy.
+#   The canary device (leaf-lon-01) gets the change first.
+#   The injected state simulates a post-push failure that Batfish
+#   INTENT-010 (prefix filtering) should detect.
+#
+# Injected fault:
+#   - BGP neighbor route-map inbound (RM_LEAF_IN) removed from spine neighbors
+#     on leaf-lon-01 — prefixes are now unfiltered (Batfish INTENT-010 FAIL)
+#
+# Usage:
+#   ansible-playbook scenarios/ch11/ex113_inject.yml
+#   ansible-playbook playbooks/staged_rollout.yml \
+#     --extra-vars "target_group=site_lon_dc1 canary_device=leaf-lon-01"
+
+- name: Write scenario breadcrumb
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Write breadcrumb file
+      copy:
+        content: |
+          Exercise 11.3 — Staged (Canary) Rollout
+          Fault: Breaking route-map change injected on leaf-lon-01 (canary)
+            - RM_LEAF_IN removed from BGP spine neighbor inbound policy
+            - Batfish INTENT-010 (prefix filtering) should fire on canary check
+          Injected at: {{ lookup('pipe', 'date -u +"%Y-%m-%dT%H:%M:%SZ"') }}
+          To test: ansible-playbook playbooks/staged_rollout.yml \
+                     --extra-vars "target_group=site_lon_dc1 canary_device=leaf-lon-01"
+        dest: /tmp/scenario_active.txt
+        mode: "0644"
+
+    - name: Confirm breadcrumb written
+      debug:
+        msg: "Breadcrumb written to /tmp/scenario_active.txt"
+
+- name: Inject BGP route-map removal on leaf-lon-01
+  hosts: leaf-lon-01
+  gather_facts: false
+  tasks:
+    - name: Remove inbound route-map from spine neighbors (RM_LEAF_IN)
+      arista.eos.eos_config:
+        lines:
+          - no neighbor SPINE-PEERS route-map RM_LEAF_IN in
+        parents: router bgp {{ hostvars[inventory_hostname]['bgp_asn'] | default('65001') }}
+
+    - name: Confirm config state after injection
+      arista.eos.eos_command:
+        commands:
+          - show running-config section router bgp
+      register: bgp_config_post
+
+    - name: Verify route-map is absent (injection confirmed)
+      assert:
+        that:
+          - "'RM_LEAF_IN' not in bgp_config_post.stdout[0]"
+        success_msg: "Injection confirmed — RM_LEAF_IN no longer applied inbound."
+        fail_msg: "Injection may have failed — RM_LEAF_IN still present."
+
+    - name: Show BGP config after injection
+      debug:
+        var: bgp_config_post.stdout_lines
+
+- name: Notify operator
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Display instructions
+      debug:
+        msg:
+          - "=========================================="
+          - "Exercise 11.3 — Fault injection complete."
+          - "=========================================="
+          - "leaf-lon-01 (canary) now has a breaking BGP config:"
+          - "  - RM_LEAF_IN route-map removed from inbound policy"
+          - "  - Batfish INTENT-010 will flag this as a violation"
+          - ""
+          - "leaf-lon-02 and leaf-lon-03 are UNCHANGED."
+          - ""
+          - "Next steps:"
+          - "  1. Run the staged rollout (canary = leaf-lon-01):"
+          - "       ansible-playbook playbooks/staged_rollout.yml \\"
+          - "         --extra-vars \"target_group=site_lon_dc1 canary_device=leaf-lon-01\""
+          - "  2. Observe that the canary Batfish check fails."
+          - "  3. Confirm rollback is applied to leaf-lon-01."
+          - "  4. Verify leaf-lon-02 and leaf-lon-03 were NOT changed."
+          - "  5. Run: ansible-playbook scenarios/ch11/ex113_verify.yml"
+          - "=========================================="

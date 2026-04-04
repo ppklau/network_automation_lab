@@ -1,0 +1,97 @@
+---
+# scenarios/ch11/ex117_inject.yml
+#
+# ACME Investments — Exercise 11.7 Setup
+# Creates a sample CSV file for the bulk branch import exercise.
+#
+# Scenario:
+#   ACME Investments is opening five new US branch offices.
+#   Network parameters have been provided in CSV format.
+#   The reader uses scripts/bulk_import.py to convert the CSV
+#   into SoT-compatible YAML and then validates with validate_sot.py.
+#
+# Generated file: /tmp/new_branches_import.csv
+#   - 5 new US branch records (branch-nyc-09 through branch-nyc-13)
+#   - ASNs: 65128–65132 (continuation of existing nyc pool 65120–65127)
+#   - WAN prefixes: 10.120.8.0/29 through 10.120.8.32/29
+#
+# Usage:
+#   ansible-playbook scenarios/ch11/ex117_inject.yml
+#   python3 scripts/bulk_import.py /tmp/new_branches_import.csv
+
+- name: Write scenario breadcrumb
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Write breadcrumb file
+      copy:
+        content: |
+          Exercise 11.7 — Bulk Branch Import
+          Action: Sample CSV created at /tmp/new_branches_import.csv
+            - 5 new US branch records: branch-nyc-09 through branch-nyc-13
+            - ASNs: 65128–65132
+            - WAN subnets: 10.120.8.0/29 through 10.120.8.32/29
+          Created at: {{ lookup('pipe', 'date -u +"%Y-%m-%dT%H:%M:%SZ"') }}
+          Next step: python3 scripts/bulk_import.py /tmp/new_branches_import.csv
+        dest: /tmp/scenario_active.txt
+        mode: "0644"
+
+    - name: Confirm breadcrumb written
+      debug:
+        msg: "Breadcrumb written to /tmp/scenario_active.txt"
+
+- name: Create bulk import CSV
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Write new_branches_import.csv
+      copy:
+        content: |
+          hostname,region,uplink_dc,uplink_border,asn,wan_prefix,wan_ip,uplink_peer_ip,lan_prefix,city,country,office_type,md5_password_ref
+          branch-nyc-09,us-east,lon-dc1,border-lon-01,65128,10.120.8.0/29,10.120.8.1,10.120.8.2,10.120.16.0/29,Pittsburgh,US,branch,vault:bgp/branch-nyc-09
+          branch-nyc-10,us-east,lon-dc1,border-lon-01,65129,10.120.8.8/29,10.120.8.9,10.120.8.10,10.120.16.8/29,Chicago,US,branch,vault:bgp/branch-nyc-10
+          branch-nyc-11,us-east,lon-dc1,border-lon-01,65130,10.120.8.16/29,10.120.8.17,10.120.8.18,10.120.16.16/29,Houston,US,branch,vault:bgp/branch-nyc-11
+          branch-nyc-12,us-east,lon-dc1,border-lon-01,65131,10.120.8.24/29,10.120.8.25,10.120.8.26,10.120.16.24/29,Phoenix,US,branch,vault:bgp/branch-nyc-12
+          branch-nyc-13,us-east,lon-dc1,border-lon-01,65132,10.120.8.32/29,10.120.8.33,10.120.8.34,10.120.16.32/29,Denver,US,branch,vault:bgp/branch-nyc-13
+        dest: /tmp/new_branches_import.csv
+        mode: "0644"
+
+    - name: Confirm CSV written
+      debug:
+        msg: "CSV written to /tmp/new_branches_import.csv"
+
+    - name: Show CSV preview
+      command: cat /tmp/new_branches_import.csv
+      register: csv_preview
+      changed_when: false
+
+    - name: Display CSV content
+      debug:
+        var: csv_preview.stdout_lines
+
+- name: Notify operator
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Display instructions
+      debug:
+        msg:
+          - "=========================================="
+          - "Exercise 11.7 — CSV created successfully."
+          - "=========================================="
+          - "File: /tmp/new_branches_import.csv"
+          - "Records: 5 new US branches (branch-nyc-09 to branch-nyc-13)"
+          - ""
+          - "Next steps:"
+          - "  1. Run the bulk import script:"
+          - "       python3 scripts/bulk_import.py /tmp/new_branches_import.csv"
+          - ""
+          - "  2. Review the generated SoT YAML:"
+          - "       cat sot/devices/branches/us-branches-imported.yml"
+          - ""
+          - "  3. Validate the SoT:"
+          - "       python3 scripts/validate_sot.py"
+          - ""
+          - "  4. Verify the import:"
+          - "       ansible-playbook scenarios/ch11/ex117_verify.yml"
+          - "=========================================="

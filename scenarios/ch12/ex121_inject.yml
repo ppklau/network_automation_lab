@@ -1,0 +1,97 @@
+---
+# scenarios/ch12/ex121_inject.yml
+#
+# ACME Investments — Exercise 12.1: New Frankfurt Office Opening
+#
+# This inject does NOT break anything. It delivers a provisioning
+# specification that the student must implement end-to-end using the
+# full automation stack built throughout the lab.
+#
+# Tasks the student must complete:
+#   1. Add fra-branch-05 to sot/devices/branches/eu-branches.yml
+#   2. Validate the SoT schema
+#   3. Render configs for the new device
+#   4. Run Batfish isolation tests for the Frankfurt site
+#
+# Verify completion with:
+#   ansible-playbook scenarios/ch12/ex121_verify.yml
+
+- name: "Exercise 12.1 — Drop breadcrumb"
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Write scenario breadcrumb
+      ansible.builtin.copy:
+        dest: /tmp/scenario_active.txt
+        content: "Exercise 12.1: New Frankfurt Office Opening\n"
+        mode: "0644"
+
+- name: "Exercise 12.1 — Write provisioning specification"
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Write new office provisioning spec
+      ansible.builtin.copy:
+        dest: /tmp/new_office_spec.txt
+        mode: "0644"
+        content: |
+          ACME Investments — New Office Provisioning Request
+          Date: {{ lookup('pipe', 'date') }}
+          Requestor: Frankfurt Operations Team
+
+          Site details:
+            Name:         fra-branch-05
+            Location:     Frankfurt am Main, Germany
+            Address:      Mainzer Landstrasse 50, 60325 Frankfurt
+            Office type:  operations
+            User count:   45
+
+          Network requirements:
+            Region:       eu-fra
+            Uplink DC:    fra-dc1
+            Uplink border: border-fra-01 (AS 65030)
+            ASN:          65144  (next available in EU pool)
+            WAN prefix:   10.130.32.0/29
+            WAN IP:       10.130.32.1
+            Peer IP:      10.130.32.2
+            LAN prefix:   10.130.40.0/29
+
+          Compliance notes:
+            - Frankfurt site: trading_zone_prohibited MUST be true
+            - Compliance tags: bafin, mifid2
+            - No TRADING or DMZ zones permitted
+
+          Your task:
+            1. Add this branch to sot/devices/branches/eu-branches.yml
+            2. Run: python3 scripts/validate_sot.py
+            3. Run: ansible-playbook playbooks/render_configs.yml --limit fra-branch-05
+            4. Run: pytest batfish/tests/test_frankfurt_isolation.py -v
+            5. Confirm: trading_zone_prohibited is enforced for the new device
+
+          Verify with: ansible-playbook scenarios/ch12/ex121_verify.yml
+
+- name: "Exercise 12.1 — Notify student"
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Display exercise briefing
+      ansible.builtin.debug:
+        msg:
+          - "=========================================================="
+          - " ACME Investments — Exercise 12.1: New Frankfurt Office"
+          - "=========================================================="
+          - ""
+          - " A new branch office provisioning request has been raised."
+          - " The full specification has been written to:"
+          - "   /tmp/new_office_spec.txt"
+          - ""
+          - " Read the spec carefully. Your deliverables:"
+          - "   1. Add fra-branch-05 to the EU branches SoT"
+          - "   2. Validate the SoT schema passes"
+          - "   3. Render configs for the new device"
+          - "   4. Pass Batfish Frankfurt isolation tests"
+          - "   5. Prove trading_zone_prohibited enforcement"
+          - ""
+          - " When complete, verify with:"
+          - "   ansible-playbook scenarios/ch12/ex121_verify.yml"
+          - "=========================================================="

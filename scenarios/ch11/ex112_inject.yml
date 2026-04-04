@@ -1,0 +1,85 @@
+---
+# scenarios/ch11/ex112_inject.yml
+#
+# ACME Investments — Exercise 11.2 Fault Injection
+# Injects CRITICAL drift on leaf-lon-03 for auto-remediation exercise.
+#
+# Injected faults:
+#   - Interface Ethernet1 description changed out-of-band
+#   - BGP hold-timer shortened (timers 5 15) → triggers CRITICAL severity
+#
+# Usage:
+#   ansible-playbook scenarios/ch11/ex112_inject.yml
+#   ansible-playbook playbooks/auto_remediate.yml   # should auto-remediate
+
+- name: Write scenario breadcrumb
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Write breadcrumb file
+      copy:
+        content: |
+          Exercise 11.2 — Self-Healing Auto-Remediation
+          Fault: CRITICAL drift injected on leaf-lon-03
+            - Interface Ethernet1 description changed to "MANUALLY CHANGED - DO NOT PUSH"
+            - BGP timers set to 5/15 (keepalive/hold) on spine neighbors
+          Injected at: {{ lookup('pipe', 'date -u +"%Y-%m-%dT%H:%M:%SZ"') }}
+          To remediate: ansible-playbook playbooks/auto_remediate.yml
+        dest: /tmp/scenario_active.txt
+        mode: "0644"
+
+    - name: Confirm breadcrumb written
+      debug:
+        msg: "Breadcrumb written to /tmp/scenario_active.txt"
+
+- name: Inject configuration drift on leaf-lon-03
+  hosts: leaf-lon-03
+  gather_facts: false
+  tasks:
+    - name: Change interface description out-of-band
+      arista.eos.eos_config:
+        lines:
+          - description MANUALLY CHANGED - DO NOT PUSH
+        parents: interface Ethernet1
+
+    - name: Inject BGP timer drift (CRITICAL — deviates from SoT)
+      arista.eos.eos_config:
+        lines:
+          - timers 5 15
+        parents:
+          - router bgp {{ hostvars[inventory_hostname]['bgp_asn'] | default('65001') }}
+          - neighbor SPINE-PEERS
+
+    - name: Confirm injected config
+      arista.eos.eos_command:
+        commands:
+          - show running-config section interface Ethernet1
+          - show running-config section router bgp
+      register: injected_config
+
+    - name: Show injected changes
+      debug:
+        var: injected_config.stdout_lines
+
+- name: Notify operator
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Display instructions
+      debug:
+        msg:
+          - "=========================================="
+          - "Exercise 11.2 — Fault injection complete."
+          - "=========================================="
+          - "leaf-lon-03 now has CRITICAL drift:"
+          - "  - Ethernet1 description changed"
+          - "  - BGP timers 5/15 (should be default 60/180)"
+          - ""
+          - "Next steps:"
+          - "  1. Run drift detection to observe the fault:"
+          - "       ansible-playbook playbooks/drift_detection.yml"
+          - "  2. Trigger auto-remediation:"
+          - "       ansible-playbook playbooks/auto_remediate.yml"
+          - "  3. Verify remediation:"
+          - "       ansible-playbook scenarios/ch11/ex112_verify.yml"
+          - "=========================================="

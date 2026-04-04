@@ -1,0 +1,47 @@
+---
+# scenarios/ch12/ex122_inject.yml
+#
+# ACME Investments — Exercise 12.2: Incident Simulation (Capstone)
+#
+# Wraps capstone/inject_fault.sh, which selects and applies one of four
+# pre-built fault scenarios at random. The reader is not told which was chosen.
+#
+# Scenarios:
+#   A — BGP authentication mismatch (border-lon-01 / border-nyc-01)
+#   B — Route loop (black-hole static on spine-lon-01)
+#   C — Frankfurt VLAN 100 violation (border-fra-01 / MiFID II)
+#   D — Multi-device configuration drift (3 leaves)
+#
+# The scenario index is written to /tmp/capstone_scenario.txt (mode 600).
+# It is revealed only after ex122_verify.yml completes successfully.
+
+- name: Inject a random capstone fault scenario
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Run inject_fault.sh
+      ansible.builtin.shell: >
+        bash {{ playbook_dir }}/../../capstone/inject_fault.sh
+      register: inject_result
+      changed_when: true
+
+    - name: Show injector output
+      ansible.builtin.debug:
+        msg: "{{ inject_result.stdout_lines }}"
+
+    - name: Remind reader
+      ansible.builtin.debug:
+        msg:
+          - "A fault has been injected into the lab environment."
+          - ""
+          - "You have 90 minutes."
+          - ""
+          - "Diagnose and remediate using available tooling. Document:"
+          - "  1. First indicator — how did you detect the fault?"
+          - "  2. Diagnosis steps — what tools, in what order?"
+          - "  3. Root cause"
+          - "  4. Remediation applied"
+          - "  5. Verification performed"
+          - ""
+          - "When you are confident the lab is healthy:"
+          - "  ansible-playbook scenarios/ch12/ex122_verify.yml"

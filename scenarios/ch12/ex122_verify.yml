@@ -1,0 +1,105 @@
+---
+# scenarios/ch12/ex122_verify.yml
+#
+# ACME Investments — Exercise 12.2 Verify: Incident Simulation
+#
+# Runs the full health, compliance, and intent-check suite.
+# If all pass, reveals which scenario was active and prints the post-incident
+# report template.
+
+- name: Check scenario state
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Check capstone_scenario.txt exists
+      ansible.builtin.stat:
+        path: /tmp/capstone_scenario.txt
+      register: scenario_file
+
+    - name: Fail if inject was not run
+      ansible.builtin.fail:
+        msg: >
+          /tmp/capstone_scenario.txt not found.
+          Run: ansible-playbook scenarios/ch12/ex122_inject.yml first.
+      when: not scenario_file.stat.exists
+
+    - name: Read scenario number (hidden until end)
+      ansible.builtin.slurp:
+        src: /tmp/capstone_scenario.txt
+      register: scenario_raw
+
+    - name: Store scenario for reveal
+      ansible.builtin.set_fact:
+        capstone_scenario_num: "{{ scenario_raw.content | b64decode | trim }}"
+
+- name: Lab health check
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Run verify_lab_healthy.yml
+      ansible.builtin.import_playbook: "{{ playbook_dir }}/../common/verify_lab_healthy.yml"
+
+- name: Compliance check
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Run compliance_report.yml
+      ansible.builtin.import_playbook: "{{ playbook_dir }}/../../playbooks/compliance_report.yml"
+
+- name: Intent verification
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Run Batfish intent checks
+      ansible.builtin.shell: >
+        cd {{ playbook_dir }}/../../ && bash batfish/run_checks.sh
+      register: batfish_result
+      changed_when: false
+      failed_when: batfish_result.rc != 0
+
+    - name: Show Batfish output
+      ansible.builtin.debug:
+        msg: "{{ batfish_result.stdout_lines }}"
+
+- name: Reveal scenario and cleanup
+  hosts: localhost
+  gather_facts: false
+  vars:
+    scenario_names:
+      "1": "Scenario A — BGP Authentication Mismatch"
+      "2": "Scenario B — Route Loop (black-hole static route)"
+      "3": "Scenario C — Frankfurt VLAN 100 Violation (MiFID II)"
+      "4": "Scenario D — Multi-Device Configuration Drift"
+  tasks:
+    - name: Remove breadcrumbs
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /tmp/scenario_active.txt
+        - /tmp/capstone_scenario.txt
+
+    - ansible.builtin.debug:
+        msg:
+          - "================================================================"
+          - "Exercise 12.2 — Incident Simulation: COMPLETE"
+          - "================================================================"
+          - ""
+          - "The injected fault was:"
+          - "  {{ scenario_names[hostvars['localhost']['capstone_scenario_num'] | string] | default('Unknown scenario') }}"
+          - ""
+          - "All health, compliance, and intent checks passed."
+          - ""
+          - "Post-incident report (complete and retain):"
+          - ""
+          - "  Incident start:         __________________________"
+          - "  Fault detected at:      __________________________"
+          - "  Detection method:       __________________________"
+          - "  Root cause:             __________________________"
+          - "  Remediation applied:    __________________________"
+          - "  Remediation verified:   __________________________"
+          - "  Total MTTR:             __________ minutes"
+          - ""
+          - "  Engineer: __________________  Date: ______________"
+          - ""
+          - "================================================================"

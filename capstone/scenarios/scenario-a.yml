@@ -1,0 +1,47 @@
+---
+# capstone/scenarios/scenario-a.yml
+#
+# ACME Investments — Capstone Scenario A: BGP Authentication Mismatch
+# Used by: capstone/inject_fault.sh and Exercise 12.2
+#
+# Fault: border-lon-01's BGP MD5 key for the border-nyc-01 session has been
+#        changed out-of-band. The session will fail to establish.
+#
+# Symptoms:
+#   - border-nyc-01 BGP session stuck in Active/OpenSent
+#   - NYC routes absent from lon-dc1 routing tables
+#   - daily_health_check.yml reports BGP session down
+#
+# Root cause: out-of-band MD5 key change (operator error / unauthorised access)
+# Remediation: push_configs.yml --limit border-lon-01 (restores SoT MD5 key)
+
+- name: "Scenario A — Breadcrumb"
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Write scenario breadcrumb
+      ansible.builtin.copy:
+        content: "Capstone Scenario A — BGP Authentication Mismatch\n"
+        dest: /tmp/scenario_active.txt
+        mode: "0644"
+
+- name: "Scenario A — Inject BGP MD5 key mismatch on border-lon-01"
+  hosts: border-lon-01
+  gather_facts: false
+  tasks:
+    - name: Change MD5 password for border-nyc-01 BGP neighbor to an incorrect key
+      arista.eos.eos_config:
+        lines:
+          - neighbor 10.0.0.2 password BAD_KEY_FOR_TESTING
+        parents: router bgp 65001
+
+- name: "Scenario A — Notify operator"
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Print scenario notification
+      ansible.builtin.debug:
+        msg: >-
+          Scenario A injected.
+          BGP session to border-nyc-01 will go down within 90 seconds.
+          Diagnose using available tooling.

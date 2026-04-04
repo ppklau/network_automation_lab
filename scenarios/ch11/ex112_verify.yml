@@ -1,0 +1,95 @@
+---
+# scenarios/ch11/ex112_verify.yml
+#
+# ACME Investments — Exercise 11.2 Verification
+# Verifies that auto-remediation successfully corrected the injected drift
+# on leaf-lon-03.
+#
+# Usage:
+#   ansible-playbook scenarios/ch11/ex112_verify.yml
+
+- name: Check scenario breadcrumb exists
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Stat breadcrumb file
+      stat:
+        path: /tmp/scenario_active.txt
+      register: breadcrumb_stat
+
+    - name: Fail if breadcrumb missing (inject not run or already cleaned up)
+      fail:
+        msg: >-
+          /tmp/scenario_active.txt not found.
+          Run scenarios/ch11/ex112_inject.yml before verifying.
+      when: not breadcrumb_stat.stat.exists
+
+    - name: Show scenario details
+      debug:
+        msg: "Scenario active. Verifying auto-remediation results on leaf-lon-03."
+
+- name: Verify drift corrected on leaf-lon-03
+  hosts: leaf-lon-03
+  gather_facts: false
+  tasks:
+    - name: Collect running configuration
+      arista.eos.eos_command:
+        commands:
+          - show running-config section interface Ethernet1
+          - show running-config section router bgp
+      register: running_config
+
+    - name: Verify manual description is gone from Ethernet1
+      assert:
+        that:
+          - "'MANUALLY CHANGED - DO NOT PUSH' not in running_config.stdout[0]"
+        success_msg: "PASS — Ethernet1 description is corrected (manual string removed)."
+        fail_msg: >-
+          FAIL — Ethernet1 still contains 'MANUALLY CHANGED - DO NOT PUSH'.
+          Auto-remediation may not have completed successfully.
+
+    - name: Verify BGP timers restored to default
+      assert:
+        that:
+          - "'timers 5 15' not in running_config.stdout[1]"
+        success_msg: "PASS — BGP timers 5/15 are no longer present (restored to default)."
+        fail_msg: >-
+          FAIL — BGP timers 5/15 still present in running config.
+          Auto-remediation may not have applied the correct config.
+
+    - name: Show current running config for review
+      debug:
+        msg:
+          - "=== Interface Ethernet1 ==="
+          - "{{ running_config.stdout[0] }}"
+          - "=== Router BGP section ==="
+          - "{{ running_config.stdout[1] }}"
+
+- name: Remove breadcrumb
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Delete scenario breadcrumb
+      file:
+        path: /tmp/scenario_active.txt
+        state: absent
+
+    - name: Confirm breadcrumb removed
+      debug:
+        msg: "Breadcrumb /tmp/scenario_active.txt removed."
+
+- name: Report success
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Display success message
+      debug:
+        msg:
+          - "=========================================="
+          - "Exercise 11.2 — Verification PASSED."
+          - "=========================================="
+          - "Auto-remediation successfully corrected:"
+          - "  - Ethernet1 description restored"
+          - "  - BGP timers restored to default (60/180)"
+          - "leaf-lon-03 is now in-sync with the SoT."
+          - "=========================================="

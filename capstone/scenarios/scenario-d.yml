@@ -1,0 +1,68 @@
+---
+# capstone/scenarios/scenario-d.yml
+#
+# ACME Investments — Capstone Scenario D: Multi-Device Configuration Drift
+# Used by: capstone/inject_fault.sh and Exercise 12.2
+#
+# Fault: Three devices have accumulated out-of-band changes:
+#   - leaf-lon-01: BGP keepalive timers changed to 60/180 (WARNING)
+#   - leaf-lon-02: interface description changed on Ethernet1 (INFORMATIONAL)
+#   - leaf-lon-03: NTP server 10.0.0.100 removed (WARNING)
+#
+# Symptoms:
+#   - drift_detection.yml reports WARNING on 3 devices
+#   - BGP timers on leaf-lon-01 diverge from SoT (slow to detect flaps)
+#   - NTP on leaf-lon-03 will drift without correction
+#
+# Root cause: accumulated operator changes during previous incident response
+# Remediation: push_configs.yml (all 3 devices)
+
+- name: "Scenario D — Breadcrumb"
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Write scenario breadcrumb
+      ansible.builtin.copy:
+        content: "Capstone Scenario D — Multi-Device Configuration Drift\n"
+        dest: /tmp/scenario_active.txt
+        mode: "0644"
+
+- name: "Scenario D — Inject BGP timer drift on leaf-lon-01"
+  hosts: leaf-lon-01
+  gather_facts: false
+  tasks:
+    - name: Change BGP keepalive timers to non-SoT values (60/180)
+      arista.eos.eos_config:
+        lines:
+          - timers bgp 60 180
+        parents: router bgp 65001
+
+- name: "Scenario D — Inject interface description drift on leaf-lon-02"
+  hosts: leaf-lon-02
+  gather_facts: false
+  tasks:
+    - name: Change Ethernet1 description to a non-SoT value
+      arista.eos.eos_config:
+        lines:
+          - description MANUALLY_CHANGED
+        parents: interface Ethernet1
+
+- name: "Scenario D — Inject NTP removal on leaf-lon-03"
+  hosts: leaf-lon-03
+  gather_facts: false
+  tasks:
+    - name: Remove NTP server 10.0.0.100
+      arista.eos.eos_config:
+        lines:
+          - no ntp server 10.0.0.100
+
+- name: "Scenario D — Notify operator"
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Print scenario notification
+      ansible.builtin.debug:
+        msg: >-
+          Scenario D injected.
+          Configuration drift has been introduced across 3 leaf devices (leaf-lon-01, leaf-lon-02, leaf-lon-03).
+          Diagnose using available tooling.

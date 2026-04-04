@@ -1,0 +1,50 @@
+---
+# capstone/scenarios/scenario-c.yml
+#
+# ACME Investments — Capstone Scenario C: Frankfurt VLAN Mismatch
+# Used by: capstone/inject_fault.sh and Exercise 12.2
+#
+# Fault: VLAN 100 (TRADING) has been manually added to border-fra-01.
+#        This violates INTENT-003 (Frankfurt TRADING zone prohibition)
+#        and REQ-007 (MiFID II ring-fencing).
+#
+# Symptoms:
+#   - Batfish test_frankfurt_isolation.py fails: VLAN 100 detected
+#   - compliance_report.yml reports ZONE-001 violation on border-fra-01
+#   - audit_artefact.yml records CRITICAL drift
+#
+# Root cause: emergency troubleshooting VLAN addition, not removed post-incident
+# Remediation: push_configs.yml --limit border-fra-01 (removes VLAN 100)
+
+- name: "Scenario C — Breadcrumb"
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Write scenario breadcrumb
+      ansible.builtin.copy:
+        content: "Capstone Scenario C — Frankfurt VLAN Mismatch\n"
+        dest: /tmp/scenario_active.txt
+        mode: "0644"
+
+- name: "Scenario C — Inject VLAN 100 on border-fra-01"
+  hosts: border-fra-01
+  gather_facts: false
+  tasks:
+    - name: Add prohibited TRADING VLAN 100 to border-fra-01
+      arista.eos.eos_config:
+        lines:
+          - vlan 100
+          - name TRADING
+        parents: []
+
+- name: "Scenario C — Notify operator"
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Print scenario notification
+      ansible.builtin.debug:
+        msg: >-
+          Scenario C injected.
+          VLAN 100 (TRADING) has been added to border-fra-01.
+          This is a MiFID II ring-fencing violation (REQ-007).
+          Diagnose using available tooling.
