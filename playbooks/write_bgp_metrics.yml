@@ -1,0 +1,230 @@
+---
+# playbooks/write_bgp_metrics.yml
+#
+# ACME Investments — Write BGP State Metrics for Prometheus
+# Implements: Module 9.1 (Monitoring Stack)
+# Refs: INTENT-005 (BGP standards), REQ-012, REQ-021
+#
+# Collects BGP session state, prefix counts, and uptime from all active nodes,
+# then writes Prometheus text-format metrics to monitoring/prometheus/bgp_state.prom
+# and monitoring/prometheus/health_state.prom for the node_exporter textfile
+# collector to ingest.
+#
+# Run this on a schedule to keep Grafana dashboards current:
+#
+#   Cron (every 2 minutes):
+#     */2 * * * * cd /path/to/lab && ansible-playbook playbooks/write_bgp_metrics.yml
+#
+#   GitLab CI scheduled pipeline:
+#     See .gitlab-ci.yml — the metrics_refresh stage (disabled by default)
+#
+# Output files (Prometheus text format, read by node_exporter textfile collector):
+#   monitoring/prometheus/bgp_state.prom
+#   monitoring/prometheus/health_state.prom
+#
+# Usage:
+#   ansible-playbook playbooks/write_bgp_metrics.yml
+#   ansible-playbook playbooks/write_bgp_metrics.yml --limit border-lon-01
+
+- name: Collect BGP session state
+  hosts: lab_active
+  gather_facts: false
+  vars:
+    metrics_timestamp: "{{ lookup('pipe', 'date +%s') }}"
+    region_map:
+      spine-lon-01:  emea-lon
+      spine-lon-02:  emea-lon
+      leaf-lon-01:   emea-lon
+      leaf-lon-02:   emea-lon
+      leaf-lon-03:   emea-lon
+      leaf-lon-04:   emea-lon
+      border-lon-01: emea-lon
+      fw-lon-01:     emea-lon
+      border-nyc-01: americas-nyc
+      border-sin-01: apac-sin
+      border-fra-01: eu-fra
+      branch-lon-01: emea-lon
+      branch-nyc-01: americas-nyc
+
+  tasks:
+
+    - name: Collect BGP summary (EOS)
+      when: platform == 'arista_eos'
+      arista.eos.eos_command:
+        commands:
+          - "show bgp summary vrf all | json"
+          - "show ntp status | json"
+          - "show version | json"
+      register: eos_data
+      failed_when: false
+
+    - name: Parse EOS BGP sessions
+      when: platform == 'arista_eos' and eos_data is not failed
+      ansible.builtin.set_fact:
+        bgp_sessions: >-
+          {% set ns = namespace(sessions=[]) %}
+          {% set vrfs = (eos_data.stdout[0] | from_json).get('vrfs', {}) %}
+          {% for vrf_name, vrf_data in vrfs.items() %}
+          {% for peer_ip, peer_data in vrf_data.get('peers', {}).items() %}
+          {% set established = 1 if peer_data.get('peerState', '') == 'Established' else 0 %}
+          {% set prefixes = peer_data.get('prefixReceived', 0) | int %}
+          {% set uptime = peer_data.get('upDownTime', 0) | int %}
+          {% set asn = peer_data.get('asn', 0) | string %}
+          {% set desc = peer_data.get('description', peer_ip) | replace('"', '') %}
+          {% set ns.sessions = ns.sessions + [{
+            'node': inventory_hostname,
+            'peer': peer_ip,
+            'peer_asn': asn,
+            'peer_description': desc,
+            'vrf': vrf_name,
+            'region': region_map.get(inventory_hostname, 'unknown'),
+            'established': established,
+            'prefixes_received': prefixes,
+            'uptime_seconds': uptime
+          }] %}
+          {% endfor %}
+          {% endfor %}
+          {{ ns.sessions }}
+        ntp_synced: >-
+          {{ 1 if (eos_data.stdout[1] | from_json).get('status', '') == 'synchronised' else 0 }}
+        eos_version: >-
+          {{ (eos_data.stdout[2] | from_json).get('version', 'unknown') }}
+
+    - name: Collect BGP summary (FRR)
+      when: platform == 'frr'
+      ansible.builtin.raw: |
+        python3 -c "
+        import subprocess, json, sys, time
+
+        def run(cmd):
+            r = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+            return r.stdout.strip()
+
+        bgp_raw = run('vtysh -c \"show bgp summary json\"')
+        try:
+            bgp = json.loads(bgp_raw)
+        except Exception:
+            bgp = {}
+
+        sessions = []
+        for vrf_name in ['default', 'TRADING', 'CORPORATE', 'DMZ']:
+            vrf_key = 'ipv4Unicast' if vrf_name == 'default' else vrf_name
+            peers = bgp.get(vrf_key, bgp).get('peers', {})
+            for peer_ip, peer_data in peers.items():
+                sessions.append({
+                    'peer': peer_ip,
+                    'peer_asn': str(peer_data.get('remoteAs', 0)),
+                    'peer_description': peer_data.get('hostname', peer_ip).replace('\"', ''),
+                    'vrf': vrf_name,
+                    'established': 1 if peer_data.get('state') == 'Established' else 0,
+                    'prefixes_received': peer_data.get('pfxRcd', 0),
+                    'uptime_seconds': peer_data.get('peerUptime', 0)
+                })
+
+        ntp_raw = run('chronyc tracking 2>/dev/null || echo no_ntp')
+        ntp_synced = 1 if 'Reference ID' in ntp_raw else 0
+
+        print(json.dumps({'sessions': sessions, 'ntp_synced': ntp_synced}))
+        "
+      register: frr_data
+      changed_when: false
+      failed_when: false
+
+    - name: Parse FRR BGP sessions
+      when: platform == 'frr' and frr_data is not failed
+      ansible.builtin.set_fact:
+        bgp_sessions: >-
+          {% set parsed = frr_data.stdout | from_json %}
+          {% set region = region_map.get(inventory_hostname, 'unknown') %}
+          {% set ns = namespace(sessions=[]) %}
+          {% for s in parsed.get('sessions', []) %}
+          {% set ns.sessions = ns.sessions + [s | combine({'node': inventory_hostname, 'region': region})] %}
+          {% endfor %}
+          {{ ns.sessions }}
+        ntp_synced: "{{ (frr_data.stdout | from_json).get('ntp_synced', 0) }}"
+
+- name: Write Prometheus metrics files
+  hosts: localhost
+  gather_facts: false
+  vars:
+    metrics_timestamp: "{{ lookup('pipe', 'date +%s') }}"
+    output_dir: "{{ playbook_dir }}/../monitoring/prometheus"
+
+  tasks:
+    - name: Ensure output directory exists
+      ansible.builtin.file:
+        path: "{{ output_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Assemble all BGP sessions
+      ansible.builtin.set_fact:
+        all_sessions: >-
+          {{ groups['lab_active']
+             | map('extract', hostvars, 'bgp_sessions')
+             | select('defined') | flatten | list }}
+
+    - name: Assemble health data
+      ansible.builtin.set_fact:
+        health_data: >-
+          {% set ns = namespace(nodes=[]) %}
+          {% for host in groups['lab_active'] %}
+          {% if hostvars[host].get('ntp_synced') is defined %}
+          {% set ns.nodes = ns.nodes + [{'node': host, 'ntp_synced': hostvars[host].ntp_synced}] %}
+          {% endif %}
+          {% endfor %}
+          {{ ns.nodes }}
+
+    - name: Write bgp_state.prom
+      ansible.builtin.copy:
+        content: |
+          # HELP acme_bgp_session_established BGP session state: 1=Established, 0=not Established
+          # TYPE acme_bgp_session_established gauge
+          {% for s in all_sessions %}
+          acme_bgp_session_established{node="{{ s.node }}",peer="{{ s.peer }}",peer_asn="{{ s.peer_asn }}",peer_description="{{ s.peer_description }}",vrf="{{ s.vrf }}",region="{{ s.region }}"} {{ s.established }}
+          {% endfor %}
+
+          # HELP acme_bgp_prefixes_received Number of prefixes received from BGP peer
+          # TYPE acme_bgp_prefixes_received gauge
+          {% for s in all_sessions %}
+          acme_bgp_prefixes_received{node="{{ s.node }}",peer="{{ s.peer }}",peer_asn="{{ s.peer_asn }}",peer_description="{{ s.peer_description }}",vrf="{{ s.vrf }}",region="{{ s.region }}"} {{ s.prefixes_received }}
+          {% endfor %}
+
+          # HELP acme_bgp_session_uptime_seconds Seconds since BGP session last changed state
+          # TYPE acme_bgp_session_uptime_seconds gauge
+          {% for s in all_sessions %}
+          acme_bgp_session_uptime_seconds{node="{{ s.node }}",peer="{{ s.peer }}",peer_asn="{{ s.peer_asn }}",vrf="{{ s.vrf }}"} {{ s.uptime_seconds }}
+          {% endfor %}
+
+          # HELP acme_last_metrics_update_timestamp Unix timestamp of last metrics write
+          # TYPE acme_last_metrics_update_timestamp gauge
+          {% for host in groups['lab_active'] %}
+          acme_last_metrics_update_timestamp{node="{{ host }}"} {{ metrics_timestamp }}
+          {% endfor %}
+        dest: "{{ output_dir }}/bgp_state.prom"
+
+    - name: Write health_state.prom
+      ansible.builtin.copy:
+        content: |
+          # HELP acme_ntp_synced NTP synchronisation state: 1=synced, 0=unsynced
+          # TYPE acme_ntp_synced gauge
+          {% for h in health_data %}
+          acme_ntp_synced{node="{{ h.node }}"} {{ h.ntp_synced }}
+          {% endfor %}
+        dest: "{{ output_dir }}/health_state.prom"
+
+    - name: Display summary
+      ansible.builtin.debug:
+        msg:
+          - "BGP metrics written: {{ all_sessions | length }} sessions across {{ groups['lab_active'] | length }} nodes"
+          - "Sessions established: {{ all_sessions | selectattr('established', 'eq', 1) | list | length }}"
+          - "Sessions down: {{ all_sessions | selectattr('established', 'eq', 0) | list | length }}"
+          - "Output: {{ output_dir }}/bgp_state.prom"
+
+    - name: Alert on any down sessions
+      ansible.builtin.debug:
+        msg: >
+          [WARNING] BGP session DOWN: {{ item.node }} → {{ item.peer }}
+          (AS{{ item.peer_asn }}, {{ item.peer_description }}, VRF={{ item.vrf }})
+      loop: "{{ all_sessions | selectattr('established', 'eq', 0) | list }}"
+      when: all_sessions | selectattr('established', 'eq', 0) | list | length > 0

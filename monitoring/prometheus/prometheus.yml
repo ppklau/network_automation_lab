@@ -1,0 +1,83 @@
+---
+# ACME Investments — Prometheus Configuration
+# ─────────────────────────────────────────────────────────────────────────────
+# Scrape strategy:
+#
+#   textfile  — primary path for network metrics
+#               Ansible playbooks write .prom files to monitoring/prometheus/
+#               node_exporter reads them via --collector.textfile
+#               Run these playbooks on a schedule (cron or GitLab CI):
+#                 ansible-playbook playbooks/write_bgp_metrics.yml
+#                 ansible-playbook playbooks/interface_utilisation.yml
+#
+#   lab_nodes — direct HTTP scrape of the host (Docker bridge) for lab health
+#               Used to detect if the monitoring container itself is healthy
+#
+# In production, the textfile approach would be replaced or supplemented by:
+#   - SNMP exporter scraping cEOS BGP4-MIB and IF-MIB
+#   - gNMI/OpenConfig streaming telemetry from EOS devices
+# Both are compatible with this Prometheus config — add a scrape_config block.
+# ─────────────────────────────────────────────────────────────────────────────
+
+global:
+  scrape_interval: 60s          # default: poll every 60s
+  evaluation_interval: 60s      # evaluate alerting rules every 60s
+  scrape_timeout: 15s
+  external_labels:
+    environment: acme-lab
+    region: emea-lon
+
+# Alerting — send alerts to Alertmanager
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093
+
+# Alert rule files
+rule_files:
+  - /etc/prometheus/alerts.yml
+
+# ── Scrape configurations ────────────────────────────────────────────────────
+
+scrape_configs:
+
+  # ── Prometheus self-scrape ──────────────────────────────────────────────────
+  - job_name: prometheus
+    static_configs:
+      - targets: ['localhost:9090']
+        labels:
+          component: prometheus
+
+  # ── node_exporter textfile collector ───────────────────────────────────────
+  # Reads .prom files written by Ansible playbooks.
+  # Metrics:
+  #   acme_bgp_session_established        — 1=Established, 0=not
+  #   acme_bgp_prefixes_received          — prefix count per peer
+  #   acme_bgp_session_uptime_seconds     — seconds since last state change
+  #   acme_interface_utilisation_percent  — interface Tx/Rx utilisation %
+  #   acme_interface_errors_total         — input/output error counters
+  #   acme_ntp_synced                     — 1=synced, 0=unsynced
+  #   acme_drift_detected                 — 1=drift on this node, 0=clean
+  #   acme_last_metrics_update_timestamp  — Unix epoch of last Ansible run
+  - job_name: acme_network_textfile
+    scrape_interval: 30s
+    static_configs:
+      - targets: ['node_exporter:9100']
+        labels:
+          source: ansible_textfile
+    metric_relabel_configs:
+      # Drop internal node_exporter metrics (we disabled everything else)
+      - source_labels: [__name__]
+        regex: 'go_.*|process_.*|promhttp_.*'
+        action: drop
+
+  # ── Alertmanager self-scrape ────────────────────────────────────────────────
+  - job_name: alertmanager
+    static_configs:
+      - targets: ['alertmanager:9093']
+
+  # ── Grafana self-scrape ─────────────────────────────────────────────────────
+  - job_name: grafana
+    static_configs:
+      - targets: ['grafana:3000']

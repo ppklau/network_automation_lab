@@ -1,0 +1,67 @@
+---
+# ACME Investments — Alertmanager Configuration
+# ─────────────────────────────────────────────────────────────────────────────
+# Lab configuration: all alerts route to a webhook receiver that logs them.
+# In production, replace the webhook receiver with PagerDuty / Slack / email.
+#
+# Alert suppression:
+#   - If BGPSessionLoss fires, suppress BGPPrefixCountDrop for same node/peer
+#     (the prefix drop is a consequence, not an independent event)
+#   - Silence MetricsStale alerts during lab resets (30 minutes)
+# ─────────────────────────────────────────────────────────────────────────────
+
+global:
+  resolve_timeout: 5m
+
+route:
+  group_by: ['alertname', 'node', 'region']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  receiver: lab-log
+
+  routes:
+    # Critical BGP alerts — shorter repeat interval
+    - matchers:
+        - alertname =~ "BGPSessionLoss|BGPSessionFlapping"
+        - severity = "critical"
+      receiver: lab-log
+      repeat_interval: 15m
+      continue: false
+
+    # Warning alerts
+    - matchers:
+        - severity = "warning"
+      receiver: lab-log
+      repeat_interval: 1h
+
+    # Informational — low repeat
+    - matchers:
+        - severity = "info"
+      receiver: lab-log
+      repeat_interval: 6h
+
+inhibit_rules:
+  # If a BGP session is down, suppress related prefix-count drop alert
+  - source_matchers:
+      - alertname = "BGPSessionLoss"
+    target_matchers:
+      - alertname = "BGPPrefixCountDrop"
+    equal: ['node', 'peer']
+
+  # If MetricsStale, suppress BGP and NTP alerts (stale data is not reliable)
+  - source_matchers:
+      - alertname = "MetricsStale"
+    target_matchers:
+      - alertname =~ "BGPSessionLoss|BGPPrefixCountDrop|NTPSyncLost"
+    equal: ['node']
+
+receivers:
+  # Lab receiver: logs alerts to a file. Replace with Slack/PagerDuty in prod.
+  - name: lab-log
+    webhook_configs:
+      - url: 'http://localhost:5001/alert'   # alertmanager-webhook-logger (see README)
+        send_resolved: true
+        http_config:
+          follow_redirects: true
+        max_alerts: 10

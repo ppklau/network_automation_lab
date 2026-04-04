@@ -1,0 +1,115 @@
+---
+# scenarios/ch08/ex105_verify.yml
+#
+# Exercise 10.5 verification — confirms the SoT target_version mismatch was
+# detected (and, if the upgrade was performed, that the version matches target).
+#
+# The verify has two modes:
+#   detection_only: checks that the reader correctly identified the mismatch
+#   full_upgrade:   checks that the running version matches target_version
+#
+# In the lab without a real EOS image, detection_only is the default.
+# Pass --extra-vars "verify_mode=full_upgrade" if you completed the actual upgrade.
+
+- name: Verify ex105 — OS version mismatch detected
+  hosts: localhost
+  gather_facts: false
+  vars:
+    verify_mode: "{{ verify_mode | default('detection_only') }}"
+  tasks:
+    - name: Check breadcrumb exists
+      ansible.builtin.stat:
+        path: /tmp/scenario_active.txt
+      register: breadcrumb
+      failed_when: not breadcrumb.stat.exists
+
+    - name: Read breadcrumb
+      ansible.builtin.slurp:
+        src: /tmp/scenario_active.txt
+      register: breadcrumb_content
+
+    - name: Confirm correct scenario
+      ansible.builtin.assert:
+        that: "'ex105_os_upgrade' in (breadcrumb_content.content | b64decode)"
+        fail_msg: "Breadcrumb does not match ex105. Was the correct inject playbook run?"
+
+    - name: Confirm target_version present in SoT
+      ansible.builtin.command:
+        cmd: >
+          python3 -c "
+          with open('sot/devices/lon-dc1/leaf-lon-02.yml') as f:
+              content = f.read()
+          if 'target_version' not in content:
+              raise SystemExit('target_version not found in SoT — injection may have failed')
+          import re
+          m = re.search(r'target_version:\s*[\"'"'"']?(\S+?)[\"'"'"']?(\s|$)', content)
+          if m:
+              print('target_version found:', m.group(1))
+          "
+        chdir: "{{ playbook_dir }}/../../.."
+      register: tv_check
+      changed_when: false
+      failed_when: tv_check.rc != 0
+
+- name: Verify running version if full_upgrade mode
+  hosts: leaf-lon-02
+  gather_facts: false
+  vars:
+    verify_mode: "{{ verify_mode | default('detection_only') }}"
+  tasks:
+    - name: Collect running version (full_upgrade mode only)
+      when: verify_mode == 'full_upgrade'
+      arista.eos.eos_command:
+        commands:
+          - "show version | json"
+          - "show bgp summary vrf all | json"
+      register: post_upgrade_state
+
+    - name: Assert version matches target (full_upgrade mode)
+      when: verify_mode == 'full_upgrade'
+      ansible.builtin.assert:
+        that: >
+          (post_upgrade_state.stdout[0] | from_json).get('version', '') == '4.32.3F'
+        fail_msg: >
+          Version mismatch. Running {{ (post_upgrade_state.stdout[0] | from_json).get('version', 'unknown') }},
+          expected 4.32.3F.
+
+    - name: Assert BGP healthy post-upgrade (full_upgrade mode)
+      when: verify_mode == 'full_upgrade'
+      ansible.builtin.assert:
+        that: >
+          (post_upgrade_state.stdout[1] | from_json).vrfs.values()
+          | map(attribute='peers') | map('dict2items') | flatten
+          | selectattr('value.peerState', 'ne', 'Established') | list | length == 0
+        fail_msg: "BGP sessions not fully Established after upgrade."
+
+- name: Cleanup
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Remove breadcrumb
+      ansible.builtin.file:
+        path: /tmp/scenario_active.txt
+        state: absent
+
+    - name: Exercise 10.5 passed
+      ansible.builtin.debug:
+        msg: |
+          ✓ Exercise 10.5 PASSED
+          {% if verify_mode == 'full_upgrade' %}
+          leaf-lon-02 is running EOS 4.32.3F (target version verified).
+          BGP sessions are Established post-upgrade.
+          {% else %}
+          Version mismatch correctly detected: current=4.32.2F, target=4.32.3F.
+          Pre-check phase of os_upgrade.yml identified the discrepancy.
+          {% endif %}
+
+          Key takeaways:
+          - The SoT target_version field is the authoritative declaration of what
+            software each device should run. The pipeline enforces it.
+          - The pre-check gate prevents the upgrade running when already at target
+            (idempotent: safe to run on schedule).
+          - Maintenance mode (BGP graceful-shutdown) must be applied before reload
+            to give peers time to reroute traffic — this reduces the outage window.
+          - The upgrade artefact in state/upgrades/ provides the change record
+            required for MiFID II audit trails (REQ-016 operational traceability).

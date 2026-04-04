@@ -1,0 +1,39 @@
+---
+# Grafana alerting provisioning — notification policies and contact points
+# Loads at Grafana start. Edit here, not in the UI (changes will be overwritten).
+
+apiVersion: 1
+
+contactPoints:
+  - orgId: 1
+    name: lab-webhook
+    receivers:
+      - uid: lab-webhook-receiver
+        type: webhook
+        settings:
+          url: http://localhost:5001/alert
+          httpMethod: POST
+        disableResolveMessage: false
+
+policies:
+  - orgId: 1
+    receiver: lab-webhook
+    group_by: ['alertname', 'node', 'region']
+    group_wait: 30s
+    group_interval: 5m
+    repeat_interval: 4h
+    routes:
+      - receiver: lab-webhook
+        matchers:
+          - severity =~ "critical"
+          - zone = "TRADING"
+        group_wait: 10s
+        repeat_interval: 15m
+      - receiver: lab-webhook
+        matchers:
+          - severity = "critical"
+        repeat_interval: 15m
+      - receiver: lab-webhook
+        matchers:
+          - severity = "warning"
+        repeat_interval: 1h

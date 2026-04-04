@@ -1,0 +1,339 @@
+---
+# playbooks/rma_border.yml
+#
+# ACME Investments — Border Router RMA Workflow
+# Implements: Module 10.3
+#
+# Replaces a failed border router. Border routers carry inter-region eBGP
+# (to NYC, SIN, FRA) and all UK branch eBGP sessions, making them higher-
+# impact than leaf replacements. The workflow is:
+#
+#   Phase 1: Pre-checks
+#   Phase 2: Pre-stage config on replacement device (validate connectivity)
+#   Phase 3: Maintenance mode (BGP graceful-shutdown — route traffic via peer border)
+#   Phase 4: SoT update (new serial, optionally model)
+#   Phase 5: Config generation (render from updated SoT)
+#   Phase 6: Full config push to replacement
+#   Phase 7: Post-push verification (inter-region + branch BGP)
+#   Phase 8: Exit maintenance and record artefact
+#
+# The maintenance phase is critical: border-lon-01 and border-lon-02 provide
+# redundant WAN paths. Graceful-shutdown ensures traffic moves to the peer
+# border before the replacement goes offline.
+#
+# Parameters:
+#   new_serial     — serial number of the replacement unit (required)
+#   rma_reason     — documented reason for replacement (required)
+#   new_model      — hardware model if different from SoT (optional)
+#   confirmed      — "yes" to skip interactive gate
+#
+# Usage:
+#   ansible-playbook playbooks/rma_border.yml \
+#     --limit border-lon-01 \
+#     --extra-vars "new_serial=ACE2501088B rma_reason='NIC failure on WAN port' confirmed=yes"
+
+- name: Phase 1 — Pre-checks
+  hosts: "{{ ansible_limit | default('none') }}"
+  gather_facts: false
+  vars:
+    rma_timestamp: "{{ lookup('pipe', 'date -u +%Y-%m-%dT%H:%M:%SZ') }}"
+    rma_reason: "{{ rma_reason | default('Not specified') }}"
+  tasks:
+    - name: Verify target was specified
+      ansible.builtin.assert:
+        that: ansible_limit is defined
+        fail_msg: "Use --limit to specify the border router to replace."
+
+    - name: Verify new_serial and rma_reason provided
+      ansible.builtin.assert:
+        that:
+          - new_serial is defined and new_serial | length > 3
+          - rma_reason is defined and rma_reason | length > 5
+        fail_msg: "Provide --extra-vars \"new_serial=<serial> rma_reason='<reason>'\"."
+
+    - name: Verify target is a border router
+      ansible.builtin.assert:
+        that: role == 'border'
+        fail_msg: >
+          {{ inventory_hostname }} has role '{{ role }}', not 'border'.
+          Use rma_leaf.yml for leaf replacements.
+
+    - name: Verify SoT file exists
+      ansible.builtin.stat:
+        path: "{{ playbook_dir }}/../sot/devices/{{ site }}/{{ inventory_hostname }}.yml"
+      register: sot_file
+      delegate_to: localhost
+      failed_when: not sot_file.stat.exists
+
+    - name: Collect pre-RMA BGP state
+      arista.eos.eos_command:
+        commands:
+          - "show bgp summary vrf all | json"
+          - "show version | json"
+      register: pre_rma_state
+      failed_when: false
+
+    - name: Count active inter-region sessions
+      ansible.builtin.set_fact:
+        pre_rma_established: >-
+          {{ (pre_rma_state.stdout[0] | from_json).vrfs.values()
+             | map(attribute='peers') | map('dict2items') | flatten
+             | selectattr('value.peerState', 'eq', 'Established') | list | length }}
+        pre_rma_total: >-
+          {{ (pre_rma_state.stdout[0] | from_json).vrfs.values()
+             | map(attribute='peers') | map('length') | sum }}
+
+    - name: Pre-check summary
+      ansible.builtin.debug:
+        msg: |
+          ════════════════════════════════════════════════════════════════
+          BORDER RMA PRE-CHECK: {{ inventory_hostname }}
+          ════════════════════════════════════════════════════════════════
+          Role             : {{ role }}
+          Site             : {{ site }}
+          Old serial       : {{ serial | default('unknown') }}
+          New serial       : {{ new_serial }}
+          Reason           : {{ rma_reason }}
+          Pre-RMA BGP      : {{ pre_rma_established }}/{{ pre_rma_total }} Established
+
+          ⚠ This is a border router. Before proceeding confirm that:
+            - The peer border router (if dual-border site) is healthy
+            - Inter-region traffic will route via the peer during replacement
+            - Branch BGP sessions will temporarily drop and reconverge
+          ════════════════════════════════════════════════════════════════
+
+- name: Phase 2 — Confirmation gate
+  hosts: localhost
+  gather_facts: false
+  vars:
+    confirmed: "{{ confirmed | default('no') }}"
+  tasks:
+    - name: Interactive confirmation
+      when: confirmed | lower != 'yes'
+      ansible.builtin.pause:
+        prompt: |
+
+          ════════════════════════════════════════════════════════════════
+          BORDER ROUTER RMA — CONFIRMATION REQUIRED
+          ════════════════════════════════════════════════════════════════
+          Target     : {{ ansible_limit }}
+          New serial : {{ new_serial }}
+          Reason     : {{ rma_reason }}
+
+          Impact during replacement:
+            - All inter-region eBGP sessions will drop briefly
+            - All branch eBGP sessions will drop briefly
+            - Traffic will reroute via peer border (if available)
+            - BGP reconvergence expected within 3–5 minutes post-push
+
+          The replacement device must be:
+            - Physically installed with identical cabling
+            - Accessible via management (Management0)
+            - Running the correct cEOS image
+
+          Type 'yes' to proceed, anything else to abort:
+      register: gate_input
+      failed_when: gate_input.user_input | lower != 'yes'
+
+- name: Phase 3 — Enter maintenance mode (graceful-shutdown)
+  hosts: "{{ ansible_limit | default('none') }}"
+  gather_facts: false
+  tasks:
+    - name: Apply BGP graceful-shutdown (signals peers to depref routes)
+      arista.eos.eos_config:
+        lines:
+          - "graceful-restart-helper"
+          - "graceful-shutdown"
+        parents:
+          - "router bgp {{ bgp.local_as | default(65001) }}"
+
+    - name: Set maintenance banner
+      arista.eos.eos_config:
+        lines:
+          - >
+            banner motd ^
+            ============================================================
+            MAINTENANCE IN PROGRESS: Border RMA
+            DO NOT MAKE CONFIGURATION CHANGES
+            ============================================================
+            ^
+
+    - name: Wait for traffic to drain (BGP graceful-shutdown propagation)
+      ansible.builtin.wait_for:
+        timeout: 90
+      delegate_to: localhost
+
+    - name: Maintenance mode confirmed
+      ansible.builtin.debug:
+        msg: "BGP graceful-shutdown applied on {{ inventory_hostname }}. Waiting 90s for traffic to drain."
+
+- name: Phase 4 — SoT update
+  hosts: localhost
+  gather_facts: false
+  vars:
+    target: "{{ ansible_limit }}"
+    rma_timestamp: "{{ lookup('pipe', 'date -u +%Y-%m-%dT%H:%M:%SZ') }}"
+  tasks:
+    - name: Update serial number in SoT
+      ansible.builtin.replace:
+        path: "{{ playbook_dir }}/../sot/devices/{{ hostvars[target].site }}/{{ target }}.yml"
+        regexp: '^serial:.*$'
+        replace: "serial: {{ new_serial }}  # RMA {{ rma_timestamp }}"
+
+    - name: Update hardware_model in SoT (if new_model provided)
+      when: new_model is defined
+      ansible.builtin.replace:
+        path: "{{ playbook_dir }}/../sot/devices/{{ hostvars[target].site }}/{{ target }}.yml"
+        regexp: '^hardware_model:.*$'
+        replace: "hardware_model: {{ new_model }}  # replaced {{ rma_timestamp }}"
+
+- name: Phase 5 — Config generation
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Regenerate inventory from updated SoT
+      ansible.builtin.command:
+        cmd: python3 scripts/generate_inventory.py
+        chdir: "{{ playbook_dir }}/.."
+      changed_when: true
+
+    - name: Render config for replacement border router
+      ansible.builtin.command:
+        cmd: "ansible-playbook playbooks/render_configs.yml --limit {{ ansible_limit }}"
+        chdir: "{{ playbook_dir }}/.."
+      changed_when: true
+
+- name: Phase 6 — Full config push to replacement
+  hosts: "{{ ansible_limit | default('none') }}"
+  gather_facts: false
+  tasks:
+    - name: Load rendered config
+      ansible.builtin.slurp:
+        src: "{{ playbook_dir }}/../configs/{{ inventory_hostname }}/running.conf"
+      register: rendered_config
+      delegate_to: localhost
+
+    - name: Push full config to replacement (EOS — replace mode)
+      napalm.napalm.napalm_install_config:
+        hostname: "{{ ansible_host }}"
+        username: "{{ ansible_user }}"
+        password: "{{ ansible_password }}"
+        dev_os: eos
+        config: "{{ rendered_config.content | b64decode }}"
+        commit_changes: true
+        replace_config: true
+        get_diffs: true
+      register: push_result
+
+    - name: Wait for BGP reconvergence (border has more sessions — allow longer)
+      ansible.builtin.wait_for:
+        timeout: 120
+      delegate_to: localhost
+
+- name: Phase 7 — Post-RMA verification
+  hosts: "{{ ansible_limit | default('none') }}"
+  gather_facts: false
+  tasks:
+    - name: Collect post-RMA state
+      arista.eos.eos_command:
+        commands:
+          - "show bgp summary vrf all | json"
+          - "show version | json"
+      register: post_rma_state
+      retries: 8
+      delay: 15
+      until: >
+        (post_rma_state.stdout[0] | from_json).vrfs.values()
+        | map(attribute='peers') | map('dict2items') | flatten
+        | selectattr('value.peerState', 'ne', 'Established') | list | length == 0
+
+    - name: Assert serial matches new value
+      ansible.builtin.assert:
+        that: >
+          (post_rma_state.stdout[1] | from_json).get('serialNumber', '') == new_serial
+        fail_msg: >
+          Serial number mismatch. Device reports
+          {{ (post_rma_state.stdout[1] | from_json).get('serialNumber', 'unknown') }},
+          expected {{ new_serial }}.
+
+    - name: Calculate post-RMA BGP counts
+      ansible.builtin.set_fact:
+        post_rma_established: >-
+          {{ (post_rma_state.stdout[0] | from_json).vrfs.values()
+             | map(attribute='peers') | map('dict2items') | flatten
+             | selectattr('value.peerState', 'eq', 'Established') | list | length }}
+        post_rma_total: >-
+          {{ (post_rma_state.stdout[0] | from_json).vrfs.values()
+             | map(attribute='peers') | map('length') | sum }}
+
+    - name: Remove maintenance mode (graceful-shutdown)
+      arista.eos.eos_config:
+        lines:
+          - "no graceful-shutdown"
+        parents:
+          - "router bgp {{ bgp.local_as | default(65001) }}"
+
+    - name: Restore standard banner
+      arista.eos.eos_config:
+        lines:
+          - "no banner motd"
+
+    - name: Post-RMA verification summary
+      ansible.builtin.debug:
+        msg: |
+          ════════════════════════════════════════════════════════════════
+          BORDER RMA VERIFICATION: {{ inventory_hostname }}
+          ════════════════════════════════════════════════════════════════
+          BGP sessions : {{ post_rma_established }}/{{ post_rma_total }} Established
+          Serial       : {{ new_serial }} (verified)
+
+          ✓ Replacement border router is operational.
+          All inter-region and branch BGP sessions restored.
+          ════════════════════════════════════════════════════════════════
+
+- name: Phase 8 — Record RMA artefact
+  hosts: localhost
+  gather_facts: false
+  vars:
+    target: "{{ ansible_limit }}"
+    rma_timestamp: "{{ lookup('pipe', 'date +%Y%m%d_%H%M%S') }}"
+  tasks:
+    - name: Ensure RMA artefact directory exists
+      ansible.builtin.file:
+        path: "{{ playbook_dir }}/../state/rma"
+        state: directory
+        mode: '0755'
+
+    - name: Write RMA artefact record
+      ansible.builtin.copy:
+        content: |
+          rma_record:
+            device: "{{ target }}"
+            role: border
+            site: "{{ hostvars[target].site }}"
+            old_serial: "{{ hostvars[target].serial | default('unknown') }}"
+            new_serial: "{{ new_serial }}"
+            reason: "{{ rma_reason }}"
+            completed_at: "{{ lookup('pipe', 'date -u +%Y-%m-%dT%H:%M:%SZ') }}"
+            engineer: "{{ ansible_env.USER | default('automation') }}"
+            {% if new_model is defined %}
+            new_model: "{{ new_model }}"
+            {% endif %}
+        dest: "{{ playbook_dir }}/../state/rma/{{ target }}_{{ rma_timestamp }}.yml"
+
+    - name: RMA complete
+      ansible.builtin.debug:
+        msg: |
+          ════════════════════════════════════════════════════════════════
+          BORDER RMA COMPLETE: {{ target }}
+          ════════════════════════════════════════════════════════════════
+          Artefact : state/rma/{{ target }}_{{ rma_timestamp }}.yml
+
+          Next steps:
+          1. Commit SoT serial update:
+             git add sot/ && git commit -m "RMA {{ target }}: serial {{ new_serial }}"
+          2. Run full Batfish intent checks:
+             cd batfish && ./run_checks.sh
+          3. Notify NOC that maintenance is complete and all sessions are up.
+          4. Return failed unit to vendor with RMA reference number.
+          ════════════════════════════════════════════════════════════════

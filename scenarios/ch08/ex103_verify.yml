@@ -1,0 +1,94 @@
+---
+# scenarios/ch08/ex103_verify.yml
+#
+# Exercise 10.3 verification — confirms border-lon-01 RMA completed successfully
+
+- name: Verify ex103 — border-lon-01 RMA
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Check breadcrumb exists
+      ansible.builtin.stat:
+        path: /tmp/scenario_active.txt
+      register: breadcrumb
+      failed_when: not breadcrumb.stat.exists
+
+    - name: Read breadcrumb
+      ansible.builtin.slurp:
+        src: /tmp/scenario_active.txt
+      register: breadcrumb_content
+
+    - name: Confirm correct scenario
+      ansible.builtin.assert:
+        that: "'ex103_border_rma' in (breadcrumb_content.content | b64decode)"
+        fail_msg: "Breadcrumb does not match ex103. Was the correct inject playbook run?"
+
+    - name: Check SoT serial is updated (not FAIL000001)
+      ansible.builtin.command:
+        cmd: >
+          python3 -c "
+          import re
+          with open('sot/devices/lon-dc1/border-lon-01.yml') as f:
+              for line in f:
+                  m = re.match(r'^serial:\s+(\S+)', line)
+                  if m:
+                      s = m.group(1).rstrip()
+                      if s == 'FAIL000001':
+                          raise SystemExit('SoT serial not updated — still FAIL000001')
+                      print('serial OK:', s)
+                      break
+          "
+        chdir: "{{ playbook_dir }}/../../.."
+      register: serial_check
+      changed_when: false
+      failed_when: serial_check.rc != 0
+
+- name: Verify border-lon-01 BGP sessions restored
+  hosts: border-lon-01
+  gather_facts: false
+  tasks:
+    - name: Collect BGP state
+      arista.eos.eos_command:
+        commands:
+          - "show bgp summary vrf all | json"
+      register: bgp_state
+
+    - name: Assert all BGP sessions Established
+      ansible.builtin.assert:
+        that: >
+          (bgp_state.stdout[0] | from_json).vrfs.values()
+          | map(attribute='peers') | map('dict2items') | flatten
+          | selectattr('value.peerState', 'ne', 'Established') | list | length == 0
+        fail_msg: >
+          Not all BGP sessions are Established on border-lon-01.
+          Check inter-region sessions: NYC (10.0.1.1), SIN (10.0.2.1), FRA (10.0.3.1).
+          Check branch sessions: all UK branches via Ethernet7 sub-interfaces.
+
+    - name: Assert WAN interfaces are up
+      arista.eos.eos_command:
+        commands:
+          - "show interfaces Ethernet3,Ethernet4,Ethernet5 status | json"
+      register: wan_state
+
+    - name: Remove breadcrumb on success
+      ansible.builtin.file:
+        path: /tmp/scenario_active.txt
+        state: absent
+      delegate_to: localhost
+
+    - name: Exercise 10.3 passed
+      ansible.builtin.debug:
+        msg: |
+          ✓ Exercise 10.3 PASSED
+          border-lon-01 is operational post-RMA.
+          All inter-region eBGP sessions (NYC, SIN, FRA) are Established.
+          All UK branch eBGP sessions are Established.
+
+          Key takeaways:
+          - A border RMA is higher-impact than a leaf RMA due to the number
+            of affected sessions (3 inter-region + up to 12 branch).
+          - The graceful-shutdown phase signals peers to prefer alternative paths
+            before the physical swap, reducing the effective outage window.
+          - In a dual-border design, traffic would route via the peer border during
+            the swap — the outage would be invisible to applications.
+          - The SoT pipeline makes the replacement config deterministic and auditable.

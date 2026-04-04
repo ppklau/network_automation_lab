@@ -1,0 +1,308 @@
+---
+# playbooks/rma_leaf.yml
+#
+# ACME Investments — Leaf Switch RMA Workflow
+# Implements: Modules 10.1, 10.2
+#
+# Automates the replacement of a failed leaf switch:
+#   Phase 1: Pre-checks (confirm target is a leaf, record failed state)
+#   Phase 2: Maintenance mode (BGP graceful-shutdown on replacement target)
+#   Phase 3: SoT update (update serial number, optionally hardware_model)
+#   Phase 4: Config generation (render fresh config from updated SoT)
+#   Phase 5: Config push (push to replacement device)
+#   Phase 6: Verification (BGP sessions Established, VLANs correct)
+#   Phase 7: Exit maintenance and record artefact
+#
+# Parameters:
+#   target_node    — hostname of the leaf being replaced (required, use --limit)
+#   new_serial     — serial number of the replacement unit (required)
+#   new_model      — hardware model if different from SoT (optional)
+#   confirmed      — "yes" to skip interactive confirmation gate (optional)
+#   rma_reason     — reason for replacement, e.g. "Power supply failure" (required)
+#
+# Usage:
+#   ansible-playbook playbooks/rma_leaf.yml \
+#     --limit leaf-lon-02 \
+#     --extra-vars "new_serial=ACE2501099X rma_reason='Power supply failure' confirmed=yes"
+
+- name: Phase 1 — Pre-checks
+  hosts: "{{ ansible_limit | default('none') }}"
+  gather_facts: false
+  vars:
+    rma_timestamp: "{{ lookup('pipe', 'date -u +%Y-%m-%dT%H:%M:%SZ') }}"
+    rma_reason: "{{ rma_reason | default('Not specified') }}"
+  tasks:
+    - name: Verify target was specified
+      ansible.builtin.assert:
+        that: ansible_limit is defined
+        fail_msg: "Use --limit to specify the leaf to replace. This playbook must not run against all hosts."
+
+    - name: Verify new_serial provided
+      ansible.builtin.assert:
+        that:
+          - new_serial is defined
+          - new_serial | length > 3
+        fail_msg: "Provide --extra-vars \"new_serial=<serial>\" with the replacement device serial number."
+
+    - name: Verify rma_reason provided
+      ansible.builtin.assert:
+        that:
+          - rma_reason is defined
+          - rma_reason | length > 5
+        fail_msg: "Provide --extra-vars \"rma_reason='<description>'\" to document the reason for this RMA."
+
+    - name: Verify target is a leaf (not a spine or border)
+      ansible.builtin.assert:
+        that: role == 'leaf'
+        fail_msg: >
+          {{ inventory_hostname }} has role '{{ role }}', not 'leaf'.
+          Use rma_border.yml for border router replacements.
+          Spine replacements require a dedicated change record — do not use this playbook.
+
+    - name: Verify SoT file exists
+      ansible.builtin.stat:
+        path: "{{ playbook_dir }}/../sot/devices/{{ site }}/{{ inventory_hostname }}.yml"
+      register: sot_file
+      delegate_to: localhost
+      failed_when: not sot_file.stat.exists
+
+    - name: Collect current BGP state (EOS)
+      arista.eos.eos_command:
+        commands:
+          - "show bgp summary vrf all | json"
+          - "show version | json"
+      register: pre_rma_state
+      failed_when: false
+
+    - name: Pre-check summary
+      ansible.builtin.debug:
+        msg: |
+          ════════════════════════════════════════════════════════════════
+          RMA PRE-CHECK: {{ inventory_hostname }}
+          ════════════════════════════════════════════════════════════════
+          Role        : {{ role }}
+          Site        : {{ site }}
+          Old serial  : {{ serial | default('unknown') }}
+          New serial  : {{ new_serial }}
+          Reason      : {{ rma_reason }}
+          Timestamp   : {{ rma_timestamp }}
+
+          The replacement device will receive the full configuration
+          rendered from the SoT, with the serial number updated.
+          BGP adjacencies should restore automatically post-push.
+          ════════════════════════════════════════════════════════════════
+
+- name: Phase 2 — Confirmation gate
+  hosts: localhost
+  gather_facts: false
+  vars:
+    confirmed: "{{ confirmed | default('no') }}"
+  tasks:
+    - name: Interactive confirmation (if not pre-confirmed)
+      when: confirmed | lower != 'yes'
+      ansible.builtin.pause:
+        prompt: |
+
+          ════════════════════════════════════════════════════════════════
+          LEAF RMA CONFIRMATION REQUIRED
+          ════════════════════════════════════════════════════════════════
+          Target    : {{ ansible_limit }}
+          New serial: {{ new_serial }}
+          Reason    : {{ rma_reason }}
+
+          This playbook will:
+            1. Update the serial number in the SoT
+            2. Render and push the full config to the replacement device
+            3. Verify BGP sessions restore
+
+          The replacement device must already be:
+            - Physically installed and cabled identically to the failed unit
+            - Running the correct cEOS image and accessible via management
+
+          Type 'yes' to proceed, anything else to abort:
+      register: gate_input
+      failed_when: gate_input.user_input | lower != 'yes'
+
+- name: Phase 3 — SoT update (serial number and optional model)
+  hosts: localhost
+  gather_facts: false
+  vars:
+    target: "{{ ansible_limit }}"
+    rma_timestamp: "{{ lookup('pipe', 'date -u +%Y-%m-%dT%H:%M:%SZ') }}"
+  tasks:
+    - name: Update serial number in SoT
+      ansible.builtin.replace:
+        path: "{{ playbook_dir }}/../sot/devices/{{ hostvars[target].site }}/{{ target }}.yml"
+        regexp: '^serial:.*$'
+        replace: "serial: {{ new_serial }}  # RMA {{ rma_timestamp }}"
+
+    - name: Update hardware_model in SoT (if new_model provided)
+      when: new_model is defined
+      ansible.builtin.replace:
+        path: "{{ playbook_dir }}/../sot/devices/{{ hostvars[target].site }}/{{ target }}.yml"
+        regexp: '^hardware_model:.*$'
+        replace: "hardware_model: {{ new_model }}  # replaced {{ rma_timestamp }}"
+
+    - name: Record SoT change
+      ansible.builtin.debug:
+        msg: |
+          SoT updated for {{ target }}:
+            serial → {{ new_serial }}
+          {% if new_model is defined %}
+            hardware_model → {{ new_model }}
+          {% endif %}
+          Commit this change after verifying the replacement is healthy:
+            git add sot/ && git commit -m "RMA {{ target }}: serial {{ new_serial }}"
+
+- name: Phase 4 — Config generation
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Regenerate inventory from updated SoT
+      ansible.builtin.command:
+        cmd: python3 scripts/generate_inventory.py
+        chdir: "{{ playbook_dir }}/.."
+      changed_when: true
+
+    - name: Render config for replacement leaf
+      ansible.builtin.command:
+        cmd: >
+          ansible-playbook playbooks/render_configs.yml
+          --limit {{ ansible_limit }}
+        chdir: "{{ playbook_dir }}/.."
+      changed_when: true
+      register: render_result
+
+    - name: Confirm render completed
+      ansible.builtin.debug:
+        msg: "Config rendered for {{ ansible_limit }}. Proceeding to push."
+
+- name: Phase 5 — Config push to replacement device
+  hosts: "{{ ansible_limit | default('none') }}"
+  gather_facts: false
+  tasks:
+    - name: Load rendered config
+      ansible.builtin.slurp:
+        src: "{{ playbook_dir }}/../configs/{{ inventory_hostname }}/running.conf"
+      register: rendered_config
+      delegate_to: localhost
+
+    - name: Push full config via NAPALM replace (EOS)
+      when: platform == 'arista_eos'
+      napalm.napalm.napalm_install_config:
+        hostname: "{{ ansible_host }}"
+        username: "{{ ansible_user }}"
+        password: "{{ ansible_password }}"
+        dev_os: eos
+        config: "{{ rendered_config.content | b64decode }}"
+        commit_changes: true
+        replace_config: true
+        get_diffs: true
+      register: push_result
+
+    - name: Wait for BGP to reconverge
+      ansible.builtin.wait_for:
+        timeout: 60
+      delegate_to: localhost
+
+    - name: Push result summary
+      ansible.builtin.debug:
+        msg: |
+          Config pushed to {{ inventory_hostname }}.
+          Waiting 60 seconds for BGP reconvergence before verification.
+
+- name: Phase 6 — Post-RMA verification
+  hosts: "{{ ansible_limit | default('none') }}"
+  gather_facts: false
+  tasks:
+    - name: Check BGP sessions (EOS)
+      when: platform == 'arista_eos'
+      arista.eos.eos_command:
+        commands:
+          - "show bgp summary vrf all | json"
+          - "show vlan | json"
+          - "show version | json"
+      register: post_rma_state
+      retries: 6
+      delay: 10
+      until: >
+        (post_rma_state.stdout[0] | from_json).vrfs.values()
+        | map(attribute='peers') | map('dict2items') | flatten
+        | selectattr('value.peerState', 'ne', 'Established') | list | length == 0
+
+    - name: Assert serial matches new value (EOS)
+      when: platform == 'arista_eos'
+      ansible.builtin.assert:
+        that: >
+          (post_rma_state.stdout[2] | from_json).get('serialNumber', '') == new_serial
+        fail_msg: >
+          Serial number mismatch. Device reports {{ (post_rma_state.stdout[2] | from_json).get('serialNumber', 'unknown') }},
+          SoT expects {{ new_serial }}.
+
+    - name: Calculate BGP session counts
+      ansible.builtin.set_fact:
+        bgp_established: >-
+          {{ (post_rma_state.stdout[0] | from_json).vrfs.values()
+             | map(attribute='peers') | map('dict2items') | flatten
+             | selectattr('value.peerState', 'eq', 'Established') | list | length }}
+        bgp_total: >-
+          {{ (post_rma_state.stdout[0] | from_json).vrfs.values()
+             | map(attribute='peers') | map('length') | sum }}
+
+    - name: Post-RMA verification summary
+      ansible.builtin.debug:
+        msg: |
+          ════════════════════════════════════════════════════════════════
+          RMA VERIFICATION: {{ inventory_hostname }}
+          ════════════════════════════════════════════════════════════════
+          BGP sessions : {{ bgp_established }}/{{ bgp_total }} Established
+          Serial       : {{ new_serial }} (verified)
+
+          ✓ Replacement leaf is operational.
+          ════════════════════════════════════════════════════════════════
+
+- name: Phase 7 — Record RMA artefact
+  hosts: localhost
+  gather_facts: false
+  vars:
+    target: "{{ ansible_limit }}"
+    rma_timestamp: "{{ lookup('pipe', 'date +%Y%m%d_%H%M%S') }}"
+  tasks:
+    - name: Ensure RMA artefact directory exists
+      ansible.builtin.file:
+        path: "{{ playbook_dir }}/../state/rma"
+        state: directory
+        mode: '0755'
+
+    - name: Write RMA artefact record
+      ansible.builtin.copy:
+        content: |
+          rma_record:
+            device: "{{ target }}"
+            role: "{{ hostvars[target].role }}"
+            site: "{{ hostvars[target].site }}"
+            old_serial: "{{ hostvars[target].serial | default('unknown') }}"
+            new_serial: "{{ new_serial }}"
+            reason: "{{ rma_reason }}"
+            completed_at: "{{ lookup('pipe', 'date -u +%Y-%m-%dT%H:%M:%SZ') }}"
+            engineer: "{{ ansible_env.USER | default('automation') }}"
+            {% if new_model is defined %}
+            new_model: "{{ new_model }}"
+            {% endif %}
+        dest: "{{ playbook_dir }}/../state/rma/{{ target }}_{{ rma_timestamp }}.yml"
+
+    - name: RMA complete
+      ansible.builtin.debug:
+        msg: |
+          ════════════════════════════════════════════════════════════════
+          RMA COMPLETE: {{ target }}
+          ════════════════════════════════════════════════════════════════
+          Artefact : state/rma/{{ target }}_{{ rma_timestamp }}.yml
+
+          Next steps:
+          1. Commit SoT serial update:
+             git add sot/ && git commit -m "RMA {{ target }}: serial {{ new_serial }}"
+          2. Run Batfish checks to confirm intent compliance:
+             cd batfish && ./run_checks.sh
+          3. Return failed unit to vendor with RMA reference.
+          ════════════════════════════════════════════════════════════════

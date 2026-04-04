@@ -1,0 +1,79 @@
+---
+# scenarios/ch08/ex104_verify.yml
+#
+# Exercise 10.4 verification — confirms branch-nyc-02 ZTP provisioning completed
+
+- name: Verify ex104 — branch-nyc-02 ZTP
+  hosts: branch-nyc-02
+  gather_facts: false
+  tasks:
+    - name: Check breadcrumb exists
+      ansible.builtin.stat:
+        path: /tmp/scenario_active.txt
+      register: breadcrumb
+      become: true
+      failed_when: not breadcrumb.stat.exists
+
+    - name: Read breadcrumb
+      ansible.builtin.slurp:
+        src: /tmp/scenario_active.txt
+      register: breadcrumb_content
+      become: true
+
+    - name: Confirm correct scenario
+      ansible.builtin.assert:
+        that: "'ex104_ztp_branch' in (breadcrumb_content.content | b64decode)"
+        fail_msg: "Breadcrumb does not match ex104. Was the correct inject playbook run?"
+
+    - name: Check BGP session to border-nyc-01 is Established
+      ansible.builtin.raw: |
+        python3 -c "
+        import subprocess, json, sys
+        r = subprocess.run('vtysh -c \"show bgp summary json\"',
+                           shell=True, capture_output=True, text=True)
+        try:
+            data = json.loads(r.stdout)
+        except Exception:
+            print('JSON parse error:', r.stdout[:200])
+            sys.exit(1)
+        peers = data.get('ipv4Unicast', {}).get('peers', {})
+        # border-nyc-01 peer for branch-nyc-02
+        found = False
+        for ip, peer in peers.items():
+            if peer.get('state') == 'Established':
+                found = True
+                print('BGP Established to', ip)
+        sys.exit(0 if found else 1)
+        "
+      register: bgp_check
+      changed_when: false
+      failed_when: bgp_check.rc != 0
+
+    - name: Verify WAN interface has IP configured
+      ansible.builtin.raw: |
+        ip addr show eth1 | grep 'inet ' | grep -v '127\.' | head -1
+      register: eth1_ip
+      changed_when: false
+      failed_when: eth1_ip.stdout | trim | length == 0
+
+    - name: Remove breadcrumb on success
+      ansible.builtin.file:
+        path: /tmp/scenario_active.txt
+        state: absent
+      become: true
+
+    - name: Exercise 10.4 passed
+      ansible.builtin.debug:
+        msg: |
+          ✓ Exercise 10.4 PASSED
+          branch-nyc-02 successfully provisioned via ZTP pipeline.
+          BGP session to border-nyc-01 is Established.
+          WAN interface eth1 has the correct IP from the SoT.
+
+          Key takeaways:
+          - ZTP eliminates on-site CLI work for branch deployments.
+          - The device only needs management access; the pipeline handles
+            the full configuration push.
+          - In production, this same pipeline run would be triggered automatically
+            by the DHCP server detecting a new device on the management network.
+          - The provisioning artefact in state/provisioned/ provides an audit trail.

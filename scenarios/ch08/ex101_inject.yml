@@ -1,0 +1,114 @@
+---
+# scenarios/ch08/ex101_inject.yml
+#
+# Exercise 10.1 — Leaf Switch RMA (like-for-like)
+# Fault: leaf-lon-02 has failed — simulated by bringing down its fabric links
+#         and replacing its serial in the SoT with an old/wrong value.
+#
+# Context: ACME's trading floor in London DC1 reported intermittent connectivity
+# to CORPORATE servers at 07:42 this morning. NOC identified leaf-lon-02 as the
+# fault. A replacement unit (same model, new serial) has been delivered and
+# physically installed in the rack with identical cabling. Your task is to drive
+# the replacement through the automation pipeline.
+#
+# What is injected:
+#   - leaf-lon-02 fabric links (Ethernet1, Ethernet2) are shut down, simulating
+#     the failed device being powered off
+#   - The SoT serial number is changed to FAIL000000 to simulate the record
+#     being stale (the old device's serial)
+#   - A breadcrumb records the expected new serial so the verify step can check
+#
+# The reader must:
+#   1. Identify the fault via daily_health_check or drift_detection
+#   2. Update the SoT serial to the replacement value
+#   3. Run rma_leaf.yml to push config to the replacement
+#   4. Verify BGP and VLANs restore
+#
+# Breadcrumb: /tmp/scenario_active.txt (localhost)
+
+- name: Inject leaf-lon-02 failure
+  hosts: leaf-lon-02
+  gather_facts: false
+  tasks:
+    - name: Shut down fabric uplinks to simulate device failure
+      arista.eos.eos_config:
+        lines:
+          - "shutdown"
+        parents:
+          - "interface {{ item }}"
+      loop:
+        - Ethernet1
+        - Ethernet2
+
+    - name: Confirm shutdown
+      ansible.builtin.debug:
+        msg: "leaf-lon-02 fabric links shut down. BGP to spines will drop."
+
+- name: Corrupt SoT serial (simulate stale record)
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Record original serial before overwriting
+      ansible.builtin.command:
+        cmd: >
+          python3 -c "
+          import re
+          with open('sot/devices/lon-dc1/leaf-lon-02.yml') as f:
+              for line in f:
+                  m = re.match(r'^serial:\s+(\S+)', line)
+                  if m:
+                      print(m.group(1))
+                      break
+          "
+        chdir: "{{ playbook_dir }}/../.."
+      register: original_serial
+      changed_when: false
+
+    - name: Overwrite serial in SoT with failure marker
+      ansible.builtin.replace:
+        path: "{{ playbook_dir }}/../../sot/devices/lon-dc1/leaf-lon-02.yml"
+        regexp: '^serial:.*$'
+        replace: "serial: FAIL000000  # INJECTED: original was {{ original_serial.stdout }}"
+
+    - name: Write scenario breadcrumb
+      ansible.builtin.copy:
+        content: |
+          scenario: ex101_leaf_rma
+          injected_at: "{{ lookup('pipe', 'date -u +%Y-%m-%dT%H:%M:%SZ') }}"
+          target: leaf-lon-02
+          original_serial: "{{ original_serial.stdout }}"
+          replacement_serial: ACE2501099X
+          fault: >
+            leaf-lon-02 fabric links (Ethernet1, Ethernet2) shut down to simulate
+            device failure. SoT serial overwritten to FAIL000000 to simulate stale record.
+          symptoms:
+            - BGP sessions to spine-lon-01 and spine-lon-02 are down
+            - VRRP for CORPORATE VLAN 200 has failed over to leaf-lon-01
+            - daily_health_check will report BGP issue on leaf-lon-02
+          remediation:
+            - Update SoT serial to ACE2501099X (the replacement unit)
+            - Run: ansible-playbook playbooks/rma_leaf.yml --limit leaf-lon-02
+                    --extra-vars "new_serial=ACE2501099X rma_reason='PSU failure'"
+          verify: ansible-playbook scenarios/ch08/ex101_verify.yml
+        dest: /tmp/scenario_active.txt
+
+    - name: Confirm injection
+      ansible.builtin.debug:
+        msg: |
+          FAULT INJECTED: leaf-lon-02 failure simulation
+
+          leaf-lon-02 fabric links are shut down (simulating physical failure).
+          The SoT serial has been set to FAIL000000 (stale record).
+
+          You will NOT be told which BGP sessions are affected — use the tooling:
+
+          Your task:
+            1. Identify the fault:
+               ansible-playbook playbooks/daily_health_check.yml
+            2. Confirm root cause (BGP session loss, not routing misconfiguration)
+            3. Update SoT: change serial to ACE2501099X in sot/devices/lon-dc1/leaf-lon-02.yml
+            4. Run RMA playbook:
+               ansible-playbook playbooks/rma_leaf.yml \
+                 --limit leaf-lon-02 \
+                 --extra-vars "new_serial=ACE2501099X rma_reason='PSU failure' confirmed=yes"
+            5. Verify: ansible-playbook scenarios/ch08/ex101_verify.yml

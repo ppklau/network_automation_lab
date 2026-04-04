@@ -1,0 +1,250 @@
+---
+# playbooks/ztp_branch.yml
+#
+# ACME Investments — Zero-Touch Provisioning for Branch Routers
+# Implements: Module 10.4
+#
+# Provisions a new or replacement branch router from bare state:
+#   Phase 1: Pre-checks (SoT record exists, device reachable via management)
+#   Phase 2: Render full branch config from SoT
+#   Phase 3: Push rendered config to the branch device
+#   Phase 4: Verify BGP session establishes to border router
+#   Phase 5: Write provisioning artefact
+#
+# This models the ZTP path where a branch device boots with a minimal bootstrap
+# config (DHCP-assigned management IP, SSH enabled) and the pipeline then
+# pushes the full SoT-rendered config automatically. The branch router has no
+# knowledge of what config it will receive — it simply needs to be reachable
+# on its management interface.
+#
+# In the lab, the containerlab topology provides the management connectivity.
+# In production this would be triggered by a DHCP-option-43 / cloud-init hook
+# signalling that a new device is ready to receive its initial config.
+#
+# Parameters:
+#   target_branch  — branch hostname to provision (required, use --limit)
+#   provisioned_by — name of provisioning engineer (optional)
+#
+# Usage:
+#   ansible-playbook playbooks/ztp_branch.yml \
+#     --limit branch-nyc-02 \
+#     --extra-vars "provisioned_by='Operations team'"
+
+- name: Phase 1 — Pre-checks
+  hosts: "{{ ansible_limit | default('none') }}"
+  gather_facts: false
+  vars:
+    provisioned_by: "{{ provisioned_by | default(ansible_env.USER | default('automation')) }}"
+    ztp_timestamp: "{{ lookup('pipe', 'date -u +%Y-%m-%dT%H:%M:%SZ') }}"
+  tasks:
+    - name: Verify target was specified
+      ansible.builtin.assert:
+        that: ansible_limit is defined
+        fail_msg: "Use --limit to specify the branch to provision."
+
+    - name: Verify target is a branch
+      ansible.builtin.assert:
+        that: role in ['branch', 'branch_router']
+        fail_msg: >
+          {{ inventory_hostname }} has role '{{ role }}' — expected 'branch'.
+          This playbook is for branch router provisioning only.
+
+    - name: Verify SoT record exists for target branch
+      ansible.builtin.stat:
+        path: "{{ playbook_dir }}/../sot/devices/branches/uk-branches.yml"
+      register: uk_sot
+      delegate_to: localhost
+
+    - name: Check device is reachable (FRR — test SSH)
+      ansible.builtin.wait_for:
+        host: "{{ ansible_host }}"
+        port: 22
+        timeout: 30
+      delegate_to: localhost
+      register: ssh_check
+      failed_when: false
+
+    - name: Warn if device not yet reachable
+      when: ssh_check is failed or ssh_check.elapsed == 30
+      ansible.builtin.debug:
+        msg: |
+          ⚠ WARNING: {{ inventory_hostname }} ({{ ansible_host }}) did not respond on port 22.
+
+          For ZTP this is expected if the device has just powered on.
+          The playbook will attempt the push — if it fails, wait for the device
+          to complete its initial boot and re-run.
+
+    - name: ZTP pre-check summary
+      ansible.builtin.debug:
+        msg: |
+          ════════════════════════════════════════════════════════════════
+          ZTP PRE-CHECK: {{ inventory_hostname }}
+          ════════════════════════════════════════════════════════════════
+          Role         : {{ role }}
+          Platform     : {{ platform }}
+          ASN          : {{ bgp.local_as | default('from SoT') }}
+          Uplink peer  : {{ bgp.neighbors[0].peer_ip | default('from SoT') }}
+          Provisioned by: {{ provisioned_by }}
+          Timestamp    : {{ ztp_timestamp }}
+
+          The device will receive the complete configuration rendered from
+          the SoT. No manual CLI intervention is needed.
+          ════════════════════════════════════════════════════════════════
+
+- name: Phase 2 — Render branch config
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Regenerate inventory (ensure target branch is included)
+      ansible.builtin.command:
+        cmd: python3 scripts/generate_inventory.py
+        chdir: "{{ playbook_dir }}/.."
+      changed_when: true
+
+    - name: Render config for target branch
+      ansible.builtin.command:
+        cmd: "ansible-playbook playbooks/render_configs.yml --limit {{ ansible_limit }}"
+        chdir: "{{ playbook_dir }}/.."
+      changed_when: true
+      register: render_result
+
+    - name: Confirm config rendered
+      ansible.builtin.debug:
+        msg: "Config rendered for {{ ansible_limit }}. Proceeding to push."
+
+- name: Phase 3 — Push config to branch device
+  hosts: "{{ ansible_limit | default('none') }}"
+  gather_facts: false
+  tasks:
+    - name: Load rendered config
+      ansible.builtin.slurp:
+        src: "{{ playbook_dir }}/../configs/{{ inventory_hostname }}/running.conf"
+      register: rendered_config
+      delegate_to: localhost
+
+    - name: Push full config (FRR — write frr.conf and reload)
+      when: platform == 'frr'
+      block:
+        - name: Write rendered FRR config
+          ansible.builtin.copy:
+            content: "{{ rendered_config.content | b64decode }}"
+            dest: /etc/frr/frr.conf
+            owner: frr
+            group: frr
+            mode: '0640'
+          become: true
+
+        - name: Reload FRR
+          ansible.builtin.service:
+            name: frr
+            state: reloaded
+          become: true
+
+        - name: Wait for FRR to reload and BGP to initialise
+          ansible.builtin.wait_for:
+            timeout: 15
+          delegate_to: localhost
+
+    - name: Push config (EOS)
+      when: platform == 'arista_eos'
+      napalm.napalm.napalm_install_config:
+        hostname: "{{ ansible_host }}"
+        username: "{{ ansible_user }}"
+        password: "{{ ansible_password }}"
+        dev_os: eos
+        config: "{{ rendered_config.content | b64decode }}"
+        commit_changes: true
+        replace_config: true
+        get_diffs: true
+
+    - name: Config push confirmed
+      ansible.builtin.debug:
+        msg: "Config pushed to {{ inventory_hostname }}. Waiting for BGP to establish."
+
+- name: Phase 4 — Verify BGP session to border router
+  hosts: "{{ ansible_limit | default('none') }}"
+  gather_facts: false
+  tasks:
+    - name: Check BGP session to uplink border (FRR)
+      when: platform == 'frr'
+      ansible.builtin.raw: |
+        python3 -c "
+        import subprocess, json, sys, time
+
+        for attempt in range(1, 7):
+            r = subprocess.run('vtysh -c \"show bgp summary json\"',
+                               shell=True, capture_output=True, text=True)
+            try:
+                data = json.loads(r.stdout)
+            except Exception:
+                data = {}
+            peers = data.get('ipv4Unicast', {}).get('peers', {})
+            established = [p for p, v in peers.items() if v.get('state') == 'Established']
+            if established:
+                print(json.dumps({'established': established, 'attempts': attempt}))
+                sys.exit(0)
+            if attempt < 6:
+                time.sleep(10)
+
+        print(json.dumps({'established': [], 'attempts': 6}))
+        sys.exit(1)
+        "
+      register: bgp_check
+      changed_when: false
+      failed_when: bgp_check.rc != 0
+
+    - name: ZTP verification summary
+      when: platform == 'frr'
+      ansible.builtin.debug:
+        msg: |
+          ════════════════════════════════════════════════════════════════
+          ZTP VERIFICATION: {{ inventory_hostname }}
+          ════════════════════════════════════════════════════════════════
+          BGP: {{ (bgp_check.stdout | from_json).established | join(', ') }}
+
+          ✓ Branch router successfully provisioned via ZTP.
+          BGP session(s) Established to border router.
+          ════════════════════════════════════════════════════════════════
+
+- name: Phase 5 — Write provisioning artefact
+  hosts: localhost
+  gather_facts: false
+  vars:
+    target: "{{ ansible_limit }}"
+    ztp_timestamp: "{{ lookup('pipe', 'date +%Y%m%d_%H%M%S') }}"
+    provisioned_by: "{{ provisioned_by | default('automation') }}"
+  tasks:
+    - name: Ensure provisioning artefact directory exists
+      ansible.builtin.file:
+        path: "{{ playbook_dir }}/../state/provisioned"
+        state: directory
+        mode: '0755'
+
+    - name: Write provisioning record
+      ansible.builtin.copy:
+        content: |
+          provisioning_record:
+            device: "{{ target }}"
+            role: branch
+            platform: "{{ hostvars[target].platform }}"
+            asn: "{{ hostvars[target].bgp.local_as | default('unknown') }}"
+            provisioned_at: "{{ lookup('pipe', 'date -u +%Y-%m-%dT%H:%M:%SZ') }}"
+            provisioned_by: "{{ provisioned_by }}"
+            method: ztp_pipeline
+        dest: "{{ playbook_dir }}/../state/provisioned/{{ target }}_{{ ztp_timestamp }}.yml"
+
+    - name: ZTP complete
+      ansible.builtin.debug:
+        msg: |
+          ════════════════════════════════════════════════════════════════
+          ZTP COMPLETE: {{ target }}
+          ════════════════════════════════════════════════════════════════
+          Artefact: state/provisioned/{{ target }}_{{ ztp_timestamp }}.yml
+
+          Next steps:
+          1. Update lab_state in SoT from sot_only to active (if applicable):
+             sot/devices/branches/uk-branches.yml
+          2. Commit: git add sot/ && git commit -m "ZTP: {{ target }} provisioned"
+          3. Run daily health check to include the new branch:
+             ansible-playbook playbooks/daily_health_check.yml --limit {{ target }}
+          ════════════════════════════════════════════════════════════════

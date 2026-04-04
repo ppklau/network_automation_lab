@@ -1,0 +1,115 @@
+---
+# ACME Investments — Monitoring Stack
+# ─────────────────────────────────────────────────────────────────────────────
+# Services: Prometheus + Grafana + node_exporter (textfile collector)
+#           + Alertmanager
+#
+# Deploy:
+#   cd monitoring && docker compose up -d
+#
+# Prerequisites:
+#   - containerlab topology must be running (creates the acme-mgmt network)
+#   - Ansible playbooks write .prom textfiles to monitoring/prometheus/
+#     Run these on a schedule to keep metrics current:
+#       ansible-playbook playbooks/write_bgp_metrics.yml
+#       ansible-playbook playbooks/interface_utilisation.yml
+#
+# Access:
+#   Grafana    http://localhost:3000   admin / acme-lab
+#   Prometheus http://localhost:9090
+#   Alertmanager http://localhost:9093
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    container_name: acme-prometheus
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.enable-lifecycle'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - monitoring
+      - acme-mgmt
+    depends_on:
+      - alertmanager
+
+  grafana:
+    image: grafana/grafana:10.4.0
+    container_name: acme-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: acme-lab
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_SERVER_ROOT_URL: "http://localhost:3000"
+      GF_FEATURE_TOGGLES_ENABLE: "alertingPreviewUpgrade"
+      GF_ALERTING_ENABLED: "true"
+      GF_UNIFIED_ALERTING_ENABLED: "true"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    networks:
+      - monitoring
+    depends_on:
+      - prometheus
+
+  # node_exporter runs on the Docker host and reads .prom textfiles written
+  # by Ansible playbooks. This is the primary metrics ingestion path.
+  node_exporter:
+    image: prom/node-exporter:v1.7.0
+    container_name: acme-node-exporter
+    restart: unless-stopped
+    command:
+      - '--collector.disable-defaults'
+      - '--collector.textfile'
+      - '--collector.textfile.directory=/var/lib/node_exporter/textfile_collector'
+      - '--web.listen-address=:9100'
+    volumes:
+      # Mount the prometheus/ directory so Ansible-written .prom files are picked up
+      - ./prometheus:/var/lib/node_exporter/textfile_collector:ro
+    networks:
+      - monitoring
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: acme-alertmanager
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+    volumes:
+      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+    ports:
+      - "9093:9093"
+    networks:
+      - monitoring
+
+volumes:
+  prometheus_data:
+  grafana_data:
+  alertmanager_data:
+
+networks:
+  monitoring:
+    driver: bridge
+  # The containerlab management network. Must exist before starting this stack.
+  # Created automatically when containerlab deploys acme-lab.
+  acme-mgmt:
+    external: true
+    name: acme-mgmt

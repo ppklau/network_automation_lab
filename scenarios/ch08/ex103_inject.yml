@@ -1,0 +1,117 @@
+---
+# scenarios/ch08/ex103_inject.yml
+#
+# Exercise 10.3 — Border Router RMA
+# Fault: border-lon-01 WAN interfaces are shut, simulating hardware failure on
+#         the WAN NIC. All inter-region eBGP sessions drop.
+#
+# Context: At 03:15 UTC ACME's NOC received alerts that the LON-NYC, LON-SIN,
+# and LON-FRA eBGP sessions were all simultaneously down. border-lon-01 had
+# a hardware fault on its WAN NIC card (Ethernet3–5 affected). A replacement
+# unit has been racked and is accessible on management. Because border-lon-01
+# is the only active border for the lab topology, there is no peer border to
+# absorb the traffic — the exercise focuses on minimising downtime via the RMA
+# pipeline, not traffic engineering around the outage.
+#
+# What is injected:
+#   - WAN interfaces Ethernet3, Ethernet4, Ethernet5 are shut down
+#   - The SoT serial is changed to FAIL000001 (stale record)
+#   - Branch eBGP sessions will also drop (branch uplinks traverse Ethernet7)
+#
+# The reader must:
+#   1. Confirm the scope of outage via daily_health_check
+#   2. Update SoT serial to the replacement value
+#   3. Run rma_border.yml
+#   4. Verify all inter-region and branch sessions restore
+#
+# Breadcrumb: /tmp/scenario_active.txt (localhost)
+
+- name: Inject border-lon-01 WAN NIC failure
+  hosts: border-lon-01
+  gather_facts: false
+  tasks:
+    - name: Shut WAN interfaces (Ethernet3–5) to simulate NIC failure
+      arista.eos.eos_config:
+        lines:
+          - "shutdown"
+        parents:
+          - "interface {{ item }}"
+      loop:
+        - Ethernet3
+        - Ethernet4
+        - Ethernet5
+
+    - name: Confirm shutdown
+      ansible.builtin.debug:
+        msg: "border-lon-01 WAN interfaces Ethernet3–5 shut. All inter-region eBGP sessions will drop."
+
+- name: Corrupt SoT serial (simulate stale record)
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Record original serial
+      ansible.builtin.command:
+        cmd: >
+          python3 -c "
+          import re
+          with open('sot/devices/lon-dc1/border-lon-01.yml') as f:
+              for line in f:
+                  m = re.match(r'^serial:\s+(\S+)', line)
+                  if m:
+                      print(m.group(1))
+                      break
+          "
+        chdir: "{{ playbook_dir }}/../.."
+      register: original_serial
+      changed_when: false
+
+    - name: Overwrite serial in SoT
+      ansible.builtin.replace:
+        path: "{{ playbook_dir }}/../../sot/devices/lon-dc1/border-lon-01.yml"
+        regexp: '^serial:.*$'
+        replace: "serial: FAIL000001  # INJECTED: original was {{ original_serial.stdout }}"
+
+    - name: Write scenario breadcrumb
+      ansible.builtin.copy:
+        content: |
+          scenario: ex103_border_rma
+          injected_at: "{{ lookup('pipe', 'date -u +%Y-%m-%dT%H:%M:%SZ') }}"
+          target: border-lon-01
+          original_serial: "{{ original_serial.stdout }}"
+          replacement_serial: ACE2501088B
+          fault: >
+            border-lon-01 WAN interfaces (Ethernet3, Ethernet4, Ethernet5) shut down.
+            Simulates WAN NIC hardware failure affecting all inter-region eBGP sessions.
+          affected_sessions:
+            - "10.0.1.1 (border-nyc-01) — LON<->NYC eBGP AS65001<->AS65010"
+            - "10.0.2.1 (border-sin-01) — LON<->SIN eBGP AS65001<->AS65020"
+            - "10.0.3.1 (border-fra-01) — LON<->FRA eBGP AS65001<->AS65030"
+            - "all UK branch eBGP sessions (Ethernet7 sub-interfaces)"
+          remediation:
+            - Update SoT serial to ACE2501088B
+            - Run: ansible-playbook playbooks/rma_border.yml --limit border-lon-01
+                    --extra-vars "new_serial=ACE2501088B rma_reason='WAN NIC failure'"
+          verify: ansible-playbook scenarios/ch08/ex103_verify.yml
+        dest: /tmp/scenario_active.txt
+
+    - name: Confirm injection
+      ansible.builtin.debug:
+        msg: |
+          FAULT INJECTED: border-lon-01 WAN NIC failure
+
+          WAN interfaces Ethernet3, Ethernet4, and Ethernet5 are shut down.
+          All inter-region eBGP sessions (NYC, SIN, FRA) will drop.
+          All UK branch eBGP sessions will also drop.
+
+          You will NOT be told which sessions are affected — use the tooling:
+
+          Your task:
+            1. Scope the outage:
+               ansible-playbook playbooks/daily_health_check.yml
+            2. Confirm this is hardware failure, not misconfiguration
+            3. Update SoT serial to ACE2501088B in sot/devices/lon-dc1/border-lon-01.yml
+            4. Run border RMA:
+               ansible-playbook playbooks/rma_border.yml \
+                 --limit border-lon-01 \
+                 --extra-vars "new_serial=ACE2501088B rma_reason='WAN NIC failure' confirmed=yes"
+            5. Verify: ansible-playbook scenarios/ch08/ex103_verify.yml

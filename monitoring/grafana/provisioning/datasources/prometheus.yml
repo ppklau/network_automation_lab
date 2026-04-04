@@ -1,0 +1,21 @@
+---
+# Grafana datasource provisioning — Prometheus
+# Auto-provisioned on Grafana start. Do not edit via UI — changes here take effect on restart.
+
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    uid: acme-prometheus
+    jsonData:
+      httpMethod: POST
+      prometheusType: Prometheus
+      prometheusVersion: 2.51.0
+      exemplarTraceIdDestinations: []
+      incrementalQuerying: true
+      queryTimeout: 60s
+    editable: false

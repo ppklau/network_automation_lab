@@ -1,0 +1,87 @@
+---
+# scenarios/ch08/ex104_inject.yml
+#
+# Exercise 10.4 — Branch Router Zero-Touch Provisioning
+# Setup: pre-stages branch-nyc-02 as a fresh unconfigured device
+#
+# Context: ACME's operations team is deploying a new branch office in Newark,
+# NJ. The branch router (branch-nyc-02) has been shipped pre-imaged with FRR
+# and a minimal bootstrap config: DHCP on eth0 for management access, SSH
+# enabled for the ansible user. The device has no BGP configuration and is
+# not advertising any prefixes.
+#
+# Your task is to use the ZTP pipeline to push the full SoT-rendered
+# configuration and bring the branch online. This is what the network team
+# would hand off to a junior engineer — the pipeline does the heavy lifting.
+#
+# What is injected:
+#   - branch-nyc-02 FRR configuration is cleared (no BGP, no routes)
+#   - The breadcrumb records the expected post-state
+#
+# The reader must:
+#   1. Check the SoT record for branch-nyc-02 exists in us-branches.yml
+#   2. Run ztp_branch.yml to push the rendered config
+#   3. Verify the BGP session to border-nyc-01 establishes
+#
+# Breadcrumb: /tmp/scenario_active.txt on branch-nyc-02
+
+- name: Clear branch-nyc-02 FRR config (simulate factory-fresh device)
+  hosts: branch-nyc-02
+  gather_facts: false
+  tasks:
+    - name: Remove BGP configuration from FRR
+      ansible.builtin.raw: |
+        vtysh \
+          -c "configure terminal" \
+          -c "no router bgp" \
+          -c "end" \
+          -c "write"
+      become: true
+      failed_when: false
+
+    - name: Clear all interface IPs (except management eth0)
+      ansible.builtin.raw: |
+        vtysh \
+          -c "configure terminal" \
+          -c "interface eth1" \
+          -c "no ip address" \
+          -c "interface eth2" \
+          -c "no ip address" \
+          -c "end" \
+          -c "write"
+      become: true
+      failed_when: false
+
+    - name: Write scenario breadcrumb on branch device
+      ansible.builtin.copy:
+        content: |
+          scenario: ex104_ztp_branch
+          injected_at: "{{ lookup('pipe', 'date -u +%Y-%m-%dT%H:%M:%SZ') }}"
+          target: branch-nyc-02
+          fault: >
+            branch-nyc-02 FRR config cleared. Device is in factory-fresh state with
+            only management access configured. No BGP, no interface IPs on eth1/eth2.
+          expected_post_state:
+            - BGP session to border-nyc-01 (10.200.0.2) Established
+            - ASN 65121 advertising 10.200.0.8/29
+          remediation:
+            - Run: ansible-playbook playbooks/ztp_branch.yml --limit branch-nyc-02
+          verify: ansible-playbook scenarios/ch08/ex104_verify.yml
+        dest: /tmp/scenario_active.txt
+      become: true
+
+    - name: Confirm injection
+      ansible.builtin.debug:
+        msg: |
+          SCENARIO SET UP: branch-nyc-02 factory-fresh ZTP
+
+          branch-nyc-02 has had its FRR configuration cleared.
+          The device has management access (eth0) only.
+          No BGP configuration. No WAN interface IPs.
+
+          Your task:
+            1. Confirm the SoT record exists for branch-nyc-02:
+               grep -A 10 'branch-nyc-02' sot/devices/branches/us-branches.yml
+            2. Run ZTP pipeline:
+               ansible-playbook playbooks/ztp_branch.yml --limit branch-nyc-02
+            3. Verify: ansible-playbook scenarios/ch08/ex104_verify.yml

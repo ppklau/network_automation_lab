@@ -1,0 +1,91 @@
+---
+# scenarios/ch09/ex93_verify.yml
+#
+# ACME Investments — Exercise 9.3 Verify: BGP Session Loss Recovery
+#
+# Restores the injected fault (brings Ethernet3 up on border-lon-01) and
+# verifies that the BGP session to border-nyc-01 recovers to Established.
+#
+# Run after completing the alert observation in Exercise 9.3.
+
+- name: Check scenario breadcrumb
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Check that inject was run first
+      ansible.builtin.stat:
+        path: /tmp/scenario_active.txt
+      register: breadcrumb
+
+    - name: Fail if inject was not run
+      ansible.builtin.fail:
+        msg: |
+          /tmp/scenario_active.txt not found.
+          Run scenarios/ch09/ex93_inject.yml before running this verify.
+      when: not breadcrumb.stat.exists
+
+- name: Restore Ethernet3 on border-lon-01
+  hosts: border-lon-01
+  gather_facts: false
+  tasks:
+    - name: Bring up Ethernet3
+      arista.eos.eos_config:
+        lines:
+          - no shutdown
+        parents: "interface Ethernet3"
+
+    - name: Wait for BGP session to border-nyc-01 to recover
+      arista.eos.eos_command:
+        commands:
+          - "show bgp summary | json"
+        wait_for:
+          - "result[0] contains 'Established'"
+        retries: 12
+        interval: 10
+      register: bgp_recovery
+      failed_when: false
+
+    - name: Verify BGP session state
+      arista.eos.eos_command:
+        commands:
+          - "show bgp summary | json"
+      register: bgp_summary
+      changed_when: false
+
+    - name: Check border-nyc-01 session is Established
+      ansible.builtin.assert:
+        that:
+          - >
+            (bgp_summary.stdout[0] | from_json).vrfs.default.peers.values()
+            | selectattr('peerState', 'eq', 'Established') | list | length > 0
+        fail_msg: |
+          BGP session to border-nyc-01 has not recovered to Established.
+          Check: show bgp summary on border-lon-01
+          Ethernet3 was brought up — check physical connectivity in containerlab.
+        success_msg: "BGP session to border-nyc-01 is Established."
+
+- name: Write fresh metrics and clean up
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Run write_bgp_metrics to update Prometheus
+      ansible.builtin.command: >
+        ansible-playbook {{ playbook_dir }}/../../playbooks/write_bgp_metrics.yml
+      changed_when: false
+      register: metrics_run
+      failed_when: false
+
+    - name: Remove scenario breadcrumb
+      ansible.builtin.file:
+        path: /tmp/scenario_active.txt
+        state: absent
+
+    - ansible.builtin.debug:
+        msg:
+          - "Exercise 9.3: PASSED"
+          - "border-lon-01 Ethernet3 restored, BGP session to border-nyc-01 recovered."
+          - ""
+          - "Now check Prometheus alerts — BGPSessionLoss should move to Resolved"
+          - "within the next evaluation cycle (up to 60 seconds)."
+          - ""
+          - "In Alertmanager, verify a resolution notification was sent."

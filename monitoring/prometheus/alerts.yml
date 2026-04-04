@@ -1,0 +1,161 @@
+---
+# ACME Investments — Prometheus Alerting Rules
+# ─────────────────────────────────────────────────────────────────────────────
+# These rules evaluate against metrics scraped from the node_exporter
+# textfile collector (written by Ansible playbooks).
+#
+# Alert routing: all alerts route through Alertmanager (see alertmanager.yml).
+# In the lab, alerts appear in the Alertmanager UI and Grafana alerting inbox.
+# In production, route to PagerDuty / Slack / ServiceNow as appropriate.
+# ─────────────────────────────────────────────────────────────────────────────
+
+groups:
+
+  # ── BGP Session Alerts ──────────────────────────────────────────────────────
+  - name: bgp_session
+    interval: 60s
+    rules:
+
+      # BGP session down for more than 60 seconds
+      - alert: BGPSessionLoss
+        expr: acme_bgp_session_established == 0
+        for: 60s
+        labels:
+          severity: critical
+          team: network-ops
+          runbook: "https://wiki.acme/runbooks/bgp-session-loss"
+        annotations:
+          summary: "BGP session down: {{ $labels.node }} → {{ $labels.peer }}"
+          description: >
+            BGP session from {{ $labels.node }} to {{ $labels.peer }}
+            (AS{{ $labels.peer_asn }}, {{ $labels.peer_description }})
+            has been down for more than 60 seconds.
+            Region: {{ $labels.region }}. VRF: {{ $labels.vrf }}.
+          impact: >
+            Loss of route exchange to {{ $labels.peer_description }}.
+            Traffic to/from this peer will follow failover paths if available,
+            or be blackholed if no ECMP alternative exists.
+          remediation: >
+            1. ansible-playbook playbooks/daily_health_check.yml --limit {{ $labels.node }}
+            2. Check BGP auth key (INTENT-005): compare SoT md5_password_ref against device
+            3. If hardware failure: ansible-playbook playbooks/rma_border.yml or rma_leaf.yml
+
+      # BGP session flapping (down then up within the evaluation window)
+      - alert: BGPSessionFlapping
+        expr: >
+          changes(acme_bgp_session_established[10m]) > 2
+        for: 0s
+        labels:
+          severity: warning
+          team: network-ops
+        annotations:
+          summary: "BGP session flapping: {{ $labels.node }} → {{ $labels.peer }}"
+          description: >
+            BGP session from {{ $labels.node }} to {{ $labels.peer }} has changed
+            state {{ $value }} times in the last 10 minutes.
+            Flapping may indicate an unstable link, authentication issues, or
+            MTU mismatch.
+
+      # Significant prefix count drop (>20% below baseline)
+      - alert: BGPPrefixCountDrop
+        expr: >
+          (acme_bgp_prefixes_received / acme_bgp_prefixes_received offset 5m) < 0.80
+          and acme_bgp_prefixes_received offset 5m > 0
+        for: 2m
+        labels:
+          severity: warning
+          team: network-ops
+        annotations:
+          summary: "BGP prefix count drop: {{ $labels.node }} ← {{ $labels.peer }}"
+          description: >
+            Prefix count from {{ $labels.peer }} on {{ $labels.node }} has dropped
+            by more than 20% in the last 5 minutes.
+            Current: {{ $value | printf "%.0f" }} prefixes.
+            This may indicate a route withdrawal, route leak remediation upstream,
+            or a partial session reset.
+
+  # ── Interface Alerts ────────────────────────────────────────────────────────
+  - name: interface_health
+    interval: 60s
+    rules:
+
+      # High interface utilisation
+      - alert: InterfaceHighUtilisation
+        expr: acme_interface_utilisation_percent > 80
+        for: 5m
+        labels:
+          severity: warning
+          team: network-ops
+        annotations:
+          summary: "High utilisation: {{ $labels.node }} {{ $labels.interface }} ({{ $labels.direction }})"
+          description: >
+            Interface {{ $labels.interface }} on {{ $labels.node }} has sustained
+            {{ $value | printf "%.1f" }}% {{ $labels.direction }}bound utilisation
+            for 5 minutes (threshold: 80%).
+
+      # Interface errors accumulating
+      - alert: InterfaceErrorsRising
+        expr: rate(acme_interface_errors_total[5m]) > 0
+        for: 2m
+        labels:
+          severity: warning
+          team: network-ops
+        annotations:
+          summary: "Interface errors: {{ $labels.node }} {{ $labels.interface }}"
+          description: >
+            Interface {{ $labels.interface }} on {{ $labels.node }} is accumulating
+            errors at {{ $value | printf "%.2f" }} errors/second.
+
+  # ── Compliance and Drift Alerts ─────────────────────────────────────────────
+  - name: compliance
+    interval: 300s   # evaluate every 5 minutes — drift checks are slower
+    rules:
+
+      # Config drift detected
+      - alert: ConfigDriftDetected
+        expr: acme_drift_detected == 1
+        for: 0s
+        labels:
+          severity: warning
+          team: network-ops
+        annotations:
+          summary: "Config drift: {{ $labels.node }}"
+          description: >
+            Running configuration on {{ $labels.node }} has diverged from the
+            SoT-rendered expected config. Category: {{ $labels.drift_category }}.
+            Run ansible-playbook playbooks/drift_detection.yml --limit {{ $labels.node }}
+            to review and remediate.
+
+      # NTP sync lost
+      - alert: NTPSyncLost
+        expr: acme_ntp_synced == 0
+        for: 5m
+        labels:
+          severity: warning
+          team: network-ops
+        annotations:
+          summary: "NTP sync lost: {{ $labels.node }}"
+          description: >
+            {{ $labels.node }} is not synchronised to NTP.
+            This violates INTENT-009 (compliance controls) and may affect
+            time-stamped audit logs and MiFID II trade timestamp accuracy.
+
+  # ── Metrics Freshness ───────────────────────────────────────────────────────
+  - name: metrics_freshness
+    interval: 120s
+    rules:
+
+      # Ansible metrics are stale (playbook has not run in >10 minutes)
+      - alert: MetricsStale
+        expr: >
+          (time() - acme_last_metrics_update_timestamp) > 600
+        for: 0s
+        labels:
+          severity: info
+          team: network-ops
+        annotations:
+          summary: "Network metrics stale for {{ $labels.node }}"
+          description: >
+            The last Ansible metrics update for {{ $labels.node }} was
+            {{ $value | humanizeDuration }} ago (threshold: 10 minutes).
+            Ensure write_bgp_metrics.yml is running on schedule.

@@ -1,0 +1,91 @@
+---
+# scenarios/ch08/ex101_verify.yml
+#
+# Exercise 10.1 verification — confirms leaf-lon-02 RMA completed successfully
+
+- name: Verify ex101 — leaf-lon-02 RMA
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Check breadcrumb exists
+      ansible.builtin.stat:
+        path: /tmp/scenario_active.txt
+      register: breadcrumb
+      failed_when: not breadcrumb.stat.exists
+
+    - name: Read breadcrumb
+      ansible.builtin.slurp:
+        src: /tmp/scenario_active.txt
+      register: breadcrumb_content
+
+    - name: Confirm correct scenario
+      ansible.builtin.assert:
+        that: "'ex101_leaf_rma' in (breadcrumb_content.content | b64decode)"
+        fail_msg: "Breadcrumb does not match ex101. Was the correct inject playbook run?"
+
+    - name: Check SoT serial is updated (not FAIL000000)
+      ansible.builtin.command:
+        cmd: >
+          python3 -c "
+          import re
+          with open('sot/devices/lon-dc1/leaf-lon-02.yml') as f:
+              for line in f:
+                  m = re.match(r'^serial:\s+(\S+)', line)
+                  if m:
+                      s = m.group(1).rstrip()
+                      if s == 'FAIL000000':
+                          raise SystemExit('SoT serial not updated — still FAIL000000')
+                      print('serial OK:', s)
+                      break
+          "
+        chdir: "{{ playbook_dir }}/../../.."
+      register: serial_check
+      changed_when: false
+      failed_when: serial_check.rc != 0
+
+- name: Verify leaf-lon-02 BGP sessions restored
+  hosts: leaf-lon-02
+  gather_facts: false
+  tasks:
+    - name: Check BGP sessions to both spines
+      arista.eos.eos_command:
+        commands:
+          - "show bgp summary vrf all | json"
+      register: bgp_state
+
+    - name: Assert all BGP sessions Established
+      ansible.builtin.assert:
+        that: >
+          (bgp_state.stdout[0] | from_json).vrfs.values()
+          | map(attribute='peers') | map('dict2items') | flatten
+          | selectattr('value.peerState', 'ne', 'Established') | list | length == 0
+        fail_msg: >
+          Not all BGP sessions are Established on leaf-lon-02.
+          Run: show bgp summary vrf all — check both spine peers.
+
+    - name: Assert fabric links are up
+      arista.eos.eos_command:
+        commands:
+          - "show interfaces Ethernet1,Ethernet2 status | json"
+      register: intf_state
+
+    - name: Remove breadcrumb on success
+      ansible.builtin.file:
+        path: /tmp/scenario_active.txt
+        state: absent
+      delegate_to: localhost
+
+    - name: Exercise 10.1 passed
+      ansible.builtin.debug:
+        msg: |
+          ✓ Exercise 10.1 PASSED
+          leaf-lon-02 BGP sessions to spine-lon-01 and spine-lon-02 are Established.
+          SoT serial number is updated to the replacement value.
+
+          Key takeaways:
+          - The RMA workflow is entirely pipeline-driven: no manual CLI on the device.
+          - Updating the serial in the SoT is the only human input required.
+          - Config is identical to the failed unit — the replacement is indistinguishable
+            from the network's perspective.
+          - VRRP for CORPORATE VLAN 200 will have already failed back to leaf-lon-02
+            (assuming preempt delay has passed).

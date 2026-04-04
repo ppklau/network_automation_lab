@@ -1,0 +1,374 @@
+---
+# playbooks/os_upgrade.yml
+#
+# ACME Investments — OS Upgrade Workflow
+# Implements: Module 10.5
+#
+# Upgrades the OS on a target device, using the SoT as the authority for
+# what version each device should be running:
+#
+#   Phase 1: Pre-check (current version vs SoT target_version)
+#   Phase 2: Skip if already at target (idempotent)
+#   Phase 3: Maintenance mode (BGP graceful-shutdown before reload)
+#   Phase 4: Image stage (upload EOS image to flash:)
+#   Phase 5: Upgrade (set boot image, reload, wait for device return)
+#   Phase 6: Post-upgrade verification (version, BGP reconvergence)
+#   Phase 7: Exit maintenance and record artefact
+#
+# SoT convention: add a `target_version` field to the device YAML to declare
+# the desired OS. The pipeline detects the mismatch and this playbook remediates it.
+# If target_version is not set in the SoT, the playbook aborts (use --extra-vars
+# to override for ad-hoc upgrades).
+#
+# Parameters:
+#   target_version  — override SoT target version (optional — SoT is preferred)
+#   image_path      — path to EOS .swi image file on control node (required for EOS)
+#   confirmed       — "yes" to skip interactive confirmation gate
+#   upgrade_reason  — reason for upgrade (optional)
+#
+# Usage:
+#   ansible-playbook playbooks/os_upgrade.yml \
+#     --limit leaf-lon-02 \
+#     --extra-vars "image_path=/images/EOS-4.32.3F.swi confirmed=yes"
+
+- name: Phase 1 — Pre-check current vs target version
+  hosts: "{{ ansible_limit | default('none') }}"
+  gather_facts: false
+  vars:
+    upgrade_reason: "{{ upgrade_reason | default('Routine OS upgrade per SoT target_version') }}"
+    upgrade_timestamp: "{{ lookup('pipe', 'date -u +%Y-%m-%dT%H:%M:%SZ') }}"
+  tasks:
+    - name: Verify target was specified
+      ansible.builtin.assert:
+        that: ansible_limit is defined
+        fail_msg: "Use --limit to specify the device(s) to upgrade."
+
+    - name: Resolve target version (SoT field takes precedence over extra-vars)
+      ansible.builtin.set_fact:
+        resolved_target_version: "{{ target_version | default(hostvars[inventory_hostname].target_version | default('')) }}"
+
+    - name: Assert target version is known
+      ansible.builtin.assert:
+        that: resolved_target_version | length > 0
+        fail_msg: >
+          No target_version defined for {{ inventory_hostname }}.
+          Add 'target_version: <version>' to the SoT device file, or
+          pass --extra-vars "target_version=<version>" for an ad-hoc upgrade.
+
+    - name: Collect current version (EOS)
+      when: platform == 'arista_eos'
+      arista.eos.eos_command:
+        commands:
+          - "show version | json"
+          - "show bgp summary vrf all | json"
+      register: pre_upgrade_state
+
+    - name: Parse current version (EOS)
+      when: platform == 'arista_eos'
+      ansible.builtin.set_fact:
+        current_version: "{{ (pre_upgrade_state.stdout[0] | from_json).get('version', 'unknown') }}"
+        pre_upgrade_bgp_established: >-
+          {{ (pre_upgrade_state.stdout[1] | from_json).vrfs.values()
+             | map(attribute='peers') | map('dict2items') | flatten
+             | selectattr('value.peerState', 'eq', 'Established') | list | length }}
+        pre_upgrade_bgp_total: >-
+          {{ (pre_upgrade_state.stdout[1] | from_json).vrfs.values()
+             | map(attribute='peers') | map('length') | sum }}
+
+    - name: Version pre-check summary
+      ansible.builtin.debug:
+        msg: |
+          ════════════════════════════════════════════════════════════════
+          OS UPGRADE PRE-CHECK: {{ inventory_hostname }}
+          ════════════════════════════════════════════════════════════════
+          Current version : {{ current_version | default('unknown') }}
+          Target version  : {{ resolved_target_version }}
+          Pre-upgrade BGP : {{ pre_upgrade_bgp_established | default('N/A') }}/{{ pre_upgrade_bgp_total | default('N/A') }}
+          Reason          : {{ upgrade_reason }}
+          ════════════════════════════════════════════════════════════════
+
+    - name: Set upgrade_needed fact
+      ansible.builtin.set_fact:
+        upgrade_needed: "{{ current_version != resolved_target_version }}"
+
+    - name: Skip if already at target version
+      when: not upgrade_needed
+      ansible.builtin.debug:
+        msg: |
+          {{ inventory_hostname }} is already running {{ current_version }} (= target).
+          No upgrade needed. Exiting cleanly.
+
+- name: Phase 2 — Confirmation gate
+  hosts: localhost
+  gather_facts: false
+  vars:
+    confirmed: "{{ confirmed | default('no') }}"
+  tasks:
+    - name: Skip confirmation if no upgrade needed
+      when: not (hostvars[ansible_limit].upgrade_needed | default(false))
+      ansible.builtin.meta: end_play
+
+    - name: Interactive confirmation
+      when: confirmed | lower != 'yes'
+      ansible.builtin.pause:
+        prompt: |
+
+          ════════════════════════════════════════════════════════════════
+          OS UPGRADE — CONFIRMATION REQUIRED
+          ════════════════════════════════════════════════════════════════
+          Device          : {{ ansible_limit }}
+          Current version : {{ hostvars[ansible_limit].current_version | default('unknown') }}
+          Target version  : {{ hostvars[ansible_limit].resolved_target_version }}
+
+          ⚠ The device will reload as part of the upgrade.
+          BGP sessions will drop during reload and reconverge on return.
+
+          Pre-requisites:
+            - Image file exists at: {{ image_path | default('image_path not set') }}
+            - Peer device (spine/border) is healthy
+            - Maintenance window is active or approved
+
+          Type 'yes' to proceed, anything else to abort:
+      register: gate_input
+      failed_when: gate_input.user_input | lower != 'yes'
+
+- name: Phase 3 — Enter maintenance mode
+  hosts: "{{ ansible_limit | default('none') }}"
+  gather_facts: false
+  tasks:
+    - name: Skip if no upgrade needed
+      when: not (upgrade_needed | default(false))
+      ansible.builtin.meta: end_play
+
+    - name: Apply BGP graceful-shutdown (EOS)
+      when: platform == 'arista_eos'
+      arista.eos.eos_config:
+        lines:
+          - "graceful-shutdown"
+        parents:
+          - "router bgp {{ bgp.local_as | default(65001) }}"
+
+    - name: Wait for traffic to drain
+      ansible.builtin.wait_for:
+        timeout: 60
+      delegate_to: localhost
+
+    - name: Maintenance mode applied
+      ansible.builtin.debug:
+        msg: "BGP graceful-shutdown applied on {{ inventory_hostname }}. Waiting 60s for traffic drain."
+
+- name: Phase 4 — Stage image
+  hosts: "{{ ansible_limit | default('none') }}"
+  gather_facts: false
+  tasks:
+    - name: Skip if no upgrade needed
+      when: not (upgrade_needed | default(false))
+      ansible.builtin.meta: end_play
+
+    - name: Assert image_path provided (EOS)
+      when: platform == 'arista_eos'
+      ansible.builtin.assert:
+        that:
+          - image_path is defined
+          - image_path | length > 0
+        fail_msg: >
+          Provide --extra-vars "image_path=<path_to_swi>" with the EOS image file path.
+
+    - name: Check image file exists on control node
+      when: platform == 'arista_eos'
+      ansible.builtin.stat:
+        path: "{{ image_path }}"
+      delegate_to: localhost
+      register: image_stat
+      failed_when: not image_stat.stat.exists
+
+    - name: Copy EOS image to device flash
+      when: platform == 'arista_eos'
+      arista.eos.eos_command:
+        commands:
+          - "copy scp://{{ ansible_user }}@{{ hostvars['localhost'].ansible_host | default('127.0.0.1') }}:{{ image_path }} flash:"
+      register: copy_result
+      failed_when: false
+
+    - name: Verify image staged on flash (EOS)
+      when: platform == 'arista_eos'
+      arista.eos.eos_command:
+        commands:
+          - "show flash: | include {{ image_path | basename }}"
+      register: flash_check
+      failed_when: image_path | basename not in flash_check.stdout[0]
+
+    - name: Image staged
+      ansible.builtin.debug:
+        msg: "Image {{ image_path | basename }} staged on {{ inventory_hostname }} flash:."
+
+- name: Phase 5 — Perform upgrade
+  hosts: "{{ ansible_limit | default('none') }}"
+  gather_facts: false
+  tasks:
+    - name: Skip if no upgrade needed
+      when: not (upgrade_needed | default(false))
+      ansible.builtin.meta: end_play
+
+    - name: Set boot image (EOS)
+      when: platform == 'arista_eos'
+      arista.eos.eos_config:
+        lines:
+          - "boot system flash:{{ image_path | basename }}"
+      notify: save config and reload
+
+    - name: Save config before reload (EOS)
+      when: platform == 'arista_eos'
+      arista.eos.eos_command:
+        commands:
+          - "write memory"
+
+    - name: Initiate reload (EOS)
+      when: platform == 'arista_eos'
+      arista.eos.eos_command:
+        commands:
+          - "reload now"
+      failed_when: false  # device will disconnect immediately on reload
+
+    - name: Wait for device to go offline
+      ansible.builtin.wait_for:
+        host: "{{ ansible_host }}"
+        port: 22
+        state: absent
+        timeout: 120
+      delegate_to: localhost
+
+    - name: Wait for device to come back online
+      ansible.builtin.wait_for:
+        host: "{{ ansible_host }}"
+        port: 22
+        state: started
+        timeout: 600
+        delay: 60
+      delegate_to: localhost
+
+    - name: Additional wait for EOS to initialise all processes
+      ansible.builtin.wait_for:
+        timeout: 60
+      delegate_to: localhost
+
+    - name: Reload initiated
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }} reloaded. Waiting for device to return and BGP to reconverge."
+
+- name: Phase 6 — Post-upgrade verification
+  hosts: "{{ ansible_limit | default('none') }}"
+  gather_facts: false
+  tasks:
+    - name: Skip if no upgrade needed
+      when: not (upgrade_needed | default(false))
+      ansible.builtin.meta: end_play
+
+    - name: Collect post-upgrade state (EOS)
+      when: platform == 'arista_eos'
+      arista.eos.eos_command:
+        commands:
+          - "show version | json"
+          - "show bgp summary vrf all | json"
+      register: post_upgrade_state
+      retries: 10
+      delay: 15
+      until: >
+        (post_upgrade_state.stdout[1] | from_json).vrfs.values()
+        | map(attribute='peers') | map('dict2items') | flatten
+        | selectattr('value.peerState', 'ne', 'Established') | list | length == 0
+
+    - name: Assert version matches target (EOS)
+      when: platform == 'arista_eos'
+      ansible.builtin.assert:
+        that: >
+          (post_upgrade_state.stdout[0] | from_json).get('version', '') == resolved_target_version
+        fail_msg: >
+          Version mismatch post-upgrade.
+          Device reports {{ (post_upgrade_state.stdout[0] | from_json).get('version', 'unknown') }},
+          target was {{ resolved_target_version }}.
+          Check boot configuration and reload log.
+
+    - name: Remove maintenance mode (EOS)
+      when: platform == 'arista_eos'
+      arista.eos.eos_config:
+        lines:
+          - "no graceful-shutdown"
+        parents:
+          - "router bgp {{ bgp.local_as | default(65001) }}"
+
+    - name: Calculate post-upgrade BGP counts
+      when: platform == 'arista_eos'
+      ansible.builtin.set_fact:
+        post_upgrade_bgp_established: >-
+          {{ (post_upgrade_state.stdout[1] | from_json).vrfs.values()
+             | map(attribute='peers') | map('dict2items') | flatten
+             | selectattr('value.peerState', 'eq', 'Established') | list | length }}
+        post_upgrade_bgp_total: >-
+          {{ (post_upgrade_state.stdout[1] | from_json).vrfs.values()
+             | map(attribute='peers') | map('length') | sum }}
+
+    - name: Post-upgrade verification summary
+      ansible.builtin.debug:
+        msg: |
+          ════════════════════════════════════════════════════════════════
+          OS UPGRADE VERIFICATION: {{ inventory_hostname }}
+          ════════════════════════════════════════════════════════════════
+          Version  : {{ resolved_target_version }} (verified)
+          BGP      : {{ post_upgrade_bgp_established }}/{{ post_upgrade_bgp_total }} Established
+
+          ✓ OS upgrade complete and device operational.
+          ════════════════════════════════════════════════════════════════
+
+- name: Phase 7 — Update SoT and record artefact
+  hosts: localhost
+  gather_facts: false
+  vars:
+    target: "{{ ansible_limit }}"
+    upgrade_timestamp: "{{ lookup('pipe', 'date +%Y%m%d_%H%M%S') }}"
+  tasks:
+    - name: Skip if no upgrade needed
+      when: not (hostvars[ansible_limit].upgrade_needed | default(false))
+      ansible.builtin.meta: end_play
+
+    - name: Update image field in SoT to reflect new running version
+      ansible.builtin.replace:
+        path: "{{ playbook_dir }}/../sot/devices/{{ hostvars[target].site }}/{{ target }}.yml"
+        regexp: '^image:.*$'
+        replace: "image: ceos:{{ hostvars[target].resolved_target_version }}"
+
+    - name: Ensure upgrade artefact directory exists
+      ansible.builtin.file:
+        path: "{{ playbook_dir }}/../state/upgrades"
+        state: directory
+        mode: '0755'
+
+    - name: Write upgrade artefact record
+      ansible.builtin.copy:
+        content: |
+          upgrade_record:
+            device: "{{ target }}"
+            role: "{{ hostvars[target].role }}"
+            site: "{{ hostvars[target].site }}"
+            from_version: "{{ hostvars[target].current_version | default('unknown') }}"
+            to_version: "{{ hostvars[target].resolved_target_version }}"
+            reason: "{{ upgrade_reason | default('Routine upgrade per SoT target_version') }}"
+            completed_at: "{{ lookup('pipe', 'date -u +%Y-%m-%dT%H:%M:%SZ') }}"
+            engineer: "{{ ansible_env.USER | default('automation') }}"
+        dest: "{{ playbook_dir }}/../state/upgrades/{{ target }}_{{ upgrade_timestamp }}.yml"
+
+    - name: Upgrade complete
+      ansible.builtin.debug:
+        msg: |
+          ════════════════════════════════════════════════════════════════
+          OS UPGRADE COMPLETE: {{ target }}
+          ════════════════════════════════════════════════════════════════
+          Artefact : state/upgrades/{{ target }}_{{ upgrade_timestamp }}.yml
+          SoT      : image field updated to ceos:{{ hostvars[target].resolved_target_version }}
+
+          Next steps:
+          1. Commit SoT image update:
+             git add sot/ && git commit -m "Upgrade {{ target }} to {{ hostvars[target].resolved_target_version }}"
+          2. Run Batfish intent checks:
+             cd batfish && ./run_checks.sh
+          ════════════════════════════════════════════════════════════════

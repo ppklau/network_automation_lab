@@ -1,0 +1,107 @@
+---
+# scenarios/ch08/ex105_inject.yml
+#
+# Exercise 10.5 — OS Upgrade Workflow
+# Fault: SoT target_version set to a newer EOS version than currently running
+#
+# Context: ACME's change board has approved upgrading leaf-lon-02 from
+# EOS 4.32.2F to 4.32.3F following a vendor advisory about a BGP timer
+# regression in 4.32.2F under heavy traffic. The SoT is the authority for
+# what version each device should run. The exercise simulates the SoT being
+# updated to declare the target version, and the reader uses os_upgrade.yml
+# to bring the device into compliance.
+#
+# In the lab we cannot actually install a different image (containerlab uses
+# the image baked into the container). This scenario therefore uses a version
+# mismatch detection exercise: the reader learns the version pre-check, the
+# SoT target declaration, and the upgrade workflow, with the actual reload
+# step either simulated or skipped using a stub image flag.
+#
+# What is injected:
+#   - target_version: "4.32.3F" added to leaf-lon-02 SoT
+#     (mismatch with image: ceos:4.32.2F, which is what the device reports)
+#   - A breadcrumb records the expected mismatch
+#
+# The reader must:
+#   1. Run os_upgrade.yml pre-check mode to confirm the version mismatch
+#   2. Understand the upgrade phases (maintenance → stage → reload → verify)
+#   3. Inspect the SoT target_version and image fields
+#
+# Breadcrumb: /tmp/scenario_active.txt (localhost)
+
+- name: Inject target_version mismatch in SoT for leaf-lon-02
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Check if target_version already present in SoT
+      ansible.builtin.command:
+        cmd: >
+          python3 -c "
+          with open('sot/devices/lon-dc1/leaf-lon-02.yml') as f:
+              content = f.read()
+          print('present' if 'target_version' in content else 'absent')
+          "
+        chdir: "{{ playbook_dir }}/../.."
+      register: tv_present
+      changed_when: false
+
+    - name: Add target_version field after image field
+      when: tv_present.stdout.strip() == 'absent'
+      ansible.builtin.replace:
+        path: "{{ playbook_dir }}/../../sot/devices/lon-dc1/leaf-lon-02.yml"
+        regexp: '^(image: ceos:4\.32\.2F.*)$'
+        replace: |
+          \1
+          target_version: "4.32.3F"  # INJECTED: upgrade approved via CAB-2026-0041
+
+    - name: Update target_version if already present
+      when: tv_present.stdout.strip() == 'present'
+      ansible.builtin.replace:
+        path: "{{ playbook_dir }}/../../sot/devices/lon-dc1/leaf-lon-02.yml"
+        regexp: '^target_version:.*$'
+        replace: 'target_version: "4.32.3F"  # INJECTED: upgrade approved via CAB-2026-0041'
+
+    - name: Write scenario breadcrumb
+      ansible.builtin.copy:
+        content: |
+          scenario: ex105_os_upgrade
+          injected_at: "{{ lookup('pipe', 'date -u +%Y-%m-%dT%H:%M:%SZ') }}"
+          target: leaf-lon-02
+          fault: >
+            SoT target_version set to 4.32.3F. Device is currently running 4.32.2F.
+            This simulates a CAB-approved upgrade. The pipeline will detect the mismatch
+            and upgrade the device.
+          change_reference: CAB-2026-0041
+          advisory: >
+            Vendor advisory: BGP timer regression in 4.32.2F under heavy traffic.
+            Upgrade to 4.32.3F resolves the issue.
+          current_version: "4.32.2F"
+          target_version: "4.32.3F"
+          remediation:
+            - Run: ansible-playbook playbooks/os_upgrade.yml --limit leaf-lon-02
+                    --extra-vars "image_path=/images/EOS-4.32.3F.swi confirmed=yes"
+          verify: ansible-playbook scenarios/ch08/ex105_verify.yml
+        dest: /tmp/scenario_active.txt
+
+    - name: Confirm injection
+      ansible.builtin.debug:
+        msg: |
+          FAULT INJECTED: OS version mismatch on leaf-lon-02
+
+          SoT now declares target_version: 4.32.3F for leaf-lon-02.
+          The device is currently running 4.32.2F.
+
+          The pipeline will detect this mismatch in the pre-check phase.
+
+          Your task:
+            1. Inspect the SoT entry:
+               grep -A 2 'image:' sot/devices/lon-dc1/leaf-lon-02.yml
+            2. Run the OS upgrade workflow:
+               ansible-playbook playbooks/os_upgrade.yml \
+                 --limit leaf-lon-02 \
+                 --extra-vars "image_path=/images/EOS-4.32.3F.swi confirmed=yes"
+               (In the lab without a real image, use --tags precheck to run only the
+                version detection phase.)
+            3. Observe the pre-check output — it will detect the version mismatch
+               and report what would happen.
+            4. Verify: ansible-playbook scenarios/ch08/ex105_verify.yml

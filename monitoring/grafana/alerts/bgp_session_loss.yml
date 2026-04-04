@@ -1,0 +1,203 @@
+---
+# ACME Investments — Grafana Unified Alerting: BGP Session Loss
+# ─────────────────────────────────────────────────────────────────────────────
+# Provisioned via Grafana alerting rules YAML (Grafana 10+).
+# File is loaded at Grafana start from the provisioning path.
+#
+# These rules mirror the Prometheus alerting rules in prometheus/alerts.yml
+# but are evaluated by Grafana's built-in alerting engine, giving you:
+#   - Alert annotations on dashboard panels
+#   - Grafana notification policies (email, Slack, webhook)
+#   - Alert history in the Grafana UI
+#
+# In production, configure a notification policy to route BGP critical alerts
+# to your on-call platform (PagerDuty, OpsGenie, or VictorOps).
+# ─────────────────────────────────────────────────────────────────────────────
+
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: BGP Session Alerts
+    folder: ACME Network
+    interval: 60s
+    rules:
+
+      # ── BGP Session Loss — Critical ─────────────────────────────────────────
+      # Fires when any BGP session has been down for more than 60 seconds.
+      # Ref: INTENT-005 (BGP standards), REQ-012 (all sessions authenticated)
+      - uid: acme-bgp-session-loss
+        title: BGP Session Loss
+        condition: C
+        data:
+          - refId: A
+            queryType: ''
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: acme-prometheus
+            model:
+              expr: acme_bgp_session_established
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            queryType: ''
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: "__expr__"
+            model:
+              type: reduce
+              refId: B
+              datasource:
+                uid: "__expr__"
+                type: "__expr__"
+              conditions:
+                - evaluator:
+                    params: []
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              reducer: last
+              expression: A
+          - refId: C
+            queryType: ''
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: "__expr__"
+            model:
+              type: threshold
+              refId: C
+              datasource:
+                uid: "__expr__"
+                type: "__expr__"
+              conditions:
+                - evaluator:
+                    params: [1]
+                    type: lt
+                  operator:
+                    type: and
+                  query:
+                    params: [B]
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              expression: B
+        noDataState: NoData
+        execErrState: Error
+        for: 60s
+        annotations:
+          summary: "BGP session down: {{ $labels.node }} → {{ $labels.peer }}"
+          description: >
+            BGP session from {{ $labels.node }} to {{ $labels.peer }}
+            (AS{{ $labels.peer_asn }}, {{ $labels.peer_description }}) is DOWN.
+            VRF: {{ $labels.vrf }}. Region: {{ $labels.region }}.
+          runbook_url: "https://wiki.acme/runbooks/bgp-session-loss"
+          dashboard_uid: acme-network-overview
+          panel_id: "10"
+        labels:
+          severity: critical
+          team: network-ops
+          intent_ref: INTENT-005
+        isPaused: false
+
+      # ── BGP Session Loss — TRADING VRF ──────────────────────────────────────
+      # Separate rule for TRADING VRF sessions with higher-priority routing.
+      # TRADING BGP loss has direct MiFID II implications (trade data continuity).
+      - uid: acme-bgp-trading-session-loss
+        title: TRADING VRF BGP Session Loss
+        condition: C
+        data:
+          - refId: A
+            queryType: ''
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: acme-prometheus
+            model:
+              expr: 'acme_bgp_session_established{vrf="TRADING"}'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            queryType: ''
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: "__expr__"
+            model:
+              type: reduce
+              refId: B
+              datasource:
+                uid: "__expr__"
+                type: "__expr__"
+              conditions:
+                - evaluator:
+                    params: []
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              reducer: last
+              expression: A
+          - refId: C
+            queryType: ''
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: "__expr__"
+            model:
+              type: threshold
+              refId: C
+              datasource:
+                uid: "__expr__"
+                type: "__expr__"
+              conditions:
+                - evaluator:
+                    params: [1]
+                    type: lt
+                  operator:
+                    type: and
+                  query:
+                    params: [B]
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              expression: B
+        noDataState: NoData
+        execErrState: Error
+        for: 60s
+        annotations:
+          summary: "TRADING VRF BGP session down: {{ $labels.node }} → {{ $labels.peer }}"
+          description: >
+            TRADING VRF BGP session from {{ $labels.node }} to {{ $labels.peer }} is DOWN.
+            This has direct MiFID II implications — TRADING zone connectivity to
+            the rest of the fabric relies on this session.
+            REQ-007: Trading systems must be isolated but continuously available.
+          runbook_url: "https://wiki.acme/runbooks/bgp-session-loss"
+          dashboard_uid: acme-trading-zone
+          panel_id: "1"
+        labels:
+          severity: critical
+          team: network-ops
+          zone: TRADING
+          intent_ref: INTENT-001
+          regulatory: MiFID-II
+        isPaused: false

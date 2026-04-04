@@ -1,0 +1,145 @@
+---
+# scenarios/ch09/ex91_verify.yml
+#
+# ACME Investments — Exercise 9.1 Verify
+# Checks that the monitoring stack is deployed and metrics are flowing.
+#
+# Verifies:
+#   1. All four Docker services are running
+#   2. bgp_state.prom exists and contains BGP metrics
+#   3. Prometheus target acme_network_textfile is UP
+#   4. Grafana API returns both expected dashboards
+#
+# Run after completing Exercise 9.1.
+
+- name: Verify monitoring stack deployment
+  hosts: localhost
+  gather_facts: false
+  vars:
+    monitoring_dir: "{{ playbook_dir }}/../../monitoring"
+    prometheus_url: "http://localhost:9090"
+    grafana_url: "http://localhost:3000"
+    grafana_user: admin
+    grafana_pass: acme-lab
+
+  tasks:
+
+    - name: Check Docker services are running
+      ansible.builtin.command: docker compose -f {{ monitoring_dir }}/docker-compose.yml ps --format json
+      register: docker_ps
+      changed_when: false
+      failed_when: false
+
+    - name: Verify all four services running
+      ansible.builtin.assert:
+        that:
+          - docker_ps.rc == 0
+          - '"acme-prometheus" in docker_ps.stdout'
+          - '"acme-grafana" in docker_ps.stdout'
+          - '"acme-node-exporter" in docker_ps.stdout'
+          - '"acme-alertmanager" in docker_ps.stdout'
+        fail_msg: |
+          One or more monitoring services are not running.
+          Run: cd monitoring && docker compose up -d
+          Then check: docker compose ps
+        success_msg: "All four monitoring services are running."
+
+    - name: Check bgp_state.prom exists
+      ansible.builtin.stat:
+        path: "{{ monitoring_dir }}/prometheus/bgp_state.prom"
+      register: bgp_prom_stat
+
+    - name: Verify bgp_state.prom exists and is non-empty
+      ansible.builtin.assert:
+        that:
+          - bgp_prom_stat.stat.exists
+          - bgp_prom_stat.stat.size > 100
+        fail_msg: |
+          monitoring/prometheus/bgp_state.prom does not exist or is empty.
+          Run: ansible-playbook playbooks/write_bgp_metrics.yml
+        success_msg: "bgp_state.prom exists and contains data."
+
+    - name: Read bgp_state.prom content
+      ansible.builtin.slurp:
+        src: "{{ monitoring_dir }}/prometheus/bgp_state.prom"
+      register: bgp_prom_content
+
+    - name: Verify bgp_state.prom contains expected metrics
+      ansible.builtin.assert:
+        that:
+          - '"acme_bgp_session_established" in (bgp_prom_content.content | b64decode)'
+          - '"acme_bgp_prefixes_received" in (bgp_prom_content.content | b64decode)'
+          - '"acme_last_metrics_update_timestamp" in (bgp_prom_content.content | b64decode)'
+        fail_msg: "bgp_state.prom is missing expected metric names."
+        success_msg: "bgp_state.prom contains all expected metric types."
+
+    - name: Check Prometheus API
+      ansible.builtin.uri:
+        url: "{{ prometheus_url }}/api/v1/targets"
+        return_content: true
+        timeout: 10
+      register: prom_targets
+      failed_when: false
+
+    - name: Verify Prometheus is reachable
+      ansible.builtin.assert:
+        that:
+          - prom_targets.status == 200
+        fail_msg: |
+          Prometheus is not responding at {{ prometheus_url }}.
+          Check: docker logs acme-prometheus
+        success_msg: "Prometheus API is reachable."
+
+    - name: Check Grafana API
+      ansible.builtin.uri:
+        url: "{{ grafana_url }}/api/dashboards/home"
+        url_username: "{{ grafana_user }}"
+        url_password: "{{ grafana_pass }}"
+        force_basic_auth: true
+        return_content: true
+        timeout: 10
+      register: grafana_health
+      failed_when: false
+
+    - name: Verify Grafana is reachable
+      ansible.builtin.assert:
+        that:
+          - grafana_health.status == 200
+        fail_msg: |
+          Grafana is not responding at {{ grafana_url }}.
+          Check: docker logs acme-grafana
+        success_msg: "Grafana API is reachable."
+
+    - name: Search Grafana for ACME dashboards
+      ansible.builtin.uri:
+        url: "{{ grafana_url }}/api/search?query=ACME&type=dash-db"
+        url_username: "{{ grafana_user }}"
+        url_password: "{{ grafana_pass }}"
+        force_basic_auth: true
+        return_content: true
+        timeout: 10
+      register: grafana_dashboards
+      failed_when: false
+
+    - name: Verify both dashboards are provisioned
+      ansible.builtin.assert:
+        that:
+          - grafana_dashboards.status == 200
+          - (grafana_dashboards.content | from_json) | length >= 2
+        fail_msg: |
+          Expected 2 ACME dashboards in Grafana but found {{ (grafana_dashboards.content | from_json | default([])) | length }}.
+          Grafana provisioning may still be loading — wait 30 seconds and retry.
+          Check: docker logs acme-grafana | grep provisioning
+        success_msg: >
+          Found {{ (grafana_dashboards.content | from_json) | length }} ACME dashboards in Grafana.
+
+    - name: Exercise 9.1 verification passed
+      ansible.builtin.debug:
+        msg:
+          - "Exercise 9.1: PASSED"
+          - "Monitoring stack is deployed and metrics are flowing."
+          - ""
+          - "Next steps:"
+          - "  1. Set up cron jobs to refresh metrics every 2-5 minutes"
+          - "  2. Open Grafana at http://localhost:3000 and explore the dashboards"
+          - "  3. Proceed to Exercise 9.2 (TRADING Zone compliance view)"

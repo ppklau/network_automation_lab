@@ -1,0 +1,65 @@
+---
+# scenarios/ch09/ex93_inject.yml
+#
+# ACME Investments — Exercise 9.3 Inject: BGP Session Loss
+#
+# Injects a BGP session loss by shutting down the Ethernet3 interface on
+# border-lon-01, which carries the BGP session to border-nyc-01.
+# The session will go to Active/Idle state — simulating a WAN link failure.
+#
+# The fault description is written to /tmp/scenario_active.txt.
+# The verify playbook checks for this file before running.
+
+- name: Write scenario breadcrumb
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Write scenario_active.txt
+      ansible.builtin.copy:
+        content: |
+          Scenario: Exercise 9.3 — BGP Session Loss
+          Injected: {{ lookup('pipe', 'date') }}
+          Device: border-lon-01
+          Fault: Ethernet3 (WAN link to border-nyc-01) shutdown
+          Expected: BGP session to border-nyc-01 (AS65010) goes down
+          Alert: BGPSessionLoss should fire within 60-90 seconds of next metrics write
+        dest: /tmp/scenario_active.txt
+
+- name: Inject BGP session loss on border-lon-01
+  hosts: border-lon-01
+  gather_facts: false
+  tasks:
+    - name: Shut down Ethernet3 (WAN link to border-nyc-01)
+      arista.eos.eos_config:
+        lines:
+          - shutdown
+        parents: "interface Ethernet3"
+
+    - name: Verify Ethernet3 is down
+      arista.eos.eos_command:
+        commands:
+          - "show interface Ethernet3 | json"
+      register: intf_state
+      changed_when: false
+
+    - name: Confirm interface is shut
+      ansible.builtin.debug:
+        msg: >
+          Ethernet3 line protocol: {{ (intf_state.stdout[0] | from_json)
+            .interfaces.Ethernet3.lineProtocolStatus }}
+
+- name: Notify
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - ansible.builtin.debug:
+        msg:
+          - "Fault injected: border-lon-01 Ethernet3 is down."
+          - ""
+          - "The BGP session to border-nyc-01 (AS65010) will go down within 60-90 seconds."
+          - ""
+          - "Now run:"
+          - "  ansible-playbook playbooks/write_bgp_metrics.yml"
+          - ""
+          - "Then check Prometheus alerts at http://localhost:9090/alerts"
+          - "and Alertmanager at http://localhost:9093"
