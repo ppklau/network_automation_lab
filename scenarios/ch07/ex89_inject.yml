@@ -1,0 +1,89 @@
+---
+# scenarios/ch07/ex89_inject.yml
+#
+# Exercise 8.9 — Troubleshooting Bundle for On-Call Handoff
+# Fault: Multi-symptom incident (BGP session loss + configuration drift)
+#
+# Simulates: It is 02:47 on a Sunday morning. Alertmanager pages the on-call
+# engineer: BGPSessionLoss on border-lon-01 to border-nyc-01. At the same
+# time, an earlier troubleshooting session left an OOB NTP change on
+# leaf-lon-02 that nobody noticed.
+#
+# The on-call engineer (a junior who started three weeks ago) must:
+#   1. Generate a troubleshooting bundle to capture network state
+#   2. Examine the MANIFEST to understand what is happening
+#   3. Attach the bundle to the incident ticket and escalate
+#
+# This exercise demonstrates why a single consolidated artefact is more
+# useful than running three separate playbooks at 02:47.
+
+- name: Write scenario breadcrumb
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Write scenario_active.txt
+      ansible.builtin.copy:
+        content: |
+          scenario: ex89_troubleshooting_bundle
+          injected_at: "{{ lookup('pipe', 'date -u +%Y-%m-%dT%H:%M:%SZ') }}"
+          faults:
+            - device: border-lon-01
+              type: BGP session loss
+              detail: "Ethernet3 (WAN link to border-nyc-01) shutdown"
+            - device: leaf-lon-02
+              type: Configuration drift
+              detail: "OOB NTP server 8.8.8.8 added (not in SoT)"
+          root_cause: "WAN link failure + stale OOB change from previous troubleshooting session"
+          remediation: "Generate troubleshooting bundle, attach to incident ticket, escalate"
+        dest: /tmp/scenario_active.txt
+
+- name: Inject BGP session loss on border-lon-01
+  hosts: border-lon-01
+  gather_facts: false
+  tasks:
+    - name: Shut down Ethernet3 (WAN link to border-nyc-01)
+      arista.eos.eos_config:
+        lines:
+          - shutdown
+        parents: "interface Ethernet3"
+
+- name: Inject OOB config drift on leaf-lon-02
+  hosts: leaf-lon-02
+  gather_facts: false
+  tasks:
+    - name: Add unauthorised NTP server (simulating stale OOB change)
+      arista.eos.eos_config:
+        lines:
+          - ntp server 8.8.8.8 prefer
+      failed_when: false
+
+- name: Notify
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - ansible.builtin.debug:
+        msg:
+          - "========================================"
+          - "INCIDENT SIMULATION ACTIVE"
+          - "========================================"
+          - ""
+          - "It is 02:47 on a Sunday morning."
+          - "Alertmanager has paged you: BGPSessionLoss on border-lon-01."
+          - ""
+          - "You are the on-call engineer. You started three weeks ago."
+          - "You have not worked on the border routers before."
+          - ""
+          - "Your task:"
+          - "  1. Capture the current state of the network:"
+          - "     ansible-playbook playbooks/troubleshooting_bundle.yml \\"
+          - "       -e \"incident_id=INC-2026-04-0042\""
+          - ""
+          - "  2. Extract and read the MANIFEST:"
+          - "     tar -xzf bundles/bundle_*.tar.gz -C /tmp"
+          - "     cat /tmp/bundle_*/MANIFEST.md"
+          - ""
+          - "  3. What does the MANIFEST tell you about the incident?"
+          - "     How many issues are present? Are they related?"
+          - ""
+          - "  4. Verify: ansible-playbook scenarios/ch07/ex89_verify.yml"
+          - "========================================"

@@ -1,0 +1,87 @@
+# Troubleshooting Bundle
+
+| Field          | Value                                          |
+|----------------|------------------------------------------------|
+| Generated      | {{ bundle_timestamp }}                         |
+| Incident       | {{ incident_id | default('not specified') }}   |
+| Triggered by   | {{ triggered_by | default('manual') }}         |
+| Target scope   | {{ bundle_scope }}                             |
+| Git commit     | {{ git_commit | default('unknown') }}           |
+
+---
+
+## Quick Summary
+
+**Overall Health: {{ health_summary.status | default('UNKNOWN') }}**
+
+{% if health_summary.nodes_with_bgp_issues | default([]) | length > 0 %}
+- BGP issues on: {{ health_summary.nodes_with_bgp_issues | join(', ') }}
+{% else %}
+- BGP: all sessions Established
+{% endif %}
+{% if health_summary.nodes_with_interface_errors | default([]) | length > 0 %}
+- Interface errors on: {{ health_summary.nodes_with_interface_errors | join(', ') }}
+{% else %}
+- Interfaces: no error counters
+{% endif %}
+{% if health_summary.nodes_ntp_not_synced | default([]) | length > 0 %}
+- NTP not synced on: {{ health_summary.nodes_ntp_not_synced | join(', ') }}
+{% else %}
+- NTP: all nodes synchronised
+{% endif %}
+{% if drift_summary.nodes_with_drift | default([]) | length > 0 %}
+- Drift detected on: {{ drift_summary.nodes_with_drift | join(', ') }}
+{% if drift_summary.critical_nodes | default([]) | length > 0 %}
+  - CRITICAL: {{ drift_summary.critical_nodes | join(', ') }}
+{% endif %}
+{% else %}
+- Drift: all devices match SoT
+{% endif %}
+
+---
+
+## What to Look At First
+
+1. `health/health_summary.txt` -- overall network health
+{% if health_summary.nodes_with_bgp_issues | default([]) | length > 0 %}
+{% for node in health_summary.nodes_with_bgp_issues %}
+2. `state/{{ node }}/` -- device with BGP issues
+{% endfor %}
+{% endif %}
+{% if drift_summary.nodes_with_drift | default([]) | length > 0 %}
+3. `drift/drift_summary.txt` -- configuration drift details
+{% endif %}
+
+---
+
+## Device Inventory at Collection Time
+
+| Hostname | Platform | Site | Region | Role |
+|----------|----------|------|--------|------|
+{% for device in device_inventory %}
+| {{ device.hostname }} | {{ device.platform }} | {{ device.site }} | {{ device.region }} | {{ device.role }} |
+{% endfor %}
+
+---
+
+## Bundle Contents
+
+```
+{{ bundle_name }}/
+  MANIFEST.md                  -- this file
+  manifest.json                -- machine-readable metadata
+  health/
+    health_summary.json        -- aggregate health status
+    health_summary.txt         -- human-readable health report
+  state/
+    <hostname>/
+      bgp_summary.json         -- BGP neighbour table
+      interfaces.json          -- interface status and counters
+      routes.json              -- IP route table / route summary
+      running_config.txt       -- full running configuration
+      logs.txt                 -- last 200 log lines
+      version.json             -- platform version info
+  drift/
+    drift_summary.json         -- aggregate drift results
+    drift_summary.txt          -- human-readable drift report
+```

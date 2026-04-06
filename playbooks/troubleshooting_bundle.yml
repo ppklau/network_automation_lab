@@ -1,0 +1,723 @@
+---
+# playbooks/troubleshooting_bundle.yml
+#
+# ACME Investments — Troubleshooting Bundle Generator
+# Implements: Exercise 8.9
+#
+# Captures a point-in-time network state snapshot and packages it into a
+# single .tar.gz file for on-call handoff. The bundle includes:
+#   - Per-device state (BGP, interfaces, routes, running config, logs)
+#   - Aggregate health check (BGP, NTP, interface errors)
+#   - Configuration drift analysis (running vs SoT-rendered)
+#   - Human-readable MANIFEST.md (the first thing the on-call reads)
+#
+# The bundle is the artefact you attach to a PagerDuty or ServiceNow
+# incident so the responder can orient themselves without logging into
+# 13 devices at 02:47 on a Sunday.
+#
+# Usage:
+#   ansible-playbook playbooks/troubleshooting_bundle.yml
+#   ansible-playbook playbooks/troubleshooting_bundle.yml -e "incident_id=INC-2026-04-0042"
+#   ansible-playbook playbooks/troubleshooting_bundle.yml --limit border-lon-01
+#   ansible-playbook playbooks/troubleshooting_bundle.yml -e "triggered_by=alertmanager"
+#
+# Output: bundles/bundle_<timestamp>.tar.gz
+
+# ═══════════════════════════════════════════════════════════════════════
+# Play 1 — Setup: create bundle directory and record metadata
+# ═══════════════════════════════════════════════════════════════════════
+
+- name: Setup bundle directory
+  hosts: localhost
+  gather_facts: false
+  vars:
+    bundle_timestamp: "{{ lookup('pipe', 'date +%Y%m%d_%H%M%S') }}"
+    bundles_root: "{{ playbook_dir }}/../bundles"
+    bundle_name: "bundle_{{ bundle_timestamp }}"
+    bundle_dir: "{{ bundles_root }}/{{ bundle_name }}"
+    incident_id: "{{ incident_id | default('not specified') }}"
+    triggered_by: "{{ triggered_by | default('manual') }}"
+
+  tasks:
+    - name: Get git commit hash
+      ansible.builtin.command: git rev-parse --short HEAD
+      args:
+        chdir: "{{ playbook_dir }}/.."
+      register: git_head
+      changed_when: false
+      failed_when: false
+
+    - name: Create bundle subdirectories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0755"
+      loop:
+        - "{{ bundle_dir }}"
+        - "{{ bundle_dir }}/health"
+        - "{{ bundle_dir }}/state"
+        - "{{ bundle_dir }}/drift"
+
+    - name: Store bundle metadata as facts
+      ansible.builtin.set_fact:
+        bundle_timestamp: "{{ bundle_timestamp }}"
+        bundle_name: "{{ bundle_name }}"
+        bundle_dir: "{{ bundle_dir }}"
+        bundles_root: "{{ bundles_root }}"
+        git_commit: "{{ git_head.stdout | default('unknown') }}"
+        incident_id: "{{ incident_id }}"
+        triggered_by: "{{ triggered_by }}"
+        cacheable: true
+
+    - name: Display bundle setup
+      ansible.builtin.debug:
+        msg: "Bundle directory: {{ bundle_dir }}"
+
+# ═══════════════════════════════════════════════════════════════════════
+# Play 2 — State collection: comprehensive per-device data
+# ═══════════════════════════════════════════════════════════════════════
+
+- name: Collect device state for bundle
+  hosts: lab_active
+  gather_facts: false
+  vars:
+    bundle_dir: "{{ hostvars['localhost']['bundle_dir'] }}"
+
+  tasks:
+    - name: Create per-device state directory
+      ansible.builtin.file:
+        path: "{{ bundle_dir }}/state/{{ inventory_hostname }}"
+        state: directory
+        mode: "0755"
+      delegate_to: localhost
+
+    # ── EOS state collection ─────────────────────────────────────────
+
+    - name: Collect EOS state
+      when: ansible_network_os == 'eos' or ansible_network_os == 'arista.eos.eos'
+      block:
+        - name: Run EOS show commands
+          arista.eos.eos_command:
+            commands:
+              - show version | json
+              - show bgp summary vrf all | json
+              - show interfaces | json
+              - show ip route summary | json
+              - show vlan | json
+              - show logging last 200
+              - show running-config
+              - show ntp status | json
+          register: eos_state_raw
+          failed_when: false
+
+        - name: Write EOS version
+          ansible.builtin.copy:
+            content: "{{ eos_state_raw.stdout[0] | default('{}') | to_nice_json }}"
+            dest: "{{ bundle_dir }}/state/{{ inventory_hostname }}/version.json"
+            mode: "0644"
+          delegate_to: localhost
+          when: eos_state_raw is not failed
+
+        - name: Write EOS BGP summary
+          ansible.builtin.copy:
+            content: "{{ eos_state_raw.stdout[1] | default('{}') | to_nice_json }}"
+            dest: "{{ bundle_dir }}/state/{{ inventory_hostname }}/bgp_summary.json"
+            mode: "0644"
+          delegate_to: localhost
+          when: eos_state_raw is not failed
+
+        - name: Write EOS interfaces
+          ansible.builtin.copy:
+            content: "{{ eos_state_raw.stdout[2] | default('{}') | to_nice_json }}"
+            dest: "{{ bundle_dir }}/state/{{ inventory_hostname }}/interfaces.json"
+            mode: "0644"
+          delegate_to: localhost
+          when: eos_state_raw is not failed
+
+        - name: Write EOS route summary
+          ansible.builtin.copy:
+            content: "{{ eos_state_raw.stdout[3] | default('{}') | to_nice_json }}"
+            dest: "{{ bundle_dir }}/state/{{ inventory_hostname }}/routes.json"
+            mode: "0644"
+          delegate_to: localhost
+          when: eos_state_raw is not failed
+
+        - name: Write EOS VLANs
+          ansible.builtin.copy:
+            content: "{{ eos_state_raw.stdout[4] | default('{}') | to_nice_json }}"
+            dest: "{{ bundle_dir }}/state/{{ inventory_hostname }}/vlans.json"
+            mode: "0644"
+          delegate_to: localhost
+          when: eos_state_raw is not failed
+
+        - name: Write EOS logs
+          ansible.builtin.copy:
+            content: "{{ eos_state_raw.stdout[5] | default('no logs collected') }}"
+            dest: "{{ bundle_dir }}/state/{{ inventory_hostname }}/logs.txt"
+            mode: "0644"
+          delegate_to: localhost
+          when: eos_state_raw is not failed
+
+        - name: Write EOS running config
+          ansible.builtin.copy:
+            content: "{{ eos_state_raw.stdout[6] | default('no config collected') }}"
+            dest: "{{ bundle_dir }}/state/{{ inventory_hostname }}/running_config.txt"
+            mode: "0644"
+          delegate_to: localhost
+          when: eos_state_raw is not failed
+
+        - name: Parse EOS health data
+          ansible.builtin.set_fact:
+            device_health:
+              hostname: "{{ inventory_hostname }}"
+              platform: arista_eos
+              bgp:
+                sessions_total: >-
+                  {{ (eos_state_raw.stdout[1] | from_json).vrfs.values()
+                     | map(attribute='peers') | map('length') | sum }}
+                sessions_established: >-
+                  {{ (eos_state_raw.stdout[1] | from_json).vrfs.values()
+                     | map(attribute='peers') | map('dict2items') | flatten
+                     | selectattr('value.peerState', 'eq', 'Established') | list | length }}
+                sessions_not_established: >-
+                  {{ (eos_state_raw.stdout[1] | from_json).vrfs.values()
+                     | map(attribute='peers') | map('dict2items') | flatten
+                     | selectattr('value.peerState', 'ne', 'Established')
+                     | map(attribute='key') | list }}
+              interfaces:
+                error_ports: >-
+                  {{ (eos_state_raw.stdout[2] | from_json).interfaces | dict2items
+                     | selectattr('value.interfaceCounters.inputErrors', 'defined')
+                     | selectattr('value.interfaceCounters.inputErrors', 'gt', 0)
+                     | map(attribute='key') | list }}
+                down_ports: >-
+                  {{ (eos_state_raw.stdout[2] | from_json).interfaces | dict2items
+                     | selectattr('value.lineProtocolStatus', 'eq', 'down')
+                     | map(attribute='key') | list }}
+              ntp:
+                synced: >-
+                  {{ (eos_state_raw.stdout[7] | from_json).get('status', '') == 'synchronised' }}
+          when: eos_state_raw is not failed
+
+    # ── FRR state collection ─────────────────────────────────────────
+
+    - name: Collect FRR state
+      when: ansible_network_os == 'frr'
+      block:
+        - name: Collect FRR state via Python
+          ansible.builtin.raw: |
+            python3 -c "
+            import subprocess, json, sys
+
+            def run(cmd):
+                r = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+                return r.stdout.strip()
+
+            bgp_raw = run('vtysh -c \"show bgp summary json\"')
+            try:
+                bgp = json.loads(bgp_raw)
+            except Exception:
+                bgp = {}
+
+            intf_raw = run('vtysh -c \"show interface json\"')
+            try:
+                intf = json.loads(intf_raw)
+            except Exception:
+                intf = {}
+
+            routes_raw = run('vtysh -c \"show ip route json\"')
+            try:
+                routes = json.loads(routes_raw)
+            except Exception:
+                routes = {}
+
+            running = run('vtysh -c \"show running-config\"')
+
+            ntp_raw = run('chronyc tracking 2>/dev/null || ntpq -p 2>/dev/null || echo no_ntp')
+            ntp_synced = 'Reference ID' in ntp_raw or '*' in ntp_raw
+
+            peers = bgp.get('ipv4Unicast', {}).get('peers', {})
+            established = [p for p,v in peers.items() if v.get('state') == 'Established']
+            not_up = [p for p,v in peers.items() if v.get('state') != 'Established']
+
+            result = {
+                'bgp_summary': bgp,
+                'interfaces': intf,
+                'routes': routes,
+                'running_config': running,
+                'health': {
+                    'bgp': {
+                        'sessions_total': len(peers),
+                        'sessions_established': len(established),
+                        'sessions_not_established': not_up,
+                    },
+                    'ntp': {'synced': ntp_synced},
+                    'interfaces': {'error_ports': [], 'down_ports': []},
+                },
+            }
+            print(json.dumps(result))
+            "
+          register: frr_state_raw
+          changed_when: false
+          failed_when: false
+
+        - name: Parse FRR state
+          ansible.builtin.set_fact:
+            frr_state: "{{ frr_state_raw.stdout | from_json }}"
+          when: frr_state_raw is not failed
+
+        - name: Write FRR BGP summary
+          ansible.builtin.copy:
+            content: "{{ frr_state.bgp_summary | to_nice_json }}"
+            dest: "{{ bundle_dir }}/state/{{ inventory_hostname }}/bgp_summary.json"
+            mode: "0644"
+          delegate_to: localhost
+          when: frr_state is defined
+
+        - name: Write FRR interfaces
+          ansible.builtin.copy:
+            content: "{{ frr_state.interfaces | to_nice_json }}"
+            dest: "{{ bundle_dir }}/state/{{ inventory_hostname }}/interfaces.json"
+            mode: "0644"
+          delegate_to: localhost
+          when: frr_state is defined
+
+        - name: Write FRR routes
+          ansible.builtin.copy:
+            content: "{{ frr_state.routes | to_nice_json }}"
+            dest: "{{ bundle_dir }}/state/{{ inventory_hostname }}/routes.json"
+            mode: "0644"
+          delegate_to: localhost
+          when: frr_state is defined
+
+        - name: Write FRR running config
+          ansible.builtin.copy:
+            content: "{{ frr_state.running_config }}"
+            dest: "{{ bundle_dir }}/state/{{ inventory_hostname }}/running_config.txt"
+            mode: "0644"
+          delegate_to: localhost
+          when: frr_state is defined
+
+        - name: Set FRR health data
+          ansible.builtin.set_fact:
+            device_health: >-
+              {{ frr_state.health | combine({
+                   'hostname': inventory_hostname,
+                   'platform': 'frr'
+              }) }}
+          when: frr_state is defined
+
+# ═══════════════════════════════════════════════════════════════════════
+# Play 3 — Health summary: aggregate across all devices
+# ═══════════════════════════════════════════════════════════════════════
+
+- name: Aggregate health data for bundle
+  hosts: localhost
+  gather_facts: false
+  vars:
+    bundle_dir: "{{ hostvars['localhost']['bundle_dir'] }}"
+    bundle_timestamp: "{{ hostvars['localhost']['bundle_timestamp'] }}"
+
+  tasks:
+    - name: Assemble all device health data
+      ansible.builtin.set_fact:
+        all_health: >-
+          {{ groups['lab_active']
+             | map('extract', hostvars, 'device_health')
+             | select('defined') | list }}
+
+    - name: Calculate health summary
+      ansible.builtin.set_fact:
+        health_summary:
+          timestamp: "{{ bundle_timestamp }}"
+          nodes_checked: "{{ all_health | length }}"
+          bgp_sessions_total: "{{ all_health | sum(attribute='bgp.sessions_total') }}"
+          bgp_sessions_established: "{{ all_health | sum(attribute='bgp.sessions_established') }}"
+          nodes_with_bgp_issues: >-
+            {{ all_health
+               | selectattr('bgp.sessions_not_established', 'ne', [])
+               | map(attribute='hostname') | list }}
+          nodes_with_interface_errors: >-
+            {{ all_health
+               | selectattr('interfaces.error_ports', 'ne', [])
+               | map(attribute='hostname') | list }}
+          nodes_ntp_not_synced: >-
+            {{ all_health
+               | rejectattr('ntp.synced')
+               | map(attribute='hostname') | list }}
+          status: >-
+            {% if all_health | selectattr('bgp.sessions_not_established', 'ne', []) | list | length > 0 %}
+            CRITICAL
+            {% elif all_health | rejectattr('ntp.synced') | list | length > 0 %}
+            WARNING
+            {% else %}
+            HEALTHY
+            {% endif %}
+
+    - name: Write health summary JSON
+      ansible.builtin.copy:
+        content: "{{ health_summary | to_nice_json }}"
+        dest: "{{ bundle_dir }}/health/health_summary.json"
+        mode: "0644"
+
+    - name: Write health summary text
+      ansible.builtin.copy:
+        content: |
+          ================================================================
+          ACME Investments -- Network Health (Troubleshooting Bundle)
+          {{ bundle_timestamp }}
+          ================================================================
+
+          Overall Status: {{ health_summary.status }}
+
+          BGP Summary
+          -----------
+          Total sessions monitored : {{ health_summary.bgp_sessions_total }}
+          Sessions Established     : {{ health_summary.bgp_sessions_established }}
+          Sessions NOT Established : {{ health_summary.bgp_sessions_total | int - health_summary.bgp_sessions_established | int }}
+
+          {% if health_summary.nodes_with_bgp_issues | length > 0 %}
+          BGP ISSUES on: {{ health_summary.nodes_with_bgp_issues | join(', ') }}
+          {% else %}
+          All BGP sessions Established
+          {% endif %}
+
+          Interface Health
+          ----------------
+          {% if health_summary.nodes_with_interface_errors | length > 0 %}
+          Interface errors on: {{ health_summary.nodes_with_interface_errors | join(', ') }}
+          {% else %}
+          No interface error counters
+          {% endif %}
+
+          NTP Sync
+          --------
+          {% if health_summary.nodes_ntp_not_synced | length > 0 %}
+          NTP NOT synced on: {{ health_summary.nodes_ntp_not_synced | join(', ') }}
+          {% else %}
+          All nodes NTP synchronised
+          {% endif %}
+
+          Per-Device Detail
+          -----------------
+          {% for h in all_health %}
+          {{ h.hostname }} ({{ h.platform }})
+            BGP: {{ h.bgp.sessions_established }}/{{ h.bgp.sessions_total }} Established
+          {% if h.bgp.sessions_not_established | length > 0 %}
+            NOT ESTABLISHED: {{ h.bgp.sessions_not_established | join(', ') }}
+          {% endif %}
+          {% if h.interfaces.error_ports | length > 0 %}
+            ERROR PORTS: {{ h.interfaces.error_ports | join(', ') }}
+          {% endif %}
+            NTP: {{ 'synced' if h.ntp.synced else 'NOT SYNCED' }}
+          {% endfor %}
+
+          ================================================================
+        dest: "{{ bundle_dir }}/health/health_summary.txt"
+        mode: "0644"
+
+# ═══════════════════════════════════════════════════════════════════════
+# Play 4 — Render expected configs (prerequisite for drift)
+# ═══════════════════════════════════════════════════════════════════════
+
+- name: Render expected configs from SoT
+  ansible.builtin.import_playbook: render_configs.yml
+
+# ═══════════════════════════════════════════════════════════════════════
+# Play 5 — Drift detection: compare running vs SoT-rendered
+# ═══════════════════════════════════════════════════════════════════════
+
+- name: Collect drift data for bundle
+  hosts: lab_active
+  gather_facts: false
+  vars:
+    bundle_dir: "{{ hostvars['localhost']['bundle_dir'] }}"
+
+  tasks:
+    - name: Collect running config (EOS)
+      when: ansible_network_os == 'eos' or ansible_network_os == 'arista.eos.eos'
+      arista.eos.eos_command:
+        commands:
+          - show running-config
+      register: eos_running
+      failed_when: false
+
+    - name: Collect running config (FRR)
+      when: ansible_network_os == 'frr'
+      ansible.builtin.raw: vtysh -c "show running-config"
+      register: frr_running
+      changed_when: false
+      failed_when: false
+
+    - name: Set running config fact
+      ansible.builtin.set_fact:
+        running_config: >-
+          {% if ansible_network_os == 'eos' or ansible_network_os == 'arista.eos.eos' %}{{ eos_running.stdout[0] | default('') }}
+          {% else %}{{ frr_running.stdout | default('') }}{% endif %}
+
+    - name: Read SoT-rendered config
+      ansible.builtin.slurp:
+        src: "{{ configs_output_dir }}/{{ inventory_hostname }}/running.conf"
+      register: rendered_raw
+      delegate_to: localhost
+      failed_when: false
+
+    - name: Analyse drift
+      ansible.builtin.shell: |
+        python3 << 'PYEOF'
+        import difflib, json, re
+
+        rendered = """{{ rendered_raw.content | b64decode | replace('"', '\\"') | replace('\n', '\\n') }}"""
+        running  = """{{ running_config | replace('"', '\\"') | replace('\n', '\\n') }}"""
+
+        def normalise(text):
+            lines = []
+            for line in text.splitlines():
+                stripped = line.rstrip()
+                if stripped.startswith('!') and len(stripped) <= 1:
+                    continue
+                lines.append(stripped)
+            return lines
+
+        rendered_lines = normalise(rendered)
+        running_lines  = normalise(running)
+
+        CRITICAL_PATTERNS = [
+            r'^\s*(neighbor|router bgp|remote-as|route-map|prefix-list)',
+            r'^\s*(ip address|vrf|vlan)',
+            r'^\s*(permit|deny)',
+            r'^\s*(no ip telnet|ip telnet|no service)',
+        ]
+        WARNING_PATTERNS = [
+            r'^\s*(timers|keepalive|hold-time)',
+            r'^\s*(logging|snmp)',
+            r'^\s*(ntp)',
+        ]
+
+        def classify(line):
+            for pat in CRITICAL_PATTERNS:
+                if re.search(pat, line, re.IGNORECASE):
+                    return 'CRITICAL'
+            for pat in WARNING_PATTERNS:
+                if re.search(pat, line, re.IGNORECASE):
+                    return 'WARNING'
+            return 'INFORMATIONAL'
+
+        diff = list(difflib.unified_diff(
+            rendered_lines, running_lines,
+            fromfile='sot-rendered', tofile='running-config',
+            lineterm='', n=3
+        ))
+
+        changes = []
+        for line in diff[2:]:
+            if line.startswith('+') or line.startswith('-'):
+                content = line[1:].strip()
+                if not content or content.startswith('!'):
+                    continue
+                changes.append({
+                    'direction': 'added_on_device' if line.startswith('+') else 'missing_on_device',
+                    'line': content,
+                    'severity': classify(content),
+                })
+
+        max_severity = 'NONE'
+        for c in changes:
+            if c['severity'] == 'CRITICAL':
+                max_severity = 'CRITICAL'
+                break
+            elif c['severity'] == 'WARNING':
+                max_severity = 'WARNING'
+
+        result = {
+            'hostname': '{{ inventory_hostname }}',
+            'drift_detected': len(changes) > 0,
+            'max_severity': max_severity,
+            'change_count': len(changes),
+            'changes': changes,
+        }
+        print(json.dumps(result))
+        PYEOF
+      register: drift_analysis
+      delegate_to: localhost
+      changed_when: false
+      when: rendered_raw is not failed
+
+    - name: Store drift result
+      ansible.builtin.set_fact:
+        device_drift: "{{ drift_analysis.stdout | from_json }}"
+      when: drift_analysis is defined and drift_analysis is not skipped
+
+    - name: Default drift result for unreachable rendered config
+      ansible.builtin.set_fact:
+        device_drift:
+          hostname: "{{ inventory_hostname }}"
+          drift_detected: false
+          max_severity: "NONE"
+          change_count: 0
+          changes: []
+      when: drift_analysis is not defined or drift_analysis is skipped
+
+# ═══════════════════════════════════════════════════════════════════════
+# Play 6 — Drift report: aggregate and write to bundle
+# ═══════════════════════════════════════════════════════════════════════
+
+- name: Aggregate drift data for bundle
+  hosts: localhost
+  gather_facts: false
+  vars:
+    bundle_dir: "{{ hostvars['localhost']['bundle_dir'] }}"
+    bundle_timestamp: "{{ hostvars['localhost']['bundle_timestamp'] }}"
+
+  tasks:
+    - name: Assemble all drift results
+      ansible.builtin.set_fact:
+        all_drift: >-
+          {{ groups['lab_active']
+             | map('extract', hostvars, 'device_drift')
+             | select('defined') | list }}
+
+    - name: Calculate drift summary
+      ansible.builtin.set_fact:
+        drift_summary:
+          timestamp: "{{ bundle_timestamp }}"
+          nodes_checked: "{{ all_drift | length }}"
+          nodes_with_drift: "{{ all_drift | selectattr('drift_detected') | map(attribute='hostname') | list }}"
+          critical_nodes: "{{ all_drift | selectattr('max_severity', 'eq', 'CRITICAL') | map(attribute='hostname') | list }}"
+          warning_nodes: "{{ all_drift | selectattr('max_severity', 'eq', 'WARNING') | map(attribute='hostname') | list }}"
+          clean_nodes: "{{ all_drift | rejectattr('drift_detected') | map(attribute='hostname') | list }}"
+
+    - name: Write drift summary JSON
+      ansible.builtin.copy:
+        content: "{{ {'summary': drift_summary, 'devices': all_drift} | to_nice_json }}"
+        dest: "{{ bundle_dir }}/drift/drift_summary.json"
+        mode: "0644"
+
+    - name: Write drift summary text
+      ansible.builtin.copy:
+        content: |
+          ================================================================
+          ACME Investments -- Configuration Drift (Troubleshooting Bundle)
+          {{ bundle_timestamp }}
+          ================================================================
+
+          Nodes checked : {{ drift_summary.nodes_checked }}
+          Nodes clean   : {{ drift_summary.clean_nodes | length }}
+          Nodes drifted : {{ drift_summary.nodes_with_drift | length }}
+            CRITICAL    : {{ drift_summary.critical_nodes | join(', ') | default('none') }}
+            WARNING     : {{ drift_summary.warning_nodes | join(', ') | default('none') }}
+
+          {% for d in all_drift if d.drift_detected %}
+          ----------------------------------------------------------------
+          {{ d.hostname }} -- {{ d.max_severity }} ({{ d.change_count }} change(s))
+          {% for c in d.changes %}
+          [{{ c.severity }}] {{ c.direction }}: {{ c.line }}
+          {% endfor %}
+
+          {% endfor %}
+          {% if drift_summary.nodes_with_drift | length == 0 %}
+          All devices match SoT intent -- no drift detected.
+          {% endif %}
+          ================================================================
+          Remediation: ansible-playbook playbooks/push_configs.yml --limit <hostname>
+          ================================================================
+        dest: "{{ bundle_dir }}/drift/drift_summary.txt"
+        mode: "0644"
+
+# ═══════════════════════════════════════════════════════════════════════
+# Play 7 — MANIFEST and tarball: package everything
+# ═══════════════════════════════════════════════════════════════════════
+
+- name: Generate MANIFEST and package bundle
+  hosts: localhost
+  gather_facts: false
+  vars:
+    bundle_dir: "{{ hostvars['localhost']['bundle_dir'] }}"
+    bundle_name: "{{ hostvars['localhost']['bundle_name'] }}"
+    bundles_root: "{{ hostvars['localhost']['bundles_root'] }}"
+    bundle_timestamp: "{{ hostvars['localhost']['bundle_timestamp'] }}"
+    git_commit: "{{ hostvars['localhost']['git_commit'] }}"
+    incident_id: "{{ hostvars['localhost']['incident_id'] }}"
+    triggered_by: "{{ hostvars['localhost']['triggered_by'] }}"
+
+  tasks:
+    - name: Build device inventory list
+      ansible.builtin.set_fact:
+        device_inventory: >-
+          {{ groups['lab_active'] | map('extract', hostvars) | map('dict2items')
+             | map('selectattr', 'key', 'in', ['inventory_hostname', 'ansible_network_os', 'site', 'region', 'role'])
+             | list }}
+
+    - name: Build device inventory (simple)
+      ansible.builtin.set_fact:
+        device_inventory: >-
+          {% set result = [] %}
+          {% for host in groups['lab_active'] %}
+          {% set _ = result.append({
+            'hostname': host,
+            'platform': hostvars[host].get('ansible_network_os', 'unknown'),
+            'site': hostvars[host].get('site', 'unknown'),
+            'region': hostvars[host].get('region', 'unknown'),
+            'role': hostvars[host].get('role', 'unknown'),
+          }) %}
+          {% endfor %}
+          {{ result }}
+
+    - name: Render MANIFEST.md
+      ansible.builtin.template:
+        src: "{{ playbook_dir }}/../templates/troubleshooting/manifest.md.j2"
+        dest: "{{ bundle_dir }}/MANIFEST.md"
+        mode: "0644"
+      vars:
+        bundle_scope: "lab_active ({{ groups['lab_active'] | length }} devices)"
+
+    - name: Write manifest.json
+      ansible.builtin.copy:
+        content: >-
+          {{ {
+            'bundle_id': bundle_name,
+            'generated_at': bundle_timestamp,
+            'incident_id': incident_id,
+            'triggered_by': triggered_by,
+            'git_commit': git_commit,
+            'devices_collected': groups['lab_active'] | list,
+            'health_status': health_summary.status | default('UNKNOWN'),
+            'drift_nodes': drift_summary.nodes_with_drift | default([]),
+            'bgp_issue_nodes': health_summary.nodes_with_bgp_issues | default([]),
+          } | to_nice_json }}
+        dest: "{{ bundle_dir }}/manifest.json"
+        mode: "0644"
+
+    - name: Create tarball
+      ansible.builtin.command:
+        cmd: "tar -czf {{ bundle_name }}.tar.gz {{ bundle_name }}"
+        chdir: "{{ bundles_root }}"
+      changed_when: true
+
+    - name: Get tarball size
+      ansible.builtin.stat:
+        path: "{{ bundles_root }}/{{ bundle_name }}.tar.gz"
+      register: tarball_stat
+
+    - name: Compute SHA256
+      ansible.builtin.command:
+        cmd: "shasum -a 256 {{ bundle_name }}.tar.gz"
+        chdir: "{{ bundles_root }}"
+      register: sha256_result
+      changed_when: false
+
+    - name: Display bundle complete
+      ansible.builtin.debug:
+        msg:
+          - "========================================"
+          - "Troubleshooting bundle ready"
+          - "========================================"
+          - "File   : {{ bundles_root }}/{{ bundle_name }}.tar.gz"
+          - "Size   : {{ (tarball_stat.stat.size / 1024) | round(1) }} KB"
+          - "SHA256 : {{ sha256_result.stdout.split(' ')[0] }}"
+          - "Health : {{ health_summary.status | default('UNKNOWN') }}"
+          - "Drift  : {{ drift_summary.nodes_with_drift | default([]) | length }} node(s) with drift"
+          - ""
+          - "Attach this file to the incident ticket."
+          - "The on-call engineer should start with MANIFEST.md."
+          - "========================================"

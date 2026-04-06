@@ -1,0 +1,163 @@
+---
+# scenarios/ch07/ex89_verify.yml — Exercise 8.9 troubleshooting bundle verification
+
+- name: Verify ex89 — troubleshooting bundle generated
+  hosts: localhost
+  gather_facts: false
+  vars:
+    bundles_dir: "{{ playbook_dir }}/../../bundles"
+
+  tasks:
+    - name: Check breadcrumb exists
+      ansible.builtin.stat:
+        path: /tmp/scenario_active.txt
+      register: breadcrumb
+
+    - name: Fail if breadcrumb missing
+      ansible.builtin.fail:
+        msg: "Breadcrumb /tmp/scenario_active.txt not found. Run ex89_inject.yml first."
+      when: not breadcrumb.stat.exists
+
+    - name: Find bundle tarballs
+      ansible.builtin.find:
+        paths: "{{ bundles_dir }}"
+        patterns: "bundle_*.tar.gz"
+        age: "-30m"
+      register: bundle_files
+
+    - name: Fail if no recent bundle found
+      ansible.builtin.fail:
+        msg: >
+          No troubleshooting bundle found in bundles/ created within the last 30 minutes.
+          Generate one: ansible-playbook playbooks/troubleshooting_bundle.yml -e "incident_id=INC-2026-04-0042"
+      when: bundle_files.matched == 0
+
+    - name: Use most recent bundle
+      ansible.builtin.set_fact:
+        bundle_tarball: "{{ (bundle_files.files | sort(attribute='mtime') | last).path }}"
+
+    - name: Extract bundle to temp dir
+      ansible.builtin.command:
+        cmd: "tar -xzf {{ bundle_tarball }} -C /tmp"
+      changed_when: false
+
+    - name: Determine bundle directory name
+      ansible.builtin.shell: "tar -tzf {{ bundle_tarball }} | head -1 | cut -d/ -f1"
+      register: bundle_dirname
+      changed_when: false
+
+    - name: Set extracted path
+      ansible.builtin.set_fact:
+        extracted_dir: "/tmp/{{ bundle_dirname.stdout }}"
+
+    - name: Check MANIFEST.md exists
+      ansible.builtin.stat:
+        path: "{{ extracted_dir }}/MANIFEST.md"
+      register: manifest_file
+
+    - name: Fail if MANIFEST.md missing
+      ansible.builtin.assert:
+        that: manifest_file.stat.exists
+        fail_msg: "Bundle is missing MANIFEST.md — the human-readable summary."
+        success_msg: "MANIFEST.md present."
+
+    - name: Check health directory exists
+      ansible.builtin.stat:
+        path: "{{ extracted_dir }}/health/health_summary.json"
+      register: health_file
+
+    - name: Fail if health data missing
+      ansible.builtin.assert:
+        that: health_file.stat.exists
+        fail_msg: "Bundle is missing health/health_summary.json."
+        success_msg: "Health summary present."
+
+    - name: Check state directory has device data
+      ansible.builtin.find:
+        paths: "{{ extracted_dir }}/state"
+        file_type: directory
+      register: state_dirs
+
+    - name: Fail if state data is sparse
+      ansible.builtin.assert:
+        that: state_dirs.matched >= 1
+        fail_msg: "Bundle state/ directory has no device subdirectories."
+        success_msg: "State data collected for {{ state_dirs.matched }} device(s)."
+
+    - name: Check drift directory exists
+      ansible.builtin.stat:
+        path: "{{ extracted_dir }}/drift/drift_summary.json"
+      register: drift_file
+
+    - name: Fail if drift data missing
+      ansible.builtin.assert:
+        that: drift_file.stat.exists
+        fail_msg: "Bundle is missing drift/drift_summary.json."
+        success_msg: "Drift summary present."
+
+    - name: Read health summary
+      ansible.builtin.slurp:
+        src: "{{ extracted_dir }}/health/health_summary.json"
+      register: health_raw
+
+    - name: Parse health summary
+      ansible.builtin.set_fact:
+        health_data: "{{ health_raw.content | b64decode | from_json }}"
+
+    - name: Verify health shows CRITICAL (BGP issue injected)
+      ansible.builtin.assert:
+        that: "health_data.status == 'CRITICAL'"
+        fail_msg: >
+          Expected health status CRITICAL (BGP session loss was injected on border-lon-01),
+          but got {{ health_data.status }}.
+        success_msg: "Health correctly reports CRITICAL status."
+
+    - name: Read MANIFEST
+      ansible.builtin.slurp:
+        src: "{{ extracted_dir }}/MANIFEST.md"
+      register: manifest_raw
+
+    - name: Verify MANIFEST mentions BGP issues
+      ansible.builtin.assert:
+        that: "'BGP issues' in (manifest_raw.content | b64decode) or 'border-lon-01' in (manifest_raw.content | b64decode)"
+        fail_msg: "MANIFEST.md does not mention BGP issues or border-lon-01."
+        success_msg: "MANIFEST correctly references BGP issues."
+
+    - name: Clean up extracted bundle
+      ansible.builtin.file:
+        path: "{{ extracted_dir }}"
+        state: absent
+
+    - name: Remove breadcrumb
+      ansible.builtin.file:
+        path: /tmp/scenario_active.txt
+        state: absent
+
+    - name: Exercise 8.9 passed
+      ansible.builtin.debug:
+        msg:
+          - "========================================"
+          - "Exercise 8.9 PASSED"
+          - "========================================"
+          - ""
+          - "Your troubleshooting bundle:"
+          - "  - Captured state from {{ state_dirs.matched }} devices"
+          - "  - Detected CRITICAL health status (BGP session loss)"
+          - "  - Included drift analysis"
+          - "  - Generated a human-readable MANIFEST for the on-call engineer"
+          - ""
+          - "Key takeaway: At 02:47 on a Sunday, a junior engineer does not"
+          - "need to know which show commands to run on which devices. They"
+          - "run one playbook, attach the tarball to the incident, and"
+          - "escalate. The senior engineer opens MANIFEST.md and immediately"
+          - "knows what is happening -- without SSH access."
+          - ""
+          - "Debrief: Two faults were injected:"
+          - "  1. BGP session loss: border-lon-01 Ethernet3 was shut down"
+          - "     (WAN link to border-nyc-01)"
+          - "  2. Config drift: leaf-lon-02 had an OOB NTP server added"
+          - "     (8.8.8.8 -- not in SoT)"
+          - ""
+          - "The bundle surfaced both in a single artefact. In production,"
+          - "Alertmanager can trigger this automatically via webhook."
+          - "========================================"
