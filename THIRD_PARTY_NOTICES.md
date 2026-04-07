@@ -1,8 +1,9 @@
 # Third-Party Notices
 
 This lab guide references, integrates with, or instructs the use of the following third-party
-software. Each is subject to its own licence, independent of the proprietary licence governing
-this Product. You are responsible for reviewing and complying with the terms of each.
+software. Each is subject to its own licence, independent of the licences governing this project
+(MIT for code, CC BY-NC 4.0 for guide content — see LICENSE.md). You are responsible for
+reviewing and complying with the terms of each.
 
 ---
 
@@ -78,9 +79,9 @@ Ansible collections used in this lab (to be documented as installed):
 - Licence type: MIT Expat (CE edition)
 - Source and documentation: [gitlab.com](https://gitlab.com) / [gitlab.com/gitlab-org/gitlab-foss](https://gitlab.com/gitlab-org/gitlab-foss)
 
-GitLab CE is run as a Docker container in the lab. This Product provides CI/CD pipeline
+GitLab CE is run as a Docker container in the lab. This project provides CI/CD pipeline
 configuration (`.gitlab-ci.yml`) that runs within GitLab CE. The pipeline configuration itself
-is part of this Product and is subject to this Product's proprietary licence.
+is code and is licensed under the MIT Licence (see LICENSE.md).
 
 ---
 
@@ -101,8 +102,8 @@ is part of this Product and is subject to this Product's proprietary licence.
 - Source and documentation: [grafana.com](https://grafana.com)
 
 Note: The Grafana AGPL-3.0 licence applies to Grafana itself. The dashboard JSON files included
-in this Product (which configure Grafana) are part of this Product and subject to its proprietary
-licence.
+in this project (which configure Grafana) are code and are licensed under the MIT Licence
+(see LICENSE.md).
 
 ---
 
@@ -121,7 +122,7 @@ third-party packages. Key dependencies and their licences:
 | `netmiko` | MIT | Device connectivity |
 | `napalm` | Apache 2.0 | Network device abstraction |
 
-All packages are installed by the Purchaser via standard package managers (pip, Poetry).
+All packages are installed by users via standard package managers (pip, Poetry).
 This Product does not redistribute any of these packages.
 
 ---
