@@ -18,7 +18,7 @@ All **code** in this repository is licensed under the MIT Licence. This includes
 - Containerlab topology files (`topology/`)
 - Batfish test suites
 - Grafana dashboards and monitoring configuration (`monitoring/`)
-- Any other files outside of the `guide/` directory
+- Any other files outside of the `site/src/content/docs/` directory
 
 ```
 MIT License
@@ -48,8 +48,8 @@ SOFTWARE.
 
 ## Guide Content — CC BY-NC 4.0
 
-All **written content** in the `guide/` directory (lab guide text, exercise instructions,
-explanations, and narrative) is licensed under the
+All **written content** in the `site/src/content/docs/` directory (lab guide text, exercise
+instructions, explanations, and narrative) is licensed under the
 [Creative Commons Attribution-NonCommercial 4.0 International](https://creativecommons.org/licenses/by-nc/4.0/)
 licence (CC BY-NC 4.0).
 
