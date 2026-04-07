@@ -1,0 +1,113 @@
+---
+title: EMEA — London DC1
+description: The fully instantiated ACME Investments data centre. Arista cEOS spine-leaf fabric with security zone enforcement and inter-region BGP.
+---
+
+import Mermaid from '../../../components/Mermaid.astro';
+import { LinkCard, CardGrid, Aside } from '@astrojs/starlight/components';
+
+<Aside type="tip">
+  This is the only fully instantiated data centre in the lab. All automation patterns — config generation, Batfish validation, CI/CD pipeline, monitoring — are exercised here.
+</Aside>
+
+## DC1-LON topology
+
+<Mermaid code={`
+graph TB
+    subgraph MGMT["Management Plane (out-of-band)"]
+        GITLAB["GitLab CE\\n+ Runner"]
+        BATFISH["Batfish"]
+        PROM["Prometheus\\n+ Grafana"]
+    end
+
+    subgraph FABRIC["London DC1 Fabric — AS 65001"]
+        direction TB
+        SP1["spine-lon-01\\ncEOS\\n10.1.0.1"]
+        SP2["spine-lon-02\\ncEOS\\n10.1.0.2"]
+
+        subgraph LEAVES["Leaf Layer"]
+            LF1["leaf-lon-01\\ncEOS"]
+            LF2["leaf-lon-02\\ncEOS"]
+            LF3["leaf-lon-03\\ncEOS"]
+            LF4["leaf-lon-04\\ncEOS"]
+        end
+
+        FW["fw-lon-01\\nLinux/FRR\\nZone Enforcement"]
+        BORDER["border-lon-01\\ncEOS\\nInter-Region BGP"]
+    end
+
+    subgraph BRANCHES["Branch Offices"]
+        BR_LON["branch-lon-01\\nFRR / AS 65100\\nUK Office"]
+        BR_NYC["branch-nyc-01\\nFRR / AS 65120\\nUS Office"]
+    end
+
+    subgraph STUBS["Regional Stubs"]
+        NYC["border-nyc-01\\nFRR / AS 65010"]
+        SIN["border-sin-01\\nFRR / AS 65020"]
+        FRA["border-fra-01\\nFRR / AS 65030"]
+    end
+
+    SP1 & SP2 --- LF1 & LF2 & LF3 & LF4
+    LF1 & LF2 & LF3 & LF4 --- FW
+    FW --- BORDER
+    BORDER --- BR_LON & BR_NYC
+    BORDER <-->|iBGP| NYC & SIN & FRA
+
+    MGMT -.->|"mgmt network"| FABRIC
+
+    click NYC href "/architecture/americas/" "View Americas"
+    click SIN href "/architecture/apac/" "View APAC"
+    click FRA href "/architecture/frankfurt/" "View Frankfurt"
+`} />
+
+## Security zones
+
+Every interface on every device belongs to a zone. Zone membership determines reachability — enforced at `fw-lon-01`, not just documented in policy.
+
+| Zone | VLAN | Subnet (DC1) | Description |
+|------|------|--------------|-------------|
+| TRADING | 100 | 10.1.1.0/24 | Algorithmic trading systems. MiFID II isolated. |
+| CORPORATE | 200 | 10.1.2.0/22 | Internal users, email, shared services. |
+| DMZ | 300 | 10.1.3.0/24 | Internet-facing services, API gateways. |
+| MGMT | 900 | 10.1.0.128/25 | Out-of-band device management only. |
+
+<Aside type="caution">
+  TRADING → CORPORATE is an explicit deny at the firewall. The Batfish assertion `assert_no_trading_to_corporate_path` verifies this at every pipeline run. If someone adds a route or ACL that creates a path, the pipeline fails before the config reaches a device.
+</Aside>
+
+## Device inventory
+
+| Hostname | Role | Platform | RAM (lab) | ASN |
+|----------|------|----------|-----------|-----|
+| spine-lon-01 | Spine | Arista cEOS | ~200MB | 65001 |
+| spine-lon-02 | Spine | Arista cEOS | ~200MB | 65001 |
+| leaf-lon-01 | Leaf | Arista cEOS | ~200MB | 65001 |
+| leaf-lon-02 | Leaf | Arista cEOS | ~200MB | 65001 |
+| leaf-lon-03 | Leaf | Arista cEOS | ~200MB | 65001 |
+| leaf-lon-04 | Leaf | Arista cEOS | ~200MB | 65001 |
+| border-lon-01 | Border | Arista cEOS | ~200MB | 65001 |
+| fw-lon-01 | Firewall | Linux/FRR | ~50MB | — |
+| branch-lon-01 | Branch | FRR | ~50MB | 65100 |
+| branch-nyc-01 | Branch | FRR | ~50MB | 65120 |
+
+**Total lab RAM (NOS nodes):** ~1.9GB. With GitLab, Batfish, and Prometheus: ~5GB. Fits comfortably on 16GB with OS headroom.
+
+## IPAM
+
+```yaml
+emea_lon:
+  supernet:   10.1.0.0/16
+  spine:      10.1.0.0/29      # .1, .2
+  mgmt:       10.1.0.128/25
+  trading:    10.1.1.0/24
+  corporate:  10.1.2.0/22
+  dmz:        10.1.3.0/24
+  p2p_links:  10.1.4.0/24      # /31s per link pair
+```
+
+---
+
+<CardGrid>
+  <LinkCard title="← Global Overview" href="/architecture/" />
+  <LinkCard title="Americas — New York →" href="/architecture/americas/" />
+</CardGrid>

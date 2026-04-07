@@ -1,0 +1,74 @@
+---
+title: ACME Investments — Network Automation Lab
+description: A practitioner lab guide for network automation at a financial services firm.
+template: splash
+hero:
+  tagline: Real-world network automation. Financial services constraints. A 16GB laptop.
+  image:
+    file: ../../assets/logo-light.svg
+  actions:
+    - text: View the Architecture
+      link: /architecture/
+      icon: right-arrow
+      variant: primary
+    - text: Start the Lab
+      link: /preface/
+      icon: open-book
+      variant: secondary
+---
+
+import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+## What you inherit
+
+You step into ACME Investments as the engineer responsible for transforming a manually operated financial network into a fully automated, auditable, intent-driven infrastructure.
+
+The environment is already running. Your job is to operate it — and to understand, at every step, *why* it works the way it does.
+
+<CardGrid>
+  <Card title="Multi-region BGP" icon="random">
+    London DC1 is fully instantiated. New York, Singapore, and Frankfurt run as stub border routers — the same pattern you'd use in a real migration.
+  </Card>
+  <Card title="Regulatory constraints" icon="approve-check-circle">
+    MiFID II zone isolation, FCA audit trails, and BaFin data residency rules are baked into the automation — not documented as an afterthought.
+  </Card>
+  <Card title="End-to-end pipeline" icon="rocket">
+    GitLab CI/CD, Batfish pre-merge validation, Ansible config push, and Prometheus/Grafana monitoring — all wired together and running.
+  </Card>
+  <Card title="Three reading tracks" icon="open-book">
+    **Strategic** for architects and managers. **Practitioner** for engineers. **Deep Dive** for senior engineers who want the internals. Pick your track, skip the rest.
+  </Card>
+</CardGrid>
+
+---
+
+## The lab environment
+
+<CardGrid>
+  <LinkCard title="Global Architecture" href="/architecture/" description="Four regions. Inter-region BGP. Security zones. Click through to drill down." />
+  <LinkCard title="EMEA — London DC1" href="/architecture/emea/" description="The fully instantiated spine-leaf fabric. Spine ×2, Leaf ×4, FW, Border router." />
+  <LinkCard title="EU Regulatory — Frankfurt" href="/architecture/frankfurt/" description="No TRADING zone. Strict data residency. The most interesting compliance story." />
+</CardGrid>
+
+---
+
+## Lab guide contents
+
+| Part | Topic | Chapters |
+|------|-------|----------|
+| 1 | Setting the Scene | ACME intro, lab setup, environment exploration |
+| 2 | Source of Truth | Why a SoT, structure, intent layer, schema validation |
+| 3 | Config Generation | Jinja2 templates, your first config push |
+| 4 | The Pipeline | GitLab CI/CD walkthrough, change freeze enforcement |
+| 5 | Intent Verification | Batfish assertions, compliance as code |
+| 6 | Day-2 Operations | Drift detection, compliance reporting, BGP monitoring |
+| 7 | Hardware Lifecycle | RMA, ZTP branch provisioning, OS upgrades, Grafana |
+| 9 | Advanced Topics | Auto-remediation, staged rollout, bulk import, capstone |
+
+---
+
+## About the companion handbook
+
+This lab is the hands-on companion to the [Network Automation Handbook](https://ppklau.github.io/network_automation_handbook/). The Handbook explains **what and why**. This guide shows you **how** — in a working environment you can run locally.
+
+Every exercise references the relevant Handbook chapter so the two reinforce each other.

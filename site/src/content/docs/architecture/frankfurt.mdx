@@ -1,0 +1,91 @@
+---
+title: EU Regulatory — Frankfurt
+description: ACME Investments Frankfurt region. Strict EU data residency under GDPR and BaFin. No TRADING zone. Peers only with London — never directly to New York or APAC.
+---
+
+import Mermaid from '../../../components/Mermaid.astro';
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+<Aside type="caution" title="Regulatory constraint">
+  Frankfurt has **no TRADING zone**. GDPR and BaFin rules require that EU-origin data cannot transit non-EU routing paths. Frankfurt peers only with London — never directly to New York or APAC. The Batfish pipeline enforces both constraints automatically.
+</Aside>
+
+## Lab representation
+
+<Mermaid code={`
+graph TB
+    subgraph LON["EMEA — London (lab)"]
+        BORDER_LON["border-lon-01\\nAS 65001\\nRoute Reflector"]
+    end
+
+    subgraph NYC["Americas — New York"]
+        BORDER_NYC["border-nyc-01\\nAS 65010"]
+    end
+
+    subgraph SIN["APAC — Singapore"]
+        BORDER_SIN["border-sin-01\\nAS 65020"]
+    end
+
+    subgraph FRA["EU Regulatory — Frankfurt"]
+        BORDER_FRA["border-fra-01\\nFRR / AS 65030\\n⚠ No TRADING zone\\n⚠ EU data residency"]
+    end
+
+    BORDER_LON <-->|iBGP| BORDER_NYC
+    BORDER_LON <-->|iBGP| BORDER_SIN
+    BORDER_LON <-->|"iBGP (only path)"| BORDER_FRA
+
+    BORDER_NYC -. "NO direct peering" .-> BORDER_FRA
+    BORDER_SIN -. "NO direct peering" .-> BORDER_FRA
+
+    click BORDER_LON href "/architecture/emea/" "View EMEA detail"
+    click BORDER_NYC href "/architecture/americas/" "View Americas detail"
+    click BORDER_SIN href "/architecture/apac/" "View APAC detail"
+`} />
+
+## What the pipeline enforces
+
+The Frankfurt compliance constraints are not comments in a document — they are Batfish assertions that run on every pipeline execution:
+
+| Assertion | What it checks |
+|-----------|---------------|
+| `assert_no_trading_zone_fra` | No TRADING VLAN (100) on any FRA device |
+| `assert_fra_peers_london_only` | FRA border has no BGP peers outside AS 65001 |
+| `assert_no_direct_fra_nyc_path` | No route exists from FRA to NYC without transiting LON |
+| `assert_fra_data_residency_tag` | All FRA SoT records carry `data_residency: eu` |
+
+If any assertion fails, the pipeline blocks the merge. The change does not reach a device.
+
+## Full SoT scope (not instantiated in the lab)
+
+```
+DC1-FRA  — AS 65030
+  spine-fra-01, spine-fra-02
+  leaf-fra-01, leaf-fra-02
+  border-fra-01                       [FRR stub in lab]
+  fw-fra-01
+  Zones: CORPORATE, DMZ, MGMT        ← No TRADING
+
+Branches: 4× EU offices, AS 65140–65143
+  (Germany, France, Netherlands, Italy)
+  All tagged: data_residency: eu
+```
+
+## IPAM
+
+```yaml
+eu_fra:
+  supernet:   10.30.0.0/16
+  corporate:  10.30.2.0/22            # No trading subnet
+  dmz:        10.30.3.0/24
+  mgmt:       10.30.0.128/25
+  # 10.30.1.0/24 intentionally unallocated — no TRADING zone
+```
+
+The absence of `10.30.1.0/24` (which would be the TRADING subnet by convention) is itself a compliance artefact. Schema validation catches any attempt to add it.
+
+---
+
+<CardGrid>
+  <LinkCard title="← APAC Singapore" href="/architecture/apac/" />
+  <LinkCard title="← Global Overview" href="/architecture/" />
+</CardGrid>

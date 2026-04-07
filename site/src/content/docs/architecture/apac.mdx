@@ -1,0 +1,67 @@
+---
+title: APAC — Singapore
+description: ACME Investments APAC region. Singapore and Hong Kong border stubs in the lab; full DC topology defined in the SoT.
+---
+
+import Mermaid from '../../../components/Mermaid.astro';
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+<Aside>
+  The APAC region is represented in the lab by `border-sin-01` (Singapore). The Hong Kong site (`DC2-HKG`, AS 65021) exists in the SoT but has no lab instantiation. Both participate in Batfish validation.
+</Aside>
+
+## Lab representation
+
+<Mermaid code={`
+graph LR
+    subgraph LON["EMEA — London (lab)"]
+        BORDER_LON["border-lon-01\\nAS 65001"]
+    end
+
+    subgraph SIN["APAC — Singapore (stub)"]
+        BORDER_SIN["border-sin-01\\nFRR / AS 65020"]
+    end
+
+    BORDER_LON <-->|"iBGP\\n(simulated WAN)"| BORDER_SIN
+
+    click BORDER_LON href "/architecture/emea/" "View EMEA detail"
+`} />
+
+## Full SoT scope (not instantiated in the lab)
+
+```
+DC1-SIN  — AS 65020
+  spine-sin-01, spine-sin-02
+  leaf-sin-01..04
+  border-sin-01                       [FRR stub in lab]
+  fw-sin-01
+  Zones: TRADING, CORPORATE, DMZ, MGMT
+
+DC2-HKG  — AS 65021
+  spine-hkg-01, spine-hkg-02
+  leaf-hkg-01, leaf-hkg-02
+  Zones: TRADING, CORPORATE, DMZ, MGMT
+
+Branches: 6× APAC offices, AS 65130–65135
+```
+
+## IPAM
+
+```yaml
+apac_sin:
+  supernet:   10.20.0.0/16
+  trading:    10.20.1.0/24
+  corporate:  10.20.2.0/22
+  dmz:        10.20.3.0/24
+  mgmt:       10.20.0.128/25
+
+apac_hkg:
+  supernet:   10.21.0.0/16
+```
+
+---
+
+<CardGrid>
+  <LinkCard title="← Americas New York" href="/architecture/americas/" />
+  <LinkCard title="EU Regulatory Frankfurt →" href="/architecture/frankfurt/" />
+</CardGrid>

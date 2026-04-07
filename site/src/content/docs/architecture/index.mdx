@@ -1,0 +1,76 @@
+---
+title: Global Architecture
+description: ACME Investments global network — four regions, inter-region BGP, security zones. Click a region to drill down.
+---
+
+import Mermaid from '../../../components/Mermaid.astro';
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+ACME Investments operates across four regions connected by iBGP. The London DC1 fabric is fully instantiated in the lab. New York, Singapore, and Frankfurt run as FRR stub border routers — they participate in BGP and accept Ansible pushes, but do not have a full DC behind them.
+
+Click any region node to drill down.
+
+<Mermaid code={`
+graph TB
+    subgraph EMEA["🇬🇧  EMEA — London (Primary HQ)"]
+        direction TB
+        LON_SPINE["Spine ×2\\nAS 65001"]
+        LON_LEAF["Leaf ×4"]
+        LON_BORDER["border-lon-01\\nInter-Region BGP"]
+        LON_FW["fw-lon-01\\nZone Enforcement"]
+        LON_BRANCH["branch-lon-01\\nAS 65100"]
+        LON_SPINE --- LON_LEAF
+        LON_LEAF --- LON_FW
+        LON_FW --- LON_BORDER
+        LON_BORDER --- LON_BRANCH
+    end
+
+    subgraph NYC["🇺🇸  Americas — New York"]
+        NYC_BORDER["border-nyc-01\\nAS 65010 (stub)"]
+    end
+
+    subgraph SIN["🇸🇬  APAC — Singapore"]
+        SIN_BORDER["border-sin-01\\nAS 65020 (stub)"]
+    end
+
+    subgraph FRA["🇩🇪  EU Regulatory — Frankfurt"]
+        FRA_BORDER["border-fra-01\\nAS 65030 (stub)\\n⚠ No TRADING zone"]
+    end
+
+    LON_BORDER <-->|iBGP| NYC_BORDER
+    LON_BORDER <-->|iBGP| SIN_BORDER
+    LON_BORDER <-->|iBGP only via LON| FRA_BORDER
+
+    click LON_SPINE href "/architecture/emea/" "View EMEA detail"
+    click LON_LEAF href "/architecture/emea/" "View EMEA detail"
+    click LON_BORDER href "/architecture/emea/" "View EMEA detail"
+    click LON_FW href "/architecture/emea/" "View EMEA detail"
+    click NYC_BORDER href "/architecture/americas/" "View Americas detail"
+    click SIN_BORDER href "/architecture/apac/" "View APAC detail"
+    click FRA_BORDER href "/architecture/frankfurt/" "View Frankfurt detail"
+`} />
+
+## BGP ASN allocation
+
+| Region | Site | ASN |
+|--------|------|-----|
+| EMEA | London DC1 | 65001 |
+| EMEA | London DC2 (SoT only) | 65002 |
+| Americas | New York DC1 | 65010 |
+| Americas | New York DC2 (SoT only) | 65011 |
+| APAC | Singapore | 65020 |
+| APAC | Hong Kong (SoT only) | 65021 |
+| EU Regulatory | Frankfurt | 65030 |
+| Branches | UK (per-office) | 65100–65111 |
+| Branches | US (per-office) | 65120–65127 |
+
+Frankfurt peers only with London — never directly to New York or APAC. This topological constraint enforces the EU data residency requirement: EU-origin traffic cannot transit non-EU routing paths.
+
+## Drill down
+
+<CardGrid>
+  <LinkCard title="EMEA — London DC1" href="/architecture/emea/" description="Fully instantiated. Spine-leaf fabric, security zones, FW, border router." />
+  <LinkCard title="Americas — New York" href="/architecture/americas/" description="Stub border router. Full DC defined in SoT, not instantiated in the lab." />
+  <LinkCard title="APAC — Singapore" href="/architecture/apac/" description="Stub border router. Full DC and Hong Kong site defined in SoT." />
+  <LinkCard title="EU Regulatory — Frankfurt" href="/architecture/frankfurt/" description="Stub border router. No TRADING zone. Strictest compliance constraints." />
+</CardGrid>

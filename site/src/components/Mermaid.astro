@@ -1,0 +1,70 @@
+---
+interface Props {
+  code: string;
+}
+const { code } = Astro.props;
+---
+
+<div class="mermaid-wrapper not-content">
+  <pre class="mermaid">{code}</pre>
+</div>
+
+<script>
+  import mermaid from 'mermaid';
+
+  function getTheme(): 'dark' | 'default' {
+    return document.documentElement.dataset.theme === 'dark' ? 'dark' : 'default';
+  }
+
+  async function renderMermaid() {
+    // Reset any previously processed elements so re-renders work
+    document.querySelectorAll('.mermaid[data-processed]').forEach((el) => {
+      el.removeAttribute('data-processed');
+      // Restore original source if Mermaid replaced the content
+      const source = el.getAttribute('data-source');
+      if (source) el.textContent = source;
+    });
+
+    // Stash original source before first render
+    document.querySelectorAll('.mermaid:not([data-source])').forEach((el) => {
+      el.setAttribute('data-source', el.textContent ?? '');
+    });
+
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: getTheme(),
+      securityLevel: 'loose',
+      fontFamily: 'inherit',
+    });
+
+    await mermaid.run({ querySelector: '.mermaid' });
+  }
+
+  // Initial render and after Astro view transitions
+  document.addEventListener('astro:page-load', renderMermaid);
+
+  // Re-render when Starlight toggles dark/light mode
+  const observer = new MutationObserver((mutations) => {
+    for (const m of mutations) {
+      if (m.attributeName === 'data-theme') {
+        renderMermaid();
+        break;
+      }
+    }
+  });
+  observer.observe(document.documentElement, { attributes: true });
+</script>
+
+<style>
+  .mermaid-wrapper {
+    display: flex;
+    justify-content: center;
+    margin: 1.5rem 0;
+    overflow-x: auto;
+  }
+
+  .mermaid-wrapper :global(svg) {
+    max-width: 100%;
+    height: auto;
+  }
+</style>

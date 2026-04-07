@@ -1,0 +1,75 @@
+---
+title: Americas — New York
+description: ACME Investments Americas region. New York border stub in the lab; full DC1 and DC2 defined in the SoT.
+---
+
+import Mermaid from '../../../components/Mermaid.astro';
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+<Aside>
+  In the lab, the Americas region is represented by a single FRR stub router (`border-nyc-01`). The full New York DC1 and DC2 topologies exist in the SoT — Batfish validates against them, and the Ansible pipeline pushes to the stub as if it were a real border router.
+</Aside>
+
+## Lab representation
+
+<Mermaid code={`
+graph LR
+    subgraph LON["EMEA — London (lab)"]
+        BORDER_LON["border-lon-01\\nAS 65001"]
+    end
+
+    subgraph NYC["Americas — New York (stub)"]
+        BORDER_NYC["border-nyc-01\\nFRR / AS 65010"]
+    end
+
+    BORDER_LON <-->|"iBGP\\n(simulated WAN)"| BORDER_NYC
+
+    click BORDER_LON href "/architecture/emea/" "View EMEA detail"
+`} />
+
+## Full SoT scope (not instantiated in the lab)
+
+```
+DC1-NYC  — AS 65010
+  spine-nyc-01, spine-nyc-02          [cEOS in full build]
+  leaf-nyc-01..04                     [cEOS in full build]
+  border-nyc-01                       [cEOS in full build — stub in lab]
+  fw-nyc-01                           [zone enforcement]
+  Zones: TRADING, CORPORATE, DMZ, MGMT
+
+DC2-NYC  — AS 65011  (DR site)
+  spine-nyc2-01, spine-nyc2-02
+  leaf-nyc2-01, leaf-nyc2-02
+  Zones: CORPORATE, MGMT  (no TRADING — DR does not run trading systems)
+
+Branches: 8× US offices, AS 65120–65127
+```
+
+## IPAM
+
+```yaml
+americas_nyc:
+  supernet:   10.10.0.0/16
+  trading:    10.10.1.0/24
+  corporate:  10.10.2.0/22
+  dmz:        10.10.3.0/24
+  mgmt:       10.10.0.128/25
+
+americas_nyc_dc2:
+  supernet:   10.11.0.0/16
+```
+
+## Why stub routers matter
+
+The gap between what the SoT knows (full DC) and what the lab instantiates (stub) is intentional. It teaches a pattern you encounter in every real migration:
+
+> The automation pipeline runs against the full SoT. Partial instantiation means some devices get pushed config that their neighbours can't yet validate end-to-end. The pipeline must handle that gracefully.
+
+Batfish validates the *intent* — does the configuration, if fully deployed, satisfy the routing and security policies? It can do this even when only a fraction of the devices are live.
+
+---
+
+<CardGrid>
+  <LinkCard title="← EMEA London" href="/architecture/emea/" />
+  <LinkCard title="APAC Singapore →" href="/architecture/apac/" />
+</CardGrid>
