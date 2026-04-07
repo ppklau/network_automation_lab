@@ -194,6 +194,6 @@ npm run preview  # preview the production build locally
 | Duplicate `# Heading` on chapter pages | Minor — two headings visible | Remove the `# ` line from each chapter file |
 | `jinja2` / `cron` not syntax-highlighted | Minor — falls back to plaintext | Add custom language definitions in `astro.config.mjs` via `expressiveCode.langs` |
 | Mermaid chunk size warning at build | None — just a Vite warning | Split the Mermaid import dynamically if bundle size becomes a concern |
-| No `site` URL in `astro.config.mjs` | Sitemap not generated | Add `site: 'https://ppklau.github.io/network_automation_lab'` once confirmed |
+| Sitemap | Low — auto-generated once site/base are set | Done: `site` and `base` configured in `astro.config.mjs` |
 | Placeholder SVG logos | Brand | Replace `src/assets/logo-light.svg` and `logo-dark.svg` with a proper logo |
 | No Grafana screenshots | Gap in Ch.26 | Take screenshots at exercise completion and add to `public/images/` |

@@ -4,6 +4,8 @@ import starlight from '@astrojs/starlight';
 
 // https://astro.build/config
 export default defineConfig({
+	site: 'https://ppklau.github.io',
+	base: '/network_automation_lab',
 	integrations: [
 		starlight({
 			title: 'ACME Investments — Network Automation Lab',
