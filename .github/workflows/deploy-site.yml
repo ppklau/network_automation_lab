@@ -41,11 +41,8 @@ jobs:
         working-directory: site
 
       - name: Build
-        run: npm run build
+        run: npx astro build --site "${{ steps.pages.outputs.origin }}" --base "${{ steps.pages.outputs.base_path }}"
         working-directory: site
-        env:
-          SITE: ${{ steps.pages.outputs.origin }}
-          BASE: ${{ steps.pages.outputs.base_path }}
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

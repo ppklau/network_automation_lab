@@ -4,7 +4,7 @@ import starlight from '@astrojs/starlight';
 
 // https://astro.build/config
 export default defineConfig({
-	site: 'https://ppklau.github.io',
+	site: 'https://ppklau.github.io/network_automation_lab',
 	base: '/network_automation_lab',
 	integrations: [
 		starlight({
