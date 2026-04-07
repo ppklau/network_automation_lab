@@ -41,13 +41,13 @@ graph TB
     LON_BORDER <-->|iBGP| SIN_BORDER
     LON_BORDER <-->|iBGP only via LON| FRA_BORDER
 
-    click LON_SPINE href "/architecture/emea/" "View EMEA detail"
-    click LON_LEAF href "/architecture/emea/" "View EMEA detail"
-    click LON_BORDER href "/architecture/emea/" "View EMEA detail"
-    click LON_FW href "/architecture/emea/" "View EMEA detail"
-    click NYC_BORDER href "/architecture/americas/" "View Americas detail"
-    click SIN_BORDER href "/architecture/apac/" "View APAC detail"
-    click FRA_BORDER href "/architecture/frankfurt/" "View Frankfurt detail"
+    click LON_SPINE href "/network_automation_lab/architecture/emea/" "View EMEA detail"
+    click LON_LEAF href "/network_automation_lab/architecture/emea/" "View EMEA detail"
+    click LON_BORDER href "/network_automation_lab/architecture/emea/" "View EMEA detail"
+    click LON_FW href "/network_automation_lab/architecture/emea/" "View EMEA detail"
+    click NYC_BORDER href "/network_automation_lab/architecture/americas/" "View Americas detail"
+    click SIN_BORDER href "/network_automation_lab/architecture/apac/" "View APAC detail"
+    click FRA_BORDER href "/network_automation_lab/architecture/frankfurt/" "View Frankfurt detail"
 `} />
 
 ## BGP ASN allocation
@@ -69,8 +69,8 @@ Frankfurt peers only with London — never directly to New York or APAC. This to
 ## Drill down
 
 <CardGrid>
-  <LinkCard title="EMEA — London DC1" href="/architecture/emea/" description="Fully instantiated. Spine-leaf fabric, security zones, FW, border router." />
-  <LinkCard title="Americas — New York" href="/architecture/americas/" description="Stub border router. Full DC defined in SoT, not instantiated in the lab." />
-  <LinkCard title="APAC — Singapore" href="/architecture/apac/" description="Stub border router. Full DC and Hong Kong site defined in SoT." />
-  <LinkCard title="EU Regulatory — Frankfurt" href="/architecture/frankfurt/" description="Stub border router. No TRADING zone. Strictest compliance constraints." />
+  <LinkCard title="EMEA — London DC1" href="/network_automation_lab/architecture/emea/" description="Fully instantiated. Spine-leaf fabric, security zones, FW, border router." />
+  <LinkCard title="Americas — New York" href="/network_automation_lab/architecture/americas/" description="Stub border router. Full DC defined in SoT, not instantiated in the lab." />
+  <LinkCard title="APAC — Singapore" href="/network_automation_lab/architecture/apac/" description="Stub border router. Full DC and Hong Kong site defined in SoT." />
+  <LinkCard title="EU Regulatory — Frankfurt" href="/network_automation_lab/architecture/frankfurt/" description="Stub border router. No TRADING zone. Strictest compliance constraints." />
 </CardGrid>
