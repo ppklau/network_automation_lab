@@ -2,8 +2,6 @@
 title: "Chapter 23: Zero-Touch Provisioning for Branch Routers"
 ---
 
-# Chapter 23: Zero-Touch Provisioning for Branch Routers
-
 ## The Branch Deployment Problem
 
 ACME has 30 branches across four regions. Opening a new branch, or replacing a failed branch router, used to require either sending an engineer on-site or shipping a pre-configured device. Both options are expensive. An engineer visit to a regional branch costs a day of travel time plus the configuration work. A pre-configured device requires someone to configure it in advance, label it correctly, and hope that the configuration is still correct by the time the device ships and arrives.

@@ -2,10 +2,6 @@
 title: "Chapter 10: What the Pipeline Replaces"
 ---
 
-# Part 4 — The Pipeline
-
-# Chapter 10: What the Pipeline Replaces
-
 > 🔵 **Strategic** — sections marked
 > 🟡 **Practitioner** — Module 4.1, 4.2
 

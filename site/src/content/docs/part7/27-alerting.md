@@ -2,8 +2,6 @@
 title: "Chapter 27: Alerting"
 ---
 
-# Chapter 27: Alerting
-
 ## The Difference Between Dashboards and Alerts
 
 A dashboard answers questions you already know to ask. You open Grafana, look at the BGP session table, and see that everything is healthy. A dashboard is a pull model: you go to it.

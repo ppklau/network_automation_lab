@@ -2,10 +2,6 @@
 title: "Chapter 4: Config Is an Output, Not an Input"
 ---
 
-# Part 2 — The Source of Truth
-
-# Chapter 4: Config Is an Output, Not an Input
-
 > 🔵 **Strategic** — no CLI in this chapter
 
 ---

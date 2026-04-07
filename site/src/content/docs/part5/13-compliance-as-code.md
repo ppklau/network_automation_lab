@@ -2,8 +2,6 @@
 title: "Chapter 13: Compliance as Code"
 ---
 
-# Chapter 13: Compliance as Code
-
 > 🔵 **Strategic** — sections marked
 > 🟡 **Practitioner** — Modules 4.3, 4.4, 6.3, 7.1, 7.2
 

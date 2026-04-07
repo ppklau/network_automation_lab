@@ -2,8 +2,6 @@
 title: "Chapter 17: BGP Prefix Monitoring"
 ---
 
-# Chapter 17: BGP Prefix Monitoring
-
 ## What Health Checks Miss
 
 A BGP session status check answers a binary question: is the session established? The answer is either yes or no.

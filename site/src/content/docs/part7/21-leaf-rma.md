@@ -2,8 +2,6 @@
 title: "Chapter 21: Leaf Switch RMA"
 ---
 
-# Chapter 21: Leaf Switch RMA
-
 ## The First Call at 03:00
 
 A leaf switch replacement at ACME typically follows the same arc. The monitoring system alerts on BGP session loss. The on-call engineer runs the health check. Two BGP sessions — both to the same device — are down. The problem is not a peering issue or a routing misconfiguration; both sessions dropped simultaneously, which points to the device itself. Either the device has lost power, lost management connectivity, or failed catastrophically.

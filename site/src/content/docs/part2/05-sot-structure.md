@@ -2,8 +2,6 @@
 title: "Chapter 5: Walking the SoT"
 ---
 
-# Chapter 5: Walking the SoT
-
 > 🟡 **Practitioner** — Module 0.2 (continued)
 > 🔵 sections marked
 

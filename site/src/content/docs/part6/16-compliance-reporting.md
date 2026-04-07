@@ -2,8 +2,6 @@
 title: "Chapter 16: Compliance Reporting and Audit Artefacts"
 ---
 
-# Chapter 16: Compliance Reporting and Audit Artefacts
-
 ## The Regulator's Question
 
 During a MiFID II audit, a regulator asked ACME's head of network engineering a straightforward question: "Can you show me that Telnet has never been enabled on any device in your trading network?"

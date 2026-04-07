@@ -2,8 +2,6 @@
 title: "Chapter 9: Your First Config Push"
 ---
 
-# Chapter 9: Your First Config Push
-
 > 🟡 **Practitioner** — Module 0.4
 
 *Estimated time: 25 minutes*

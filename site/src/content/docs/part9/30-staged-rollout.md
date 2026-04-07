@@ -2,8 +2,6 @@
 title: "Chapter 30: Staged Rollout — Canary Push and Automated Rollback"
 ---
 
-# Chapter 30: Staged Rollout — Canary Push and Automated Rollback
-
 ## Scenario
 
 The network team needs to roll out a new BGP route-map policy to all 8 leaf devices in lon-dc1. The change is syntactically valid and passes Batfish checks against the snapshot. But the team is cautious — route-map changes affect prefix filtering, and a mistake on all 8 leaves simultaneously would impact every workload in the data centre.

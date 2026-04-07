@@ -2,8 +2,6 @@
 title: "Chapter 2: Setting Up the Lab"
 ---
 
-# Chapter 2: Setting Up the Lab
-
 > 🟡 **Practitioner** — Module 0.1
 
 *Estimated time: 45–60 minutes (most of that is image download and container startup)*
@@ -32,6 +30,28 @@ Branch stubs
 
 Management plane
   172.20.20.0/24 Docker bridge
+```
+
+---
+
+## Prerequisites
+
+The following must be installed before you begin. Install instructions are linked — the lab does not cover installation of these tools.
+
+| Tool | Minimum version | Install guide |
+|------|----------------|---------------|
+| **Docker Engine** | 24.x | [docs.docker.com/engine/install](https://docs.docker.com/engine/install/) |
+| **containerlab** | 0.54.x | [containerlab.dev/install](https://containerlab.dev/install/) |
+| **Python** | 3.10+ | [python.org/downloads](https://www.python.org/downloads/) |
+| **Git** | any | [git-scm.com](https://git-scm.com/) |
+
+> **Linux only.** containerlab requires a Linux kernel. On macOS or Windows use a Linux VM or WSL2. Docker Desktop does not work — containerlab needs direct access to the host network stack.
+
+Verify your Docker install before proceeding:
+
+```bash
+docker --version
+docker run --rm hello-world
 ```
 
 ---

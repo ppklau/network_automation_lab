@@ -2,8 +2,6 @@
 title: "Appendix B — Quick Reference"
 ---
 
-# Appendix B — Quick Reference
-
 ## Lab management commands
 
 | Task | Command |

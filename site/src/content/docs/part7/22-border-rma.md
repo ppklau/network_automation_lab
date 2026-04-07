@@ -2,8 +2,6 @@
 title: "Chapter 22: Border Router RMA"
 ---
 
-# Chapter 22: Border Router RMA
-
 ## Why Border Is Different
 
 A leaf switch failure affects one segment of one DC. A border router failure affects everything.

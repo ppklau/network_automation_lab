@@ -2,10 +2,6 @@
 title: "Chapter 12: Testing the Network Without Touching the Network"
 ---
 
-# Part 5 — Intent Verification with Batfish
-
-# Chapter 12: Testing the Network Without Touching the Network
-
 > 🔵 **Strategic** — sections marked
 > 🟡 **Practitioner** — Modules 6.1, 6.2, 4.4
 

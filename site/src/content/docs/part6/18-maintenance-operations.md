@@ -2,8 +2,6 @@
 title: "Chapter 18: Maintenance Windows"
 ---
 
-# Chapter 18: Maintenance Windows
-
 ## The Forgotten Maintenance Window
 
 Every network engineer has a version of this story.

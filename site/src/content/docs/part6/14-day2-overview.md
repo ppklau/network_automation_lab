@@ -2,10 +2,6 @@
 title: "Chapter 14: What Day-2 Actually Means"
 ---
 
-# Part 6: Day-2 Operations
-
-# Chapter 14: What Day-2 Actually Means
-
 🔵 **Strategic**
 
 Everyone talks about automating network provisioning. Day-1 automation — deploying a new branch, provisioning a leaf switch — is visible, dramatic, and easy to justify. A configuration rendered from a template and pushed in 90 seconds versus three hours of CLI work is a compelling before-and-after story.

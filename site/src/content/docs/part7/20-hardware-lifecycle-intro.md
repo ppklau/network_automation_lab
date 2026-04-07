@@ -2,10 +2,6 @@
 title: "Chapter 20: What Hardware Lifecycle Automation Actually Changes"
 ---
 
-# Part 7: Hardware Lifecycle
-
-# Chapter 20: What Hardware Lifecycle Automation Actually Changes
-
 🔵 **Strategic**
 
 When ACME's London DC went through its last hardware refresh cycle, the network team spent six weeks on it. Not because the work was technically complex — a leaf switch replacement is mostly copy-pasting a config — but because of the coordination overhead. Schedule the maintenance window. Order the hardware. Wait for delivery. Escalate the service desk ticket. Find the correct config for the specific device. Confirm which VLANs it carries. Get a senior engineer to do the push. Verify the BGP sessions came up. Write the change record.

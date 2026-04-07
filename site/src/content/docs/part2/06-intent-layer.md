@@ -2,8 +2,6 @@
 title: "Chapter 6: The Intent Layer — From Business Need to Machine Assertion"
 ---
 
-# Chapter 6: The Intent Layer — From Business Need to Machine Assertion
-
 > 🔵 **Strategic** — sections marked
 > 🟡 **Practitioner** — Modules 4.2, 11.1
 

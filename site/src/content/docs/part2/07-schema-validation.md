@@ -2,8 +2,6 @@
 title: "Chapter 7: Schema Validation — The Pipeline's First Gate"
 ---
 
-# Chapter 7: Schema Validation — The Pipeline's First Gate
-
 > 🟡 **Practitioner** — Modules 4.1, 0.3
 > 🔴 **Deep Dive** — sections marked
 

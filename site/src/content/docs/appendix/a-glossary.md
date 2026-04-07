@@ -2,8 +2,6 @@
 title: "Appendix A — Glossary"
 ---
 
-# Appendix A — Glossary
-
 **ASN (Autonomous System Number)** — A unique identifier for a BGP routing domain. ACME uses private ASNs (65001–65143) for all internal and branch routing.
 
 **Batfish** — An open-source network analysis tool that models the entire network from device configuration files. It can answer reachability, routing, and security questions without connecting to any device.

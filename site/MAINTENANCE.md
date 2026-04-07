@@ -191,7 +191,7 @@ npm run preview  # preview the production build locally
 
 | Issue | Impact | Fix |
 |-------|--------|-----|
-| Duplicate `# Heading` on chapter pages | Minor — two headings visible | Remove the `# ` line from each chapter file |
+| Duplicate `# Heading` on chapter pages | Fixed — removed body h1s from all chapter files | n/a |
 | `jinja2` / `cron` not syntax-highlighted | Minor — falls back to plaintext | Add custom language definitions in `astro.config.mjs` via `expressiveCode.langs` |
 | Mermaid chunk size warning at build | None — just a Vite warning | Split the Mermaid import dynamically if bundle size becomes a concern |
 | Sitemap | Low — auto-generated once site/base are set | Done: `site` and `base` configured in `astro.config.mjs` |

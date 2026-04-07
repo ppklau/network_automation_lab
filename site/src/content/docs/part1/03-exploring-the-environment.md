@@ -2,8 +2,6 @@
 title: "Chapter 3: A First Look at the Environment"
 ---
 
-# Chapter 3: A First Look at the Environment
-
 > 🟡 **Practitioner** — Modules 0.2 and 0.3
 > 🔵 **Strategic** — sections marked
 

@@ -2,8 +2,6 @@
 title: "Chapter 11: Change Freeze — Technical Enforcement of a Business Policy"
 ---
 
-# Chapter 11: Change Freeze — Technical Enforcement of a Business Policy
-
 > 🟡 **Practitioner** — Module 8.5
 > 🔵 **Strategic** — sections marked
 

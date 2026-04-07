@@ -2,8 +2,6 @@
 title: "Chapter 31: Scaling the SoT — Bulk Import from a Spreadsheet"
 ---
 
-# Chapter 31: Scaling the SoT — Bulk Import from a Spreadsheet
-
 ## Scenario
 
 ACME's Americas expansion team sends a spreadsheet. Five new branch offices are opening across the US over the next quarter: Pittsburgh, Chicago, Houston, Phoenix, Denver. Each row has a site name, location, ASN, and IP addressing. The rest follows from SoT conventions.

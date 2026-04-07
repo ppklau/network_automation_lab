@@ -2,8 +2,6 @@
 title: "Chapter 29: Self-Healing — Auto-Remediation of Detected Drift"
 ---
 
-# Chapter 29: Self-Healing — Auto-Remediation of Detected Drift
-
 ## Scenario
 
 ACME's NOC receives 12–15 drift alerts per week. Most are low-risk: a BGP timer tweaked by an engineer during an incident investigation, a description field changed to annotate a maintenance window, the occasional NTP server swap. None of them require a change management ticket. All of them require a human to run `push_configs.yml`.

@@ -2,10 +2,6 @@
 title: "Chapter 8: From YAML to Config — Jinja2 Templates"
 ---
 
-# Part 3 — Config Generation
-
-# Chapter 8: From YAML to Config — Jinja2 Templates
-
 > 🟡 **Practitioner** — Modules 0.3, 11.4
 > 🔴 **Deep Dive** — sections marked
 

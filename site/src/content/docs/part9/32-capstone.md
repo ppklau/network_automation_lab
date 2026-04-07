@@ -2,8 +2,6 @@
 title: "Chapter 32: Capstone"
 ---
 
-# Chapter 32: Capstone
-
 This module has no guided walkthroughs. The scenarios are realistic. The tooling is everything you have built across the lab. The DR runbook is the only structured reference.
 
 This is what operational readiness looks like: the tools are there, the knowledge is there, the process is what you build under pressure.

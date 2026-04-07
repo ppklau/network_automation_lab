@@ -2,8 +2,6 @@
 title: "Chapter 26: Dashboards"
 ---
 
-# Chapter 26: Dashboards
-
 ## Two Audiences, Two Dashboards
 
 ACME has two Grafana dashboards. The distinction between them is not aesthetic — it maps to two different reasons for looking at the monitoring system.

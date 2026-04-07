@@ -2,8 +2,6 @@
 title: "Chapter 28: Advanced Automation Patterns"
 ---
 
-# Chapter 28: Advanced Automation Patterns
-
 The automation you've built across the first eight modules is largely reactive. You detect a problem, you run a playbook, you fix it. That is a significant step forward from manual operations, but it still depends on a human deciding to act.
 
 This module covers three patterns that close the loop further: automated remediation, staged rollout, and bulk operations at scale. None of these require exotic infrastructure. They are direct extensions of the pipeline you've already built.

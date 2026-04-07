@@ -2,8 +2,6 @@
 title: "Chapter 15: Health Checks and Drift Detection"
 ---
 
-# Chapter 15: Health Checks and Drift Detection
-
 ## The Problem with Steady State
 
 After a change freeze or a busy provisioning sprint, the network enters a period of "steady state." No changes are scheduled. BGP is green. Monitoring shows no alerts. Everything looks fine.

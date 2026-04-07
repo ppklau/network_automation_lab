@@ -2,8 +2,6 @@
 title: "Chapter 24: OS Upgrade Workflow"
 ---
 
-# Chapter 24: OS Upgrade Workflow
-
 ## The Version Drift Problem
 
 ACME's network team had a problem they didn't know about.

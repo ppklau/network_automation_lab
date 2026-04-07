@@ -2,10 +2,6 @@
 title: "Chapter 25: What the Monitoring Stack Changes"
 ---
 
-# Part 8: Monitoring
-
-# Chapter 25: What the Monitoring Stack Changes
-
 🔵 **Strategic**
 
 Before automation, ACME's network monitoring was reactive. An engineer noticed a problem because a user called, or because they happened to run `show bgp summary` on the right device at the right time. There was no consolidated view of session state across sites. Interface utilisation was checked manually when someone suspected a problem. Drift — running config diverging from the intended config — was invisible unless someone went looking.

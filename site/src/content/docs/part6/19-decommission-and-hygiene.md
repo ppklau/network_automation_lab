@@ -2,8 +2,6 @@
 title: "Chapter 19: Decommission and SoT Hygiene"
 ---
 
-# Chapter 19: Decommission and SoT Hygiene
-
 ## Decommission Is the Hardest Operation
 
 In most networks, provisioning gets the automation investment and decommissioning gets none.

@@ -2,10 +2,6 @@
 title: "Chapter 1: ACME Investments"
 ---
 
-# Part 1 — Setting the Scene
-
-# Chapter 1: ACME Investments
-
 ## The firm
 
 ACME Investments is a mid-sized asset management firm headquartered in London, with data centres in New York, Singapore, and Frankfurt. They run their own network infrastructure: a spine-leaf fabric in London, inter-region BGP connecting the sites, and branch offices across the UK and US.
