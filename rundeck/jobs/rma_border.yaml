@@ -1,0 +1,92 @@
+# Exercise 13.2 — Border Router RMA (restricted — acme-senior-group only)
+# Part of Module 10.3 (Border Router RMA) and Exercise 13.2.
+#
+# Approval simulation note:
+#   Border router RMA requires TWO approvers (CAB gate) in the real-world
+#   process. This is simulated by requiring both approver_1 and approver_2
+#   fields. Both names are passed to the playbook as the approved_by value
+#   and recorded in Rundeck's execution history.
+#
+#   As with rma_leaf.yaml, the ACME/Lifecycle/Restricted group ACL ensures
+#   only acme-senior-group members can run this job at all. The two-approver
+#   requirement is purely a field-level simulation; Rundeck Community does not
+#   enforce that two different individuals submit the approvals. Rundeck
+#   Enterprise (or an external ITSM integration) would be required for a
+#   formal two-approver CAB workflow.
+- id: a1b2c3d4-e5f6-7890-abcd-ef1234567805
+  name: Border Router RMA
+  group: ACME/Lifecycle/Restricted
+  description: |-
+    Replaces a border router in the Source of Truth (SoT) and pushes the
+    replacement configuration via playbooks/rma_border.yml.
+
+    RESTRICTED JOB — only members of acme-senior-group may execute this job.
+
+    Border RMA requires TWO CAB approvers. Both 'approver_1' and 'approver_2'
+    are mandatory fields. Their names are passed to the playbook and recorded
+    in Rundeck's execution history as the compliance record.
+
+    In Rundeck Community the two-approver requirement is simulated through
+    required option fields only. The system cannot enforce that the two names
+    belong to different individuals, or that they each independently submitted
+    approval. Rundeck Enterprise or an external ITSM tool is required for a
+    formal CAB gate.
+
+    Module reference : Module 10.3 — Border Router RMA
+    Exercise reference: Exercise 13.2 — Approval Workflow Simulation
+  loglevel: INFO
+  scheduleEnabled: false
+  executionEnabled: true
+  multipleExecutions: false
+  options:
+    - name: target_node
+      label: Target Border Router
+      description: Border router being replaced
+      required: true
+      enforced: true
+      values:
+        - border-lon-01
+        - border-lon-02
+        - border-nyc-01
+        - border-sin-01
+        - border-fra-01
+    - name: new_serial
+      label: New Serial Number
+      description: "Serial number of replacement unit (e.g. JPE2502001A)"
+      required: true
+      enforced: false
+    - name: rma_reason
+      label: RMA Reason
+      description: "Documented reason for replacement (e.g. 'Linecard hardware fault — TAC case 12345678')"
+      required: true
+      enforced: false
+    - name: approver_1
+      label: CAB Approver 1
+      description: "First CAB approver name (e.g. 'Jane Smith — Network Architect')"
+      required: true
+      enforced: false
+    - name: approver_2
+      label: CAB Approver 2
+      description: "Second CAB approver name (e.g. 'John Doe — Change Manager')"
+      required: true
+      enforced: false
+    - name: change_ticket
+      label: Change Ticket
+      description: "Change management reference (e.g. CHG-2026-0100)"
+      required: true
+      enforced: false
+  sequence:
+    keepgoing: false
+    strategy: node-first
+    commands:
+      - exec: >-
+          cd /opt/acme-lab && ansible-playbook playbooks/rma_border.yml
+          --limit ${option.target_node}
+          --extra-vars "new_serial=${option.new_serial} rma_reason='${option.rma_reason}' approved_by='${option.approver_1} + ${option.approver_2}' confirmed=yes"
+        description: Run border RMA playbook (two CAB approvers captured in approved_by field)
+  nodefilters:
+    dispatch:
+      threadcount: 1
+      keepgoing: false
+      rankOrder: ascending
+    filter: 'name: localhost'

@@ -1,5 +1,5 @@
 ---
-title: "Chapter 28: Advanced Automation Patterns"
+title: "Chapter 32: Advanced Automation Patterns"
 ---
 
 The automation you've built across the first eight modules is largely reactive. You detect a problem, you run a playbook, you fix it. That is a significant step forward from manual operations, but it still depends on a human deciding to act.

@@ -1,0 +1,95 @@
+# Exercise 13.2 — Maintenance window with approval simulation
+# Part of Module 8.6 (Maintenance Windows) and Exercise 13.2.
+#
+# Approval simulation note:
+#   Rundeck Community does not have a native approval queue. Approval is
+#   simulated through two required fields:
+#     approved_by   — The name of the engineer who authorised this window.
+#                     Entering this field constitutes the approval record.
+#     change_ticket — Change management reference (e.g. CHG-2026-0042).
+#   Both values are captured in Rundeck's execution history for audit purposes.
+- id: a1b2c3d4-e5f6-7890-abcd-ef1234567803
+  name: Maintenance Window
+  group: ACME/Operations
+  description: |-
+    Enters or exits a maintenance window on a target lab device by running
+    playbooks/maintenance_window.yml.
+
+    Entering a maintenance window suppresses Alertmanager alerts for the device
+    and writes an entry to state/maintenance_windows.json.
+
+    Approval simulation: the 'approved_by' and 'change_ticket' fields are
+    mandatory and form the approval record in Rundeck's execution history.
+    Rundeck Community does not have a native approval queue — that requires
+    Rundeck Enterprise. For this lab the required-field pattern is sufficient
+    to demonstrate the approval workflow concept.
+
+    Module reference : Module 8.6 — Maintenance Windows
+    Exercise reference: Exercise 13.2 — Approval Workflow Simulation
+  loglevel: INFO
+  scheduleEnabled: false
+  executionEnabled: true
+  multipleExecutions: false
+  options:
+    - name: target_node
+      label: Target Device
+      description: Device to enter or exit maintenance window
+      required: true
+      enforced: true
+      values:
+        - spine-lon-01
+        - spine-lon-02
+        - leaf-lon-01
+        - leaf-lon-02
+        - leaf-lon-03
+        - leaf-lon-04
+        - border-lon-01
+        - border-lon-02
+        - border-nyc-01
+        - border-sin-01
+        - border-fra-01
+        - branch-lon-01
+        - branch-nyc-01
+    - name: action
+      label: Action
+      description: Whether to enter or exit the maintenance window
+      required: true
+      enforced: true
+      values:
+        - enter
+        - exit
+    - name: window_reason
+      label: Maintenance Reason
+      description: "Reason for maintenance (e.g. 'Optic replacement on Ethernet3')"
+      required: true
+      enforced: false
+    - name: window_end
+      label: Expected End Time
+      description: "Expected end time in ISO 8601 format (e.g. '2026-04-12T22:00:00Z'). Leave blank if unknown."
+      required: false
+      enforced: false
+    - name: approved_by
+      label: Approved By
+      description: "Name of approving engineer — this field constitutes the approval record in Rundeck's execution history"
+      required: true
+      enforced: false
+    - name: change_ticket
+      label: Change Ticket
+      description: "Change management reference (e.g. CHG-2026-0042)"
+      required: true
+      enforced: false
+  sequence:
+    keepgoing: false
+    strategy: node-first
+    commands:
+      - exec: >-
+          cd /opt/acme-lab && ansible-playbook playbooks/maintenance_window.yml
+          --limit ${option.target_node}
+          --extra-vars "action=${option.action} window_reason='${option.window_reason}' approved_by='${option.approved_by}' window_end='${option.window_end}'"
+        description: Run maintenance window playbook
+  nodefilters:
+    dispatch:
+      threadcount: 1
+      keepgoing: false
+      rankOrder: ascending
+    filter: 'name: localhost'

@@ -1,0 +1,89 @@
+# ACME Investments — Project-level ACL for the 'acme' project
+# ─────────────────────────────────────────────────────────────────────────────
+# Two groups are defined:
+#
+#   acme-ops-group    — Operations engineers. Can run scheduled and operational
+#                       jobs (ACME/Scheduled, ACME/Operations). CANNOT run
+#                       restricted lifecycle jobs (ACME/Lifecycle/Restricted).
+#
+#   acme-senior-group — Senior/authorised engineers. Can run ALL jobs including
+#                       the restricted lifecycle group (RMA, OS Upgrade).
+#
+# Approval simulation note:
+#   Rundeck Community does not have a native approval queue (that requires
+#   Rundeck Enterprise). Approval is simulated here through two mechanisms:
+#     1. ACL restriction: only acme-senior-group can execute restricted jobs,
+#        ensuring that a senior engineer is the one submitting the execution.
+#     2. Required job option fields: jobs that require approval mandate an
+#        'approved_by' field and a 'change_ticket' reference. The values
+#        entered at run time form the compliance record in Rundeck's execution
+#        history.
+#   For a genuine approval-queue workflow, evaluate Rundeck Enterprise or an
+#   external ITSM integration.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── acme-ops-group — operational access, restricted jobs blocked ──────────────
+description: acme-ops — read and run scheduled and operational jobs
+context:
+  project: 'acme'
+for:
+  resource:
+    - equals:
+        kind: job
+      allow: [read]
+    - equals:
+        kind: event
+      allow: [read]
+    - equals:
+        kind: node
+      allow: [read]
+  job:
+    # Allow read + run on Scheduled jobs
+    - match:
+        group: 'ACME/Scheduled'
+      allow: [read, run, kill, view]
+    # Allow read + run on Operational jobs
+    - match:
+        group: 'ACME/Operations'
+      allow: [read, run, kill, view]
+    # Explicitly deny access to restricted lifecycle jobs
+    - match:
+        group: 'ACME/Lifecycle/Restricted'
+      deny: [run, create, update, delete, kill]
+  adhoc:
+    - allow: []
+  node:
+    - allow: [read]
+by:
+  group: acme-ops-group
+
+---
+
+# ── acme-senior-group — full project access including restricted jobs ──────────
+description: acme-senior — full access including restricted lifecycle jobs
+context:
+  project: 'acme'
+for:
+  resource:
+    - equals:
+        kind: job
+      allow: [read, create, update, delete]
+    - equals:
+        kind: event
+      allow: [read]
+    - equals:
+        kind: node
+      allow: [read]
+  job:
+    # Full access to all job groups
+    - match:
+        group: 'ACME/.*'
+      allow: [read, run, create, update, delete, kill, view]
+    # Catch-all for jobs not yet assigned to a group
+    - allow: [read, run, create, update, delete, kill, view]
+  adhoc:
+    - allow: [read, run]
+  node:
+    - allow: [read, run]
+by:
+  group: acme-senior-group

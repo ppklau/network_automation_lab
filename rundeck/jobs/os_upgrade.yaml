@@ -1,0 +1,95 @@
+# Exercise 13.3 — OS Upgrade (restricted — acme-senior-group only)
+# Part of Module 10.5 (EOS OS Upgrades) and Exercise 13.3.
+#
+# Approval simulation note:
+#   As with the RMA jobs, the ACME/Lifecycle/Restricted ACL ensures only
+#   acme-senior-group members can run this job. The approved_by and
+#   change_ticket fields form the approval compliance record.
+#
+# Scheduled execution tip:
+#   Use Rundeck's "Schedule this execution" feature (the clock icon on the
+#   Run Job page) to schedule the upgrade for a future maintenance window.
+#   This is available in Rundeck Community without any additional plugins.
+- id: a1b2c3d4-e5f6-7890-abcd-ef1234567806
+  name: OS Upgrade
+  group: ACME/Lifecycle/Restricted
+  description: |-
+    Upgrades the EOS operating system on a target device via
+    playbooks/os_upgrade.yml.
+
+    RESTRICTED JOB — only members of acme-senior-group may execute this job.
+
+    Tip — scheduled execution: use Rundeck's "Schedule this execution" feature
+    (clock icon on the Run Job page) to schedule the upgrade for a specific
+    maintenance window time. This feature is available in Rundeck Community.
+
+    Approval simulation: the 'approved_by' and 'change_ticket' fields are
+    mandatory and form the approval record. The ACME/Lifecycle/Restricted ACL
+    enforces that only a senior engineer can submit the execution. Rundeck
+    Community does not have a native approval queue — that requires Rundeck
+    Enterprise.
+
+    Module reference : Module 10.5 — EOS OS Upgrades
+    Exercise reference: Exercise 13.3 — Scheduled Rundeck Jobs
+  loglevel: INFO
+  scheduleEnabled: false
+  executionEnabled: true
+  multipleExecutions: false
+  options:
+    - name: target_node
+      label: Target Device
+      description: EOS device to upgrade (spines, leaves, and borders only — branch devices run a different OS)
+      required: true
+      enforced: true
+      values:
+        - spine-lon-01
+        - spine-lon-02
+        - leaf-lon-01
+        - leaf-lon-02
+        - leaf-lon-03
+        - leaf-lon-04
+        - border-lon-01
+        - border-lon-02
+        - border-nyc-01
+        - border-sin-01
+        - border-fra-01
+    - name: image_path
+      label: EOS Image Path
+      description: "Path to the EOS .swi image on the control node (e.g. /opt/acme-lab/images/EOS-4.32.3F.swi)"
+      required: true
+      enforced: false
+    - name: target_version
+      label: Target Version Override
+      description: "Override the SoT target_version value (leave blank to use the version defined in the SoT)"
+      required: false
+      enforced: false
+    - name: upgrade_reason
+      label: Upgrade Reason
+      description: "Reason for upgrade (e.g. 'CVE-2026-1234 remediation')"
+      required: false
+      enforced: false
+    - name: approved_by
+      label: Approved By
+      description: "Name of authorising senior engineer — this field constitutes the approval record"
+      required: true
+      enforced: false
+    - name: change_ticket
+      label: Change Ticket
+      description: "Change management reference (e.g. CHG-2026-0150)"
+      required: true
+      enforced: false
+  sequence:
+    keepgoing: false
+    strategy: node-first
+    commands:
+      - exec: >-
+          cd /opt/acme-lab && ansible-playbook playbooks/os_upgrade.yml
+          --limit ${option.target_node}
+          --extra-vars "image_path=${option.image_path} confirmed=yes upgrade_reason='${option.upgrade_reason}'"
+        description: Run EOS upgrade playbook (confirmed=yes — approval gate is Rundeck ACL + fields)
+  nodefilters:
+    dispatch:
+      threadcount: 1
+      keepgoing: false
+      rankOrder: ascending
+    filter: 'name: localhost'

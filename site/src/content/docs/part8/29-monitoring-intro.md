@@ -1,5 +1,5 @@
 ---
-title: "Chapter 25: What the Monitoring Stack Changes"
+title: "Chapter 29: What the Monitoring Stack Changes"
 ---
 
 🔵 **Strategic**

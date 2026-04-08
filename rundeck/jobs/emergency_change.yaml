@@ -1,0 +1,118 @@
+# Exercise 13.4 — Emergency Change (fast path, no approval required)
+# Part of Exercise 13.4 (Emergency Change Procedures).
+#
+# Design note:
+#   This job bypasses the standard approval gate intentionally. The bypass_reason
+#   and incident_reference fields are MANDATORY and form the compliance record.
+#   The bypass is logged to state/emergency_changes.log before the playbook runs.
+#
+#   Rundeck Community does not support conditional steps natively. A single
+#   inline shell script handles the log-write and the branch on change_type.
+- id: a1b2c3d4-e5f6-7890-abcd-ef1234567807
+  name: Emergency Change
+  group: ACME/Operations
+  description: |-
+    Fast-path change that bypasses the standard approval gate. Intended for
+    P1/P2 incidents only where waiting for a change ticket would cause
+    unacceptable service impact.
+
+    The 'bypass_reason' field is mandatory and long-form — it IS the compliance
+    record. Be specific: include the incident reference, the impact being
+    mitigated, and why standard process was bypassed. All inputs are appended
+    to state/emergency_changes.log before the playbook runs.
+
+    Supports two change types:
+      push_config — runs playbooks/push_configs.yml to push a pre-staged config
+      rollback    — runs playbooks/rollback.yml to restore the last known-good config
+
+    Exercise reference: Exercise 13.4 — Emergency Change Procedures
+  loglevel: INFO
+  scheduleEnabled: false
+  executionEnabled: true
+  multipleExecutions: true
+  options:
+    - name: target_node
+      label: Target Device
+      description: Device to change
+      required: true
+      enforced: true
+      values:
+        - spine-lon-01
+        - spine-lon-02
+        - leaf-lon-01
+        - leaf-lon-02
+        - leaf-lon-03
+        - leaf-lon-04
+        - border-lon-01
+        - border-lon-02
+        - border-nyc-01
+        - border-sin-01
+        - border-fra-01
+        - branch-lon-01
+        - branch-nyc-01
+    - name: change_type
+      label: Change Type
+      description: Type of emergency change to execute
+      required: true
+      enforced: true
+      values:
+        - push_config
+        - rollback
+    - name: bypass_reason
+      label: Bypass Reason
+      description: "Reason for bypassing standard approval — THIS FIELD IS THE COMPLIANCE RECORD. Be specific: include impact, why standard process was bypassed, and what config change is being made."
+      required: true
+      enforced: false
+    - name: incident_reference
+      label: Incident Reference
+      description: "Incident or alert reference (e.g. INC-2026-0891)"
+      required: true
+      enforced: false
+  sequence:
+    keepgoing: false
+    strategy: node-first
+    commands:
+      - script: |
+          #!/bin/bash
+          set -e
+
+          LOG_FILE="/opt/acme-lab/state/emergency_changes.log"
+
+          # Ensure the state directory exists
+          mkdir -p /opt/acme-lab/state
+
+          # Write the compliance log entry BEFORE executing the change.
+          # This ensures the record exists even if the playbook fails.
+          echo "======================================================================" >> "${LOG_FILE}"
+          echo "EMERGENCY CHANGE EXECUTED" >> "${LOG_FILE}"
+          echo "Timestamp     : $(date -u '+%Y-%m-%dT%H:%M:%SZ')" >> "${LOG_FILE}"
+          echo "Change type   : ${RD_OPTION_CHANGE_TYPE}" >> "${LOG_FILE}"
+          echo "Target device : ${RD_OPTION_TARGET_NODE}" >> "${LOG_FILE}"
+          echo "Incident ref  : ${RD_OPTION_INCIDENT_REFERENCE}" >> "${LOG_FILE}"
+          echo "Executed by   : ${RD_JOB_USERNAME}" >> "${LOG_FILE}"
+          echo "Rundeck job   : ${RD_JOB_ID} / execution ${RD_EXECUTION_ID}" >> "${LOG_FILE}"
+          echo "Bypass reason : ${RD_OPTION_BYPASS_REASON}" >> "${LOG_FILE}"
+          echo "======================================================================" >> "${LOG_FILE}"
+
+          echo "[emergency_change] Log entry written to ${LOG_FILE}"
+
+          cd /opt/acme-lab
+
+          if [ "${RD_OPTION_CHANGE_TYPE}" = "push_config" ]; then
+            echo "[emergency_change] Executing push_configs.yml on ${RD_OPTION_TARGET_NODE}"
+            ansible-playbook playbooks/push_configs.yml \
+              --limit "${RD_OPTION_TARGET_NODE}" \
+              --extra-vars "confirmed=yes"
+          else
+            echo "[emergency_change] Executing rollback.yml on ${RD_OPTION_TARGET_NODE}"
+            ansible-playbook playbooks/rollback.yml \
+              --limit "${RD_OPTION_TARGET_NODE}"
+          fi
+        fileExtension: sh
+        description: Log bypass record then run push_config or rollback based on change_type
+  nodefilters:
+    dispatch:
+      threadcount: 1
+      keepgoing: false
+      rankOrder: ascending
+    filter: 'name: localhost'

@@ -1,0 +1,88 @@
+# Exercise 13.2 — Leaf Switch RMA (restricted — acme-senior-group only)
+# Part of Module 10.1 (Hardware RMA Procedures) and Exercise 13.2.
+#
+# Approval simulation note:
+#   This job is placed in group ACME/Lifecycle/Restricted. The project ACL
+#   (acme.aclpolicy) denies the acme-ops-group the ability to run jobs in
+#   this group. Only acme-senior-group members can execute this job.
+#
+#   This is how Rundeck Community simulates an approval gate: the senior
+#   engineer IS the approver, and their identity is captured in the
+#   'approved_by' field which is stored in Rundeck's execution history.
+#   The playbook itself no longer prompts for interactive confirmation because
+#   confirmed=yes is passed directly — the Rundeck ACL restriction serves as
+#   the gate instead.
+#
+#   For a formal approval queue with an email-based approval step, Rundeck
+#   Enterprise is required.
+- id: a1b2c3d4-e5f6-7890-abcd-ef1234567804
+  name: Leaf Switch RMA
+  group: ACME/Lifecycle/Restricted
+  description: |-
+    Replaces a leaf switch in the Source of Truth (SoT) and pushes the
+    replacement configuration via playbooks/rma_leaf.yml.
+
+    RESTRICTED JOB — only members of acme-senior-group may execute this job.
+    In Rundeck Community this ACL restriction simulates the approval gate:
+    the senior engineer submitting the job IS the authorised approver, and
+    their identity plus the change_ticket are captured in Rundeck's execution
+    history as the compliance record. Native approval queues require Rundeck
+    Enterprise.
+
+    Module reference : Module 10.1 — Hardware RMA Procedures
+    Exercise reference: Exercise 13.2 — Approval Workflow Simulation
+  loglevel: INFO
+  scheduleEnabled: false
+  executionEnabled: true
+  multipleExecutions: false
+  options:
+    - name: target_node
+      label: Target Leaf Switch
+      description: Leaf switch being replaced
+      required: true
+      enforced: true
+      values:
+        - leaf-lon-01
+        - leaf-lon-02
+        - leaf-lon-03
+        - leaf-lon-04
+    - name: new_serial
+      label: New Serial Number
+      description: "Serial number of replacement unit (e.g. ACE2501099X)"
+      required: true
+      enforced: false
+    - name: rma_reason
+      label: RMA Reason
+      description: "Documented reason for replacement (e.g. 'Power supply failure')"
+      required: true
+      enforced: false
+    - name: new_model
+      label: New Hardware Model
+      description: "Hardware model if different from SoT (leave blank if same model)"
+      required: false
+      enforced: false
+    - name: approved_by
+      label: Authorising Senior Engineer
+      description: "Name of the authorising senior engineer — this field constitutes the approval record"
+      required: true
+      enforced: false
+    - name: change_ticket
+      label: Change Ticket
+      description: "Change management reference (e.g. CHG-2026-0099)"
+      required: true
+      enforced: false
+  sequence:
+    keepgoing: false
+    strategy: node-first
+    commands:
+      - exec: >-
+          cd /opt/acme-lab && ansible-playbook playbooks/rma_leaf.yml
+          --limit ${option.target_node}
+          --extra-vars "new_serial=${option.new_serial} rma_reason='${option.rma_reason}' confirmed=yes"
+        description: Run leaf RMA playbook (confirmed=yes — approval gate is Rundeck ACL)
+  nodefilters:
+    dispatch:
+      threadcount: 1
+      keepgoing: false
+      rankOrder: ascending
+    filter: 'name: localhost'

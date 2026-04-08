@@ -1,0 +1,37 @@
+# ACME Investments — acme-ops System ACL Policy
+# ─────────────────────────────────────────────────────────────────────────────
+# System-level ACL for the 'acme-ops-group' group.
+# This policy grants the minimum system-level permissions required to log in
+# and access the 'acme' project. Project-level permissions (which jobs the
+# group may run) are controlled by acme.aclpolicy.
+#
+# Users in acme-ops-group:
+#   acme-ops  (password: acme-ops)
+# ─────────────────────────────────────────────────────────────────────────────
+
+description: acme-ops — system login and project read access
+context:
+  application: 'rundeck'
+for:
+  resource:
+    # Allow reading the list of projects
+    - equals:
+        kind: project
+      allow: [read]
+    # Allow reading system information (needed for the UI to render)
+    - equals:
+        kind: system
+      allow: [read]
+    # Allow reading the job activity / executions feed
+    - equals:
+        kind: event
+      allow: [read]
+  project:
+    # Grant access to the acme project only
+    - match:
+        name: 'acme'
+      allow: [read]
+  storage:
+    - allow: [read]
+by:
+  group: acme-ops-group

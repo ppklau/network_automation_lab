@@ -1,5 +1,5 @@
 ---
-title: "Chapter 31: Scaling the SoT — Bulk Import from a Spreadsheet"
+title: "Chapter 35: Scaling the SoT — Bulk Import from a Spreadsheet"
 ---
 
 ## Scenario

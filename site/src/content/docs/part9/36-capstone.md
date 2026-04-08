@@ -1,5 +1,5 @@
 ---
-title: "Chapter 32: Capstone"
+title: "Chapter 36: Capstone"
 ---
 
 This module has no guided walkthroughs. The scenarios are realistic. The tooling is everything you have built across the lab. The DR runbook is the only structured reference.

@@ -1,5 +1,5 @@
 ---
-title: "Chapter 26: Dashboards"
+title: "Chapter 30: Dashboards"
 ---
 
 ## Two Audiences, Two Dashboards

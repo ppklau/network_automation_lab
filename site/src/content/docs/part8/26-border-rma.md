@@ -1,5 +1,5 @@
 ---
-title: "Chapter 22: Border Router RMA"
+title: "Chapter 26: Border Router RMA"
 ---
 
 ## Why Border Is Different

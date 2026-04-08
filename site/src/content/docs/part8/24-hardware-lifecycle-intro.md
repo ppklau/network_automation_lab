@@ -1,5 +1,5 @@
 ---
-title: "Chapter 20: What Hardware Lifecycle Automation Actually Changes"
+title: "Chapter 24: What Hardware Lifecycle Automation Actually Changes"
 ---
 
 🔵 **Strategic**

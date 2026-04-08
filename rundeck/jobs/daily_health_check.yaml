@@ -1,0 +1,39 @@
+# Exercise 13.3 — Scheduled daily health check
+# Runs the daily_health_check.yml playbook Mon–Fri at 07:00.
+# Part of Module 8.1 (Automated Health Checks) and Exercise 13.3.
+- id: a1b2c3d4-e5f6-7890-abcd-ef1234567801
+  name: Daily Health Check
+  group: ACME/Scheduled
+  description: |-
+    Runs playbooks/daily_health_check.yml against the lab_active inventory group
+    every weekday at 07:00.
+
+    Collects BGP state, interface status, CPU/memory and writes .prom textfiles
+    for Prometheus ingestion. Results are visible in the Grafana "Network Health"
+    dashboard.
+
+    Module reference : Module 8.1 — Automated Health Checks
+    Exercise reference: Exercise 13.3 — Scheduled Rundeck Jobs
+  loglevel: INFO
+  schedule:
+    month: '*'
+    dayofmonth: '*'
+    dayofweek: 'Mon,Tue,Wed,Thu,Fri'
+    hour: '7'
+    minute: '0'
+    seconds: '0'
+  scheduleEnabled: true
+  executionEnabled: true
+  multipleExecutions: false
+  sequence:
+    keepgoing: false
+    strategy: node-first
+    commands:
+      - exec: cd /opt/acme-lab && ansible-playbook playbooks/daily_health_check.yml
+        description: Run daily health check playbook
+  nodefilters:
+    dispatch:
+      threadcount: 1
+      keepgoing: false
+      rankOrder: ascending
+    filter: 'name: localhost'

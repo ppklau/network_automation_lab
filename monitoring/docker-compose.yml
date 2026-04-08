@@ -100,10 +100,62 @@ services:
     networks:
       - monitoring
 
+  # ── Rundeck orchestration server ────────────────────────────────────────────
+  # Builds from ../rundeck/Dockerfile (Rundeck 5.8.0 + Ansible + NAPALM).
+  # Access: http://localhost:4440   admin / acme-lab
+  #
+  # SSH key requirement: The ~/.ssh directory on the Docker host is mounted
+  # read-only into the container so that Ansible (running inside Rundeck) can
+  # reach lab devices using the same key used for manual access. Ensure that
+  # ~/.ssh/id_rsa (or your preferred key) is present and has permissions 600
+  # before starting this service.
+  rundeck:
+    build:
+      context: ../rundeck
+    container_name: acme-rundeck
+    restart: unless-stopped
+    environment:
+      # ── Server URLs ──────────────────────────────────────────────────────────
+      RUNDECK_GRAILS_URL: "http://localhost:4440"
+      RUNDECK_SERVER_ADDRESS: "0.0.0.0"
+      # ── Database (embedded H2 — suitable for a lab environment) ──────────────
+      RUNDECK_DATABASE_DRIVER: "org.h2.Driver"
+      # ── UI / security tweaks ─────────────────────────────────────────────────
+      RUNDECK_SECURITY_HTTPHEADERS_PROVIDER_CSP_ENABLED: "false"
+      RUNDECK_FEATURE_REPOSITORY_ENABLED: "false"
+      # ── Built-in admin credentials ───────────────────────────────────────────
+      RUNDECK_ADMIN_USER: "admin"
+      RUNDECK_ADMIN_PASSWORD: "acme-lab"
+    volumes:
+      # Persistent Rundeck state (projects, executions, logs)
+      - rundeck_data:/home/rundeck/server/data
+      # Mount the entire lab directory so Ansible playbooks and configs are
+      # accessible at /opt/acme-lab inside the container (read-write so that
+      # playbooks can write reports, state files, etc.)
+      - ../:/opt/acme-lab
+      # SSH keys from the Docker host — required for Ansible to reach lab devices.
+      # Ensure ${HOME}/.ssh/id_rsa exists and is chmod 600 before starting this service.
+      - ${HOME}/.ssh:/home/rundeck/.ssh:ro
+      # System-level ACL policies — loaded by Rundeck on startup.
+      # admin.aclpolicy:    full access for the admin user
+      # acme-ops.aclpolicy: system-level project visibility for acme-ops-group
+      # The project-level ACL (acme.aclpolicy) is imported via import_jobs.sh.
+      - ../rundeck/admin.aclpolicy:/home/rundeck/etc/admin.aclpolicy:ro
+      - ../rundeck/acme-ops.aclpolicy:/home/rundeck/etc/acme-ops.aclpolicy:ro
+    ports:
+      - "4440:4440"
+    networks:
+      # Internal monitoring network (Prometheus, Grafana, etc.)
+      - monitoring
+      # containerlab management network — gives Ansible access to lab devices
+      - acme-mgmt
+
 volumes:
   prometheus_data:
   grafana_data:
   alertmanager_data:
+  # Rundeck persistent data (H2 database, execution logs, project config)
+  rundeck_data:
 
 networks:
   monitoring:

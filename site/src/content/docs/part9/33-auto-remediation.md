@@ -1,5 +1,5 @@
 ---
-title: "Chapter 29: Self-Healing — Auto-Remediation of Detected Drift"
+title: "Chapter 33: Self-Healing — Auto-Remediation of Detected Drift"
 ---
 
 ## Scenario

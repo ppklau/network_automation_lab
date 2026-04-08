@@ -1,0 +1,39 @@
+# Exercise 13.3 — Scheduled weekly compliance report
+# Runs the compliance_report.yml playbook every Sunday at 06:00.
+# Part of Module 4.3 (Configuration Compliance) and Exercise 13.3.
+- id: a1b2c3d4-e5f6-7890-abcd-ef1234567802
+  name: Compliance Report
+  group: ACME/Scheduled
+  description: |-
+    Runs playbooks/compliance_report.yml against all active lab nodes every
+    Sunday at 06:00.
+
+    Checks device configuration against the Source of Truth (SoT) and writes
+    a compliance report to state/compliance_report_<date>.json. Non-compliant
+    items trigger Alertmanager notifications via the existing alert rules.
+
+    Module reference : Module 4.3 — Configuration Compliance Checks
+    Exercise reference: Exercise 13.3 — Scheduled Rundeck Jobs
+  loglevel: INFO
+  schedule:
+    month: '*'
+    dayofmonth: '*'
+    dayofweek: 'Sun'
+    hour: '6'
+    minute: '0'
+    seconds: '0'
+  scheduleEnabled: true
+  executionEnabled: true
+  multipleExecutions: false
+  sequence:
+    keepgoing: false
+    strategy: node-first
+    commands:
+      - exec: cd /opt/acme-lab && ansible-playbook playbooks/compliance_report.yml
+        description: Run weekly compliance report playbook
+  nodefilters:
+    dispatch:
+      threadcount: 1
+      keepgoing: false
+      rankOrder: ascending
+    filter: 'name: localhost'

@@ -1,5 +1,5 @@
 ---
-title: "Chapter 23: Zero-Touch Provisioning for Branch Routers"
+title: "Chapter 27: Zero-Touch Provisioning for Branch Routers"
 ---
 
 ## The Branch Deployment Problem

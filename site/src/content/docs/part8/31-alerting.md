@@ -1,5 +1,5 @@
 ---
-title: "Chapter 27: Alerting"
+title: "Chapter 31: Alerting"
 ---
 
 ## The Difference Between Dashboards and Alerts

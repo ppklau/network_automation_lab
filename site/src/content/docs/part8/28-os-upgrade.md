@@ -1,5 +1,5 @@
 ---
-title: "Chapter 24: OS Upgrade Workflow"
+title: "Chapter 28: OS Upgrade Workflow"
 ---
 
 ## The Version Drift Problem

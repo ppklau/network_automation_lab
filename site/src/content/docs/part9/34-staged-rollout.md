@@ -1,5 +1,5 @@
 ---
-title: "Chapter 30: Staged Rollout — Canary Push and Automated Rollback"
+title: "Chapter 34: Staged Rollout — Canary Push and Automated Rollback"
 ---
 
 ## Scenario

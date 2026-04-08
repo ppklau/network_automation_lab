@@ -1,0 +1,41 @@
+# ACME Investments — Admin ACL Policy
+# ─────────────────────────────────────────────────────────────────────────────
+# System-level ACL granting the built-in 'admin' user full access to all
+# projects and all system-level operations.
+#
+# This policy file is placed at the Rundeck system level (not project level).
+# It applies to the group named 'admin' which Rundeck assigns to the default
+# admin account.
+# ─────────────────────────────────────────────────────────────────────────────
+
+description: Admin — full system and project access
+context:
+  application: 'rundeck'
+for:
+  resource:
+    - allow: '*'
+  project:
+    - allow: '*'
+  project_acl:
+    - allow: '*'
+  storage:
+    - allow: '*'
+by:
+  group: admin
+
+---
+
+description: Admin — full access to all projects
+context:
+  project: '.*'
+for:
+  resource:
+    - allow: '*'
+  adhoc:
+    - allow: '*'
+  job:
+    - allow: '*'
+  node:
+    - allow: '*'
+by:
+  group: admin
