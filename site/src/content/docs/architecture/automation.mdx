@@ -1,0 +1,130 @@
+---
+title: Automation Architecture
+description: A functional overview of network automation architecture — both tool-agnostic and the specific stack used in this lab.
+---
+
+import Mermaid from '../../../components/Mermaid.astro';
+import { Aside, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+Network automation platforms share a common set of functional building blocks regardless of which products fill each role. This page presents that functional model first, then maps the specific tools used in this lab onto it.
+
+<Aside type="note">
+  Automation tooling is highly opinionated. The stack shown here is one valid approach — the same functions could be served by NetBox, Nautobot, Nornir, NSO, Terraform, Crossplane, Prometheus alternatives, or any number of other tools. What matters is that each function is covered, not which product covers it.
+</Aside>
+
+## Functional model
+
+The diagram below shows the automation functions in a typical network automation pipeline. No specific products are named — only what each layer does.
+
+<Mermaid code={`
+graph TD
+    SOT["Source of Truth\\nsingle authoritative record\\nof network intent"]
+
+    PIPELINE["CI/CD Pipeline\\nvalidates, tests, and\\norchestrates all changes"]
+
+    CFGGEN["Config Generation\\nrenders device config\\nfrom templates + SoT data"]
+
+    ORCH["Workflow Orchestration\\napproval gates, scheduling,\\naudit trails, runbook execution"]
+
+    DRIFT["Drift Detection\\ncompares running state\\nagainst SoT intent"]
+
+    MON["Monitoring\\ncollects metrics and\\noperational telemetry"]
+
+    ALERT["Alerting\\nnotifies operators\\nwhen thresholds are breached with troubleshooting bundle"]
+
+    REMEDIATE["Auto-Remediation\\ndrives corrective action\\nwithout manual intervention"]
+
+    SOT -->|"intent"| PIPELINE
+    PIPELINE -->|"generate"| CFGGEN
+    CFGGEN -->|"push config"| DEVICES["Network Devices"]
+    PIPELINE -->|"trigger"| ORCH
+    ORCH -->|"execute"| DEVICES
+
+    DEVICES -->|"poll / scrape"| MON
+    MON -->|"compare to SoT"| DRIFT
+    MON -->|"evaluate rules"| ALERT
+    DRIFT -->|"flag deviation"| ALERT
+    ALERT -->|"trigger playbook"| REMEDIATE
+    REMEDIATE -->|"corrective push"| DEVICES
+    REMEDIATE -->|"update or flag"| SOT
+
+    linkStyle default stroke:#9ca3af
+`} />
+
+### What each function does
+
+| Function | Responsibility |
+|---|---|
+| **Source of Truth** | Single authoritative record of what the network *should* look like. All config generation, validation, and drift detection derive from this. |
+| **CI/CD Pipeline** | Validates changes, runs tests, sequences the delivery of config to devices. Enforces policy as code. |
+| **Config Generation** | Renders device-specific configuration from templates and SoT data. Keeps config DRY and consistent. |
+| **Workflow Orchestration** | Provides human approval gates, scheduling, multi-step runbooks, and a tamper-evident audit trail. |
+| **Drift Detection** | Continuously compares the running state of devices against SoT intent. Surfaces unauthorised or unintended changes. |
+| **Monitoring** | Collects operational metrics, interface state, routing protocol health, and any other telemetry the platform surfaces. |
+| **Alerting** | Evaluates collected data against thresholds and rules. Notifies operators with troubleshooting bundle or triggers automated response. |
+| **Auto-Remediation** | Drives corrective action in response to alerts or drift — re-applying config, escalating, or opening tickets — without requiring a human to initiate it. |
+
+---
+
+## Lab implementation
+
+The diagram below shows which specific tools fill each function in this lab.
+
+<Mermaid code={`
+graph TD
+    SOT["Source of Truth\\nYAML files in Git\\n(sot/ directory)"]
+
+    PIPELINE["CI/CD Pipeline\\n— GitLab CI\\n(.gitlab-ci.yml)"]
+
+    CFGGEN["Config Generation\\nAnsible + Jinja2\\n(templates/ + playbooks/)"]
+
+    ORCH["Workflow Orchestration\\nRundeck\\n(approval gates, scheduling)"]
+
+    DRIFT["Drift Detection\\nAnsible + Batfish\\n(playbooks/drift.yml)"]
+
+    MON["Monitoring\\nPrometheus\\n(scrapes devices + exporters)"]
+
+    ALERT["Alerting\\nGrafana Alerting\\n(alert rules + notification channels)"]
+
+    REMEDIATE["Auto-Remediation\\nRundeck Jobs\\n(triggered by Grafana alerts)"]
+
+    SOT -->|"YAML intent"| PIPELINE
+    PIPELINE -->|"lint + validate"| CFGGEN
+    CFGGEN -->|"ansible push"| DEVICES["Network Devices\\n(Arista cEOS / FRR)"]
+    PIPELINE -->|"trigger job"| ORCH
+    ORCH -->|"approved execution"| DEVICES
+
+    DEVICES -->|"metrics scrape"| MON
+    MON -->|"query SoT state"| DRIFT
+    MON -->|"evaluate rules"| ALERT
+    DRIFT -->|"flag deviation"| ALERT
+    ALERT -->|"webhook trigger"| REMEDIATE
+    REMEDIATE -->|"ansible playbook"| DEVICES
+    REMEDIATE -->|"PR or flag"| SOT
+
+    linkStyle default stroke:#9ca3af
+`} />
+
+### Lab tool mapping
+
+| Function | Lab Tool | Notes |
+|---|---|---|
+| **Source of Truth** | YAML files (Git) | Structured YAML in `sot/`, validated by JSONSchema. Version-controlled in GitLab. |
+| **CI/CD Pipeline** | GitLab CI | `.gitlab-ci.yml` defines stages: validate → generate → verify → push. |
+| **Config Generation** | Ansible + Jinja2 | Templates in `templates/`, rendered by Ansible and pushed via `playbooks/`. |
+| **Workflow Orchestration** | Rundeck | Approval workflows, scheduled jobs, and audit logging for Day-2 operations. |
+| **Drift Detection** | Ansible + Batfish | Ansible polls devices; Batfish models the topology and compares against intent. |
+| **Monitoring** | Prometheus | Scrapes cEOS and FRR devices via SNMP and gNMI exporters. |
+| **Alerting** | Grafana | Alert rules evaluate Prometheus metrics; notifications fire on threshold breaches. |
+| **Auto-Remediation** | Rundeck + Ansible | Grafana webhooks trigger Rundeck jobs that run corrective Ansible playbooks. |
+
+<Aside type="tip">
+  Every tool in this stack has alternatives. NetBox or Nautobot could replace the YAML SoT. Jenkins or GitHub Actions could replace GitLab CI. Nornir could replace Ansible. NSO or Crossplane could replace the config generation layer. Alertmanager could route directly without Grafana. The architecture is the pattern — the tools are a choice.
+</Aside>
+
+---
+
+<CardGrid>
+  <LinkCard title="← Global Overview" href="/network_automation_lab/architecture/" />
+  <LinkCard title="EMEA — London DC1 →" href="/network_automation_lab/architecture/emea/" />
+</CardGrid>

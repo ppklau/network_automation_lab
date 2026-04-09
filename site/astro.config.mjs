@@ -31,6 +31,7 @@ export default defineConfig({
 						{ label: 'Americas — New York', slug: 'architecture/americas' },
 						{ label: 'APAC — Singapore', slug: 'architecture/apac' },
 						{ label: 'EU Regulatory — Frankfurt', slug: 'architecture/frankfurt' },
+						{ label: 'Automation Architecture', slug: 'architecture/automation' },
 					],
 				},
 				{ label: 'Preface', slug: 'preface' },
