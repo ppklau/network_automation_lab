@@ -2,8 +2,6 @@
 title: "Preface"
 ---
 
-# Preface
-
 ## What this guide is
 
 This guide puts you inside a real network automation transformation. Not a toy lab with three VLANs and a handful of commands to copy-paste — but a working financial services environment with zone isolation, regulatory constraints, multi-region BGP, a GitLab CI/CD pipeline, and automated compliance verification.
