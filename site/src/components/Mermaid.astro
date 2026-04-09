@@ -84,33 +84,91 @@ const { code } = Astro.props;
 
   // ── Render ───────────────────────────────────────────────────────────────────
 
+  function cacheWrapperSources() {
+    document.querySelectorAll('.mermaid-wrapper').forEach((wrapper) => {
+      if (wrapper.hasAttribute('data-source')) return;
+      const pre = wrapper.querySelector('pre.mermaid');
+      if (pre) wrapper.setAttribute('data-source', pre.textContent?.trim() ?? '');
+    });
+  }
+
+  // Monotonically increasing so every mermaid.render() call gets a unique SVG id.
+  let diagramSeq = 0;
+  // Concurrency guard — mermaid.render() is async; queue at most one pending call.
+  let rendering = false;
+  let renderQueued = false;
+
   async function renderMermaid() {
-    document.querySelectorAll('.mermaid[data-processed]').forEach((el) => {
-      el.removeAttribute('data-processed');
-      const source = el.getAttribute('data-source');
-      if (source) el.textContent = source;
-    });
+    if (rendering) {
+      renderQueued = true;
+      return;
+    }
+    rendering = true;
+    renderQueued = false;
 
-    document.querySelectorAll('.mermaid:not([data-source])').forEach((el) => {
-      el.setAttribute('data-source', el.textContent ?? '');
-    });
+    try {
+      cacheWrapperSources();
 
-    mermaid.initialize({
-      startOnLoad: false,
-      theme: getTheme(),
-      securityLevel: 'loose',
-      fontFamily: 'inherit',
-    });
+      const isDark = getTheme() === 'dark';
+      mermaid.initialize({
+        startOnLoad: false,
+        theme: getTheme(),
+        securityLevel: 'loose',
+        fontFamily: 'inherit',
+        ...(isDark && {
+          themeVariables: {
+            quadrantXAxisTextFill: '#e2e8f0',
+            quadrantYAxisTextFill: '#e2e8f0',
+            quadrantTitleFill: '#e2e8f0',
+            quadrantPointTextFill: '#e2e8f0',
+          },
+        }),
+      });
 
-    await mermaid.run({ querySelector: '.mermaid' });
+      // Use mermaid.render(id, sourceString) rather than mermaid.run() so we
+      // pass the cached source string directly — no DOM round-trip that could
+      // produce garbled text or a "Syntax error in text" on re-render.
+      for (const wrapper of document.querySelectorAll<HTMLElement>('.mermaid-wrapper[data-source]')) {
+        const source = wrapper.getAttribute('data-source')!;
+        const id = `mermaid-d${++diagramSeq}`;
+        try {
+          const { svg } = await mermaid.render(id, source);
+          // Remove previous rendered output, leaving the expand button in place.
+          for (const child of Array.from(wrapper.children)) {
+            if (!child.classList.contains('mermaid-expand-btn')) child.remove();
+          }
+          const container = document.createElement('div');
+          container.innerHTML = svg;
+          const btn = wrapper.querySelector('.mermaid-expand-btn');
+          btn ? wrapper.insertBefore(container, btn) : wrapper.appendChild(container);
+        } catch (err) {
+          console.error('mermaid: render error —', err);
+        }
+      }
+    } finally {
+      rendering = false;
+      if (renderQueued) {
+        renderQueued = false;
+        renderMermaid();
+      }
+    }
   }
 
   document.addEventListener('astro:page-load', renderMermaid);
 
+  // Re-render when the user switches light/dark theme.
+  // Debounced so we wait for Starlight's View Transition to settle before
+  // reading the new theme and re-initialising mermaid.
+  let renderTimer: ReturnType<typeof setTimeout> | null = null;
+
   const observer = new MutationObserver((mutations) => {
     for (const m of mutations) {
       if (m.attributeName === 'data-theme') {
-        renderMermaid();
+        if (renderTimer !== null) clearTimeout(renderTimer);
+        renderTimer = setTimeout(() => {
+          renderTimer = null;
+          renderMermaid();
+        }, 60);
         break;
       }
     }
