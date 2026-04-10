@@ -8,7 +8,7 @@ This is what operational readiness looks like: the tools are there, the knowledg
 
 ---
 
-## Exercise 12.1 — New Office Opening (End to End) {#ex121}
+## Exercise 36.1 — New Office Opening (End to End) {#ex361}
 
 🟡 **Practitioner**
 
@@ -31,7 +31,7 @@ ansible-playbook scenarios/ch12/ex121_verify.yml
 
 ---
 
-## Exercise 12.2 — Incident Simulation {#ex122}
+## Exercise 36.2 — Incident Simulation {#ex362}
 
 🟡 **Practitioner**
 
@@ -59,7 +59,7 @@ ansible-playbook scenarios/ch12/ex122_verify.yml
 
 This runs the full health, compliance, and Batfish suite and reveals which scenario was active.
 
-### Debrief
+## Debrief
 
 The four capstone scenarios test four failure categories that occur repeatedly in real financial network incidents:
 
@@ -75,7 +75,7 @@ In each case the remediation is the same: push the SoT config. The difference is
 
 ---
 
-## Exercise 12.3 — Quarterly DR Test {#ex123}
+## Exercise 36.3 — Quarterly DR Test {#ex363}
 
 🔵 **Strategic** + 🟡 **Practitioner**
 
@@ -104,7 +104,7 @@ This document is a MiFID II-relevant operational artefact. In a real institution
 
 ---
 
-## Exercise 12.4 — Maturity Self-Assessment {#ex124}
+## Exercise 36.4 — Maturity Self-Assessment {#ex364}
 
 🔵 **Strategic**
 

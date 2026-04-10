@@ -44,7 +44,7 @@ The full config is derived from the SoT. The serial number is the only fact abou
 
 ---
 
-## Exercise 10.1 — Leaf RMA (Like-for-Like) {#ex101}
+## Exercise 25.1 — Leaf RMA (Like-for-Like) {#ex251}
 
 🟡 **Practitioner**
 
@@ -130,7 +130,7 @@ This is the change record. The commit message, the SoT diff, and the `state/rma/
 
 ---
 
-## Exercise 10.2 — Leaf Replacement with Different Model {#ex102}
+## Exercise 25.2 — Leaf Replacement with Different Model {#ex252}
 
 🟡 **Practitioner** / 🔴 **Deep Dive**
 
@@ -168,7 +168,7 @@ Does the 10G speed flag appear? What does your Jinja2 template do with the `spee
 
 Open `templates/arista_eos/interfaces.j2`. How does the template handle the `speed` field? Is there a guard for speed mismatches? If not, what would you add?
 
-This is the key teaching point of Exercise 10.2: the automation is only as good as the SoT. A model substitution requires a conscious decision about which SoT fields need updating alongside the serial number, and it requires the templates to handle edge cases gracefully.
+This is the key teaching point of Exercise 25.2: the automation is only as good as the SoT. A model substitution requires a conscious decision about which SoT fields need updating alongside the serial number, and it requires the templates to handle edge cases gracefully.
 
 > **Design question:** Should the Jinja2 template silently omit the speed command if the model in the SoT doesn't match the hardware? Or should it fail loudly? The argument for failing loudly: you would rather discover the mismatch during the lab push than after deploying to production. A silent omission might mean 10G SFPs inserted into 100G ports — which would also fail, but with a less informative error.
 
@@ -199,4 +199,14 @@ After the RMA push, wait 60 seconds and run it again. The VRRP role for VLAN 200
 
 ---
 
-**Next:** Chapter 22 covers border router RMA — the same pattern with higher stakes.
+## Debrief
+
+**What was practised:** Replacing a failed leaf switch using only the serial number as input — the SoT provides the full configuration, the playbook handles the seven-phase workflow, and VRRP ensures traffic continuity throughout.
+
+**Why it matters:** The RMA workflow demonstrates that the SoT is not just a configuration store — it is the recovery mechanism. A leaf replacement does not require anyone to remember what was on the old device. The config is derived, not recalled. The preempt delay prevents a traffic black-hole during VRRP failback.
+
+**In production:** Leaf RMA is the most common hardware lifecycle event in a spine-leaf fabric. Without automation, it requires a senior engineer who remembers (or can reconstruct) the device's configuration. With SoT-driven RMA, a junior engineer or on-call staff can execute the replacement — the skill threshold drops from "knows the network" to "can run a playbook."
+
+---
+
+**Next:** Chapter 26 covers border router RMA — the same pattern with higher stakes.

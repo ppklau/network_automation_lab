@@ -178,7 +178,7 @@ The script performs checks that JSON Schema cannot:
 
 ## Breaking the validator intentionally
 
-> 🟡 **Practitioner** — Module 4.1
+> 🟡 **Practitioner** — Exercise 7.1
 
 This exercise walks through what the pipeline catches.
 
@@ -297,7 +297,7 @@ When you add a new device to the SoT with `lab_state: active`, re-run `generate_
 
 ---
 
-## Exercise 4.1 — Catch a pipeline violation before it reaches production
+## Exercise 7.1 — Catch a pipeline violation before it reaches production {#ex71}
 
 > 🟡 **Practitioner**
 

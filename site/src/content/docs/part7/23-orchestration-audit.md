@@ -86,15 +86,15 @@ Neither approach is universally correct. The right choice depends on your organi
 
 🟡 **Practitioner**
 
-## Exercise 13.5 — Constructing a Complete Change Record {#ex135}
+## Exercise 23.1 — Constructing a Complete Change Record {#ex231}
 
-You will work with the execution records from Exercise 13.2 (Maintenance Window) and reference a GitLab pipeline from earlier lab work to understand how the two layers fit together.
+You will work with the execution records from Exercise 21.1 (Maintenance Window) and reference a GitLab pipeline from earlier lab work to understand how the two layers fit together.
 
 ### Step 1 — Read the Rundeck Execution Log
 
 Open **http://localhost:4440**. Log in as `admin / acme-lab`.
 
-Navigate to **Activity** in the left sidebar. Find the Maintenance Window execution from Exercise 13.2 (the one where you submitted `border-lon-01`, `action=enter`, `approved_by=Jane Smith`, `change_ticket=CHG-2026-0042`).
+Navigate to **Activity** in the left sidebar. Find the Maintenance Window execution from Exercise 21.1 (the one where you submitted `border-lon-01`, `action=enter`, `approved_by=Jane Smith`, `change_ticket=CHG-2026-0042`).
 
 Click on the execution. Read through the execution detail page carefully:
 
@@ -156,7 +156,7 @@ The four questions are answered. The chain of evidence is complete.
 
 ### Step 4 — Read the Emergency Change Record
 
-Return to the emergency change log from Exercise 13.4:
+Return to the emergency change log from Exercise 21.2:
 
 ```bash
 cat state/emergency_changes.log
@@ -179,7 +179,7 @@ The emergency change path and the standard change path produce different complia
 
 Construct a complete MiFID II-style change record for the Maintenance Window exercise. You need two sources:
 
-**From Rundeck:** The execution summary from Exercise 13.2. Copy out:
+**From Rundeck:** The execution summary from Exercise 21.1. Copy out:
 - Submitted by
 - Timestamp
 - All job option values (target_node, action, window_reason, approved_by, change_ticket)
@@ -205,7 +205,7 @@ The goal of this exercise is to experience the gap-filling exercise that your fu
 
 ## Debrief
 
-This chapter is the conceptual endpoint of the lab's change management thread. Recall Module 11.6, where you mapped an Ansible config push to the ITIL change management lifecycle. That mapping was incomplete at the time — there was no authorisation layer.
+This chapter is the conceptual endpoint of the lab's change management thread. Recall the earlier chapter where you mapped an Ansible config push to the ITIL change management lifecycle. That mapping was incomplete at the time — there was no authorisation layer.
 
 With Rundeck in the picture, the ITIL mapping is now complete:
 

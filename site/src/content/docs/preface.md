@@ -53,7 +53,7 @@ This returns the lab to a known-good state regardless of what you did in the pre
 
 ## Prerequisites
 
-Before starting Module 0, you need:
+Before starting Part 1, you need:
 
 | Requirement | Version | Notes |
 |-------------|---------|-------|

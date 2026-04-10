@@ -92,7 +92,7 @@ The archive preserves the full device record and its last known configuration. I
 
 ---
 
-## Exercise 1.2.1 — Decommission a Branch Office {#ex121}
+## Exercise 19.1 — Decommission a Branch Office {#ex191}
 
 🟡 **Practitioner**
 
@@ -237,7 +237,7 @@ Exit code: 1 (CRITICAL issues present)
 
 ---
 
-## Exercise 8.8 — SoT Hygiene Issues {#ex88}
+## Exercise 19.2 — SoT Hygiene Issues {#ex192}
 
 🟡 **Practitioner**
 
@@ -334,18 +334,18 @@ You have now built and exercised the full Day-2 operations suite:
 
 | Exercise | Skill Demonstrated |
 |---|---|
-| 8.1 BGP auth mismatch | Drift detection catches OOB BGP changes |
-| 8.2 OOB NTP/description | Drift severity classification |
-| 4.3 Telnet violation | Compliance reporting as a CI gate |
-| 4.4 Regulatory artefact | SHA256-signed audit trail for MiFID II |
-| 8.4 Route-map prefix suppression | Prefix monitoring catches what health checks miss |
-| 8.6 Stuck maintenance mode | State-tracked maintenance windows |
-| 1.2.1 Branch decommission | Six-phase safe decommission with full audit trail |
-| 8.8 SoT hygiene | Cross-file consistency checks as a CI gate |
+| 15.1 BGP auth mismatch | Drift detection catches OOB BGP changes |
+| 15.2 OOB NTP/description | Drift severity classification |
+| 16.1 Telnet violation | Compliance reporting as a CI gate |
+| 16.2 Regulatory artefact | SHA256-signed audit trail for MiFID II |
+| 17.1 Route-map prefix suppression | Prefix monitoring catches what health checks miss |
+| 18.1 Stuck maintenance mode | State-tracked maintenance windows |
+| 19.1 Branch decommission | Six-phase safe decommission with full audit trail |
+| 19.2 SoT hygiene | Cross-file consistency checks as a CI gate |
 
 Each of these exercises models a real incident or operational task drawn from financial services network operations. The playbooks are not toy examples — they are the patterns you would adapt directly for a production estate.
 
-Before moving to Part 7 (monitoring stack), reset your lab to known-good state:
+Before moving to Part 7 (workflow orchestration), reset your lab to known-good state:
 
 ```bash
 ansible-playbook scenarios/common/reset_lab.yml
@@ -353,4 +353,4 @@ ansible-playbook scenarios/common/reset_lab.yml
 
 ---
 
-**Next:** Part 7 — Building the Monitoring Stack. You will connect the Prometheus output files from the Day-2 playbooks to a Grafana dashboard and build alerting rules that automatically open maintenance tickets.
+**Next:** Part 7 — Workflow Orchestration. You will wrap the Day-2 playbooks in Rundeck jobs with approval workflows, scheduling, and execution records that form a complete compliance audit trail.

@@ -66,7 +66,7 @@ Understanding which path a given operation falls into is an architectural decisi
 
 🟡 **Practitioner**
 
-## Exercise 13.1 — Deploy Rundeck and Import the Job Library {#ex131}
+## Exercise 20.1 — Deploy Rundeck and Import the Job Library {#ex201}
 
 ### Deploy Rundeck
 
@@ -216,4 +216,4 @@ That is the difference between a set of well-written playbooks and an orchestrat
 
 ---
 
-**Next:** Chapter 34 covers the approval workflow in detail — how a Maintenance Window job moves from submission to execution, what the approval record looks like, and how emergency changes produce a compliance record without an approval gate.
+**Next:** Chapter 21 covers the approval workflow in detail — how a Maintenance Window job moves from submission to execution, what the approval record looks like, and how emergency changes produce a compliance record without an approval gate.

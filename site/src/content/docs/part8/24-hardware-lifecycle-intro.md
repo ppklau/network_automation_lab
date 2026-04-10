@@ -14,7 +14,7 @@ This is not an incremental improvement. It is a structural change in what skills
 
 ## The Hardware Lifecycle Events
 
-Module 10 covers four lifecycle events that every network eventually faces:
+This part covers four lifecycle events that every network eventually faces:
 
 | Event | Playbook | Typical trigger |
 |---|---|---|
@@ -58,7 +58,7 @@ The senior engineer's knowledge is now encoded in the SoT, the templates, and th
 
 ---
 
-## 🔵 Exercise 10.6 — The Compounding Argument {#ex106}
+## 🔵 Exercise 24.1 — The Compounding Argument {#ex241}
 
 🔵 **Strategic**
 
@@ -122,4 +122,4 @@ These artefacts form the audit trail for hardware changes. In a production envir
 
 ---
 
-**Next:** Chapter 21 walks through the leaf switch RMA workflow — from fault detection to BGP reconvergence.
+**Next:** Chapter 25 walks through the leaf switch RMA workflow — from fault detection to BGP reconvergence.

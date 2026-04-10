@@ -45,7 +45,7 @@ That's it. No BGP. No WAN IP. The router can reach the Ansible controller via th
 
 ---
 
-## Exercise 10.4 — Branch Router ZTP {#ex104}
+## Exercise 27.1 — Branch Router ZTP {#ex271}
 
 🟡 **Practitioner**
 
@@ -153,4 +153,14 @@ At ACME's current scale — 30 branches — the ZTP improvement is measurable bu
 
 ---
 
-**Next:** Chapter 24 covers OS upgrades — using the SoT's `target_version` field to drive a structured upgrade workflow with pre-checks and post-verification.
+## Debrief
+
+**What was practised:** Provisioning a new branch router using zero-touch provisioning — the device boots with a minimal bootstrap config and receives its full SoT-derived configuration via the ZTP playbook.
+
+**Why it matters:** ZTP eliminates the three failure modes of manual pre-staging: stale configs (the SoT may have changed since pre-staging), human error in config preparation (ZTP uses the same template pipeline as every other push), and audit gaps (every ZTP run produces a provenance artefact). At scale, these advantages compound.
+
+**In production:** ZTP's primary value at ACME's current scale is consistency and auditability, not time savings. Being able to prove that all 30 branches received an identical BGP policy, derived from the same SoT, is the compliance case. The time saving becomes significant at scale — twelve new branches for a Southeast Asia expansion become a single pipeline operation rather than twelve on-site visits.
+
+---
+
+**Next:** Chapter 28 covers OS upgrades — using the SoT's `target_version` field to drive a structured upgrade workflow with pre-checks and post-verification.

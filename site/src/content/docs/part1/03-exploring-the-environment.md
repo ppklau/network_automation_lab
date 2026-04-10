@@ -160,7 +160,7 @@ Notice what is not here: no BGP timer values, no session hold-time, no logging f
 
 ## Tracing a config change on paper
 
-> 🟡 **Practitioner** — Module 0.3
+> 🟡 **Practitioner**
 
 Before running anything, trace this change mentally: *Add a description to Ethernet3 on leaf-lon-01.*
 
@@ -250,13 +250,13 @@ The `services:` key starts a Batfish container as a sidecar to the job. The `run
 
 > 🔵 **Strategic**
 
-The pipeline does not prevent someone from SSHing directly to a device and making a change. It cannot. What it does is make out-of-band changes immediately visible: the next pipeline run will generate a diff between what the SoT says the device should look like and what it actually looks like. That diff is the starting point for the drift detection exercises in Module 8.
+The pipeline does not prevent someone from SSHing directly to a device and making a change. It cannot. What it does is make out-of-band changes immediately visible: the next pipeline run will generate a diff between what the SoT says the device should look like and what it actually looks like. That diff is the starting point for the drift detection exercises in Chapter 15.
 
 The pipeline is not a lock. It is a record. Every change that goes through it is traceable: who proposed it (git commit), who approved it (GitLab approval record), what it changed (the diff artefact), and whether the network was healthy before and after (the verify stage output). That record is the compliance artefact.
 
 ---
 
-## Exercise 0.2 — Explore the SoT
+## Exercise 3.1 — Explore the SoT {#ex31}
 
 > 🟡 **Practitioner**
 
@@ -273,7 +273,7 @@ Answer these questions by reading the SoT files — do not log into any device.
 
 ---
 
-## Exercise 0.3 — Trace a change through the pipeline
+## Exercise 3.2 — Trace a change through the pipeline {#ex32}
 
 > 🟡 **Practitioner**
 
@@ -285,5 +285,15 @@ Without running any commands, answer:
 4. What happens if the verify stage fails after a push? Is the push automatically rolled back?
 
 **Check your answers:** Look at `.gitlab-ci.yml`, `templates/arista_eos/vlans.j2`, and `batfish/tests/test_frankfurt_isolation.py`.
+
+---
+
+## Debrief
+
+**What was practised:** Navigating the SoT file hierarchy and tracing a change through the pipeline stages — without running any commands or touching any devices.
+
+**Why it matters:** Every subsequent exercise starts with an SoT edit and ends with a pipeline verification. If you cannot find the right file, read the right YAML key, or predict which pipeline stage catches a given error, you will be debugging tooling instead of learning automation. SoT navigation is the prerequisite skill for everything that follows.
+
+**In production:** Senior engineers who know a network inside-out often resist structured SoT navigation — they prefer CLI and show commands. The shift from "I know where the config is on the device" to "I know where the intent is in the SoT" is the hardest cultural change in network automation adoption.
 
 *Handbook reference: Chapter 5 (Pipeline patterns), Chapter 6 (Intent verification)*

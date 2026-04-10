@@ -27,7 +27,7 @@ The playbook uses a state file in `state/maintenance_<hostname>.yml` to track ev
 This gives you three properties:
 
 1. **Auditability** — `state/` is committed to git. Every maintenance window is recorded: who opened it, why, when, and when it was closed.
-2. **Detectability** — A scheduled job that scans for state files older than 8 hours can alert the on-call engineer automatically. This is the basis for Module 11.2 (auto-remediation) later in the guide.
+2. **Detectability** — A scheduled job that scans for state files older than 8 hours can alert the on-call engineer automatically. This is the basis for Chapter 33 (auto-remediation) later in the guide.
 3. **Idempotency** — Running enter twice is safe. Running exit on a device that was never put into maintenance is safe (it will warn and skip, not error).
 
 ### Entering a Maintenance Window
@@ -76,7 +76,7 @@ The exit step will not proceed if the state file shows the window was opened mor
 
 ---
 
-## Exercise 8.6 — Stuck Maintenance Mode {#ex86}
+## Exercise 18.1 — Stuck Maintenance Mode {#ex181}
 
 🟡 **Practitioner**
 
@@ -195,7 +195,17 @@ In production, add a crontab entry on the Ansible controller to scan for stale m
   --alert-webhook https://hooks.slack.com/services/XXXXX
 ```
 
-The script reads all `state/maintenance_*.yml` files, parses the `started` timestamp, and sends a Slack alert for any window exceeding the threshold. This is the same logic Module 11.2 (auto-remediation) builds into an Ansible playbook that can automatically exit stale windows with a human-approval gate.
+The script reads all `state/maintenance_*.yml` files, parses the `started` timestamp, and sends a Slack alert for any window exceeding the threshold. This is the same logic Chapter 33 (auto-remediation) builds into an Ansible playbook that can automatically exit stale windows with a human-approval gate.
+
+---
+
+## Debrief
+
+**What was practised:** Detecting a stuck maintenance window — a device that was put into maintenance mode and never brought back — and using the structured exit procedure to restore normal operations safely.
+
+**Why it matters:** A forgotten maintenance window is invisible to most monitoring because the device is technically healthy — it responds to health checks, its BGP sessions may still be up (graceful shutdown drains traffic, it does not drop sessions). The hidden damage is ECMP imbalance: traffic that should be distributed across two paths is now flowing through one. The 24-hour confirm gate and stale-window detection prevent this silent degradation.
+
+**In production:** Multi-day forgotten maintenance windows are a recurring incident pattern in financial services NOCs. The engineer who entered maintenance mode goes off shift; the incoming shift does not check for open windows; the device runs with degraded traffic distribution for days until someone notices asymmetric utilisation.
 
 ---
 

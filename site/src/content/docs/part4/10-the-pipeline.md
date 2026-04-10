@@ -3,7 +3,7 @@ title: "Chapter 10: What the Pipeline Replaces"
 ---
 
 > 🔵 **Strategic** — sections marked
-> 🟡 **Practitioner** — Module 4.1, 4.2
+> 🟡 **Practitioner** — Exercises 10.1, 10.2
 
 ---
 
@@ -87,7 +87,7 @@ What runs:
 
 What it catches: zone isolation violations, routing policy violations, BGP standard failures, resilience gaps — all without connecting to any device.
 
-> 🔴 **Deep Dive** — Batfish analyses the proposed configs, not the currently deployed configs. This means Batfish catches violations that would exist after the push, not violations that already exist. If someone made an out-of-band change that creates a zone violation, Batfish will not catch it here (it is not modelling the running config). The drift detection and compliance playbooks in Module 8 address this.
+> 🔴 **Deep Dive** — Batfish analyses the proposed configs, not the currently deployed configs. This means Batfish catches violations that would exist after the push, not violations that already exist. If someone made an out-of-band change that creates a zone violation, Batfish will not catch it here (it is not modelling the running config). The drift detection and compliance playbooks in Part 6 address this.
 
 ### Stage 3: render
 
@@ -156,7 +156,7 @@ When `CHANGE_FREEZE_ENABLED: "true"`, the validate stage reads this file and fai
 
 ---
 
-## Exercise 4.1 — Trigger a pipeline failure
+## Exercise 10.1 — Trigger a pipeline failure {#ex101}
 
 > 🟡 **Practitioner**
 
@@ -188,7 +188,7 @@ Run stage 1 again. Observe the failure. Restore the file. Run stage 1 again to c
 
 ---
 
-## Exercise 4.2 — Read the audit trail
+## Exercise 10.2 — Read the audit trail {#ex102}
 
 > 🟡 **Practitioner**
 
@@ -204,5 +204,15 @@ Answer:
 1. What timestamp is recorded in the push record?
 2. Is the pre-push BGP state stored per-device or aggregated?
 3. If a regulator asked "what was the BGP state of leaf-lon-01 at 14:32 on the day of change X?", could you answer that from the stored state?
+
+---
+
+## Debrief
+
+**What was practised:** Triggering a pipeline failure deliberately and reading the audit trail that a successful push produces — the two sides of the pipeline's value proposition.
+
+**Why it matters:** The pipeline's seven stages are not a deployment convenience — they are a compliance framework. Each stage produces an artefact. The validate stage catches errors in seconds that would otherwise surface in production. The audit trail answers the regulator's question: "what changed, when, by whom, and what was the state before and after?"
+
+**In production:** Teams that adopt CI/CD for network changes often focus on the push stage and treat the other stages as overhead. The opposite is true: the validate and verify stages are where the pipeline earns its keep. A push that succeeds but cannot be audited is a compliance liability.
 
 *Handbook reference: Chapter 5 (CI/CD for network changes), Chapter 9 (Change management and compliance)*

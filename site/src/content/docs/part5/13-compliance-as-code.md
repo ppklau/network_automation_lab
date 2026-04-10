@@ -3,7 +3,7 @@ title: "Chapter 13: Compliance as Code"
 ---
 
 > 🔵 **Strategic** — sections marked
-> 🟡 **Practitioner** — Modules 4.3, 4.4, 6.3, 7.1, 7.2
+> 🟡 **Practitioner** — Exercise 13.1
 
 ---
 
@@ -47,7 +47,7 @@ This test pulls the full BGP peer configuration DataFrame and checks the `MD5_Au
 
 In the ACME SoT, every `bgp.neighbors` entry has an `md5_password_ref`. The validate script checks that the ref exists in the vault. This test verifies that the rendered config actually has MD5 configured — the end-to-end check that the SoT value made it all the way to the device config.
 
-**Exercise 7.2 setup:**
+**Setup:**
 
 ```bash
 ansible-playbook scenarios/common/reset_lab.yml
@@ -206,7 +206,7 @@ This test runs parametrized over all four leaf nodes and both spine failure scen
 
 ---
 
-## Exercise 4.4 — Cross-border data flow assertion
+## Exercise 13.1 — Cross-border data flow assertion {#ex131}
 
 > 🟡 **Practitioner**
 
@@ -222,5 +222,15 @@ Open `batfish/tests/test_frankfurt_isolation.py` and find `test_no_fra_apac_dire
 4. Write a complementary test that verifies APAC routes at Frankfurt have a LON next-hop (10.0.3.x). A stub for this is in `test_frankfurt_isolation.py` as `test_apac_routes_via_lon_only`.
 
 **Verify:** Your test passes on the current lab state.
+
+---
+
+## Debrief
+
+**What was practised:** Writing a cross-border data flow assertion for Frankfurt/APAC routing — extending the Batfish test suite with a new compliance check derived from a regulatory requirement (GDPR Article 5).
+
+**Why it matters:** The five compliance test domains (zone isolation, Frankfurt ring-fence, BGP standards, resilience, routing policy) are not a fixed set — they are a framework. When a new regulatory requirement arrives, the pattern is always the same: business requirement → design intent → SoT constraint → Batfish test. Writing a new test demonstrates that the compliance framework is extensible, not static.
+
+**In production:** Compliance teams often maintain a separate evidence-gathering process that runs quarterly or annually. With compliance-as-code, every pipeline push generates fresh evidence. The quarterly audit becomes a review of artefacts that already exist, not a scramble to produce them.
 
 *Handbook reference: Chapter 11 (Intent-based networking), Chapter 7 (Compliance automation), Chapter 4 (BGP policy)*

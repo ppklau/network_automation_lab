@@ -52,7 +52,7 @@ For many financial institutions, the mandatory-field approach is sufficient for 
 
 🟡 **Practitioner**
 
-## Exercise 13.2 — The Approval Simulation Walkthrough {#ex132}
+## Exercise 21.1 — The Approval Simulation Walkthrough {#ex211}
 
 ### Step 1 — Submit the Maintenance Window as acme-ops
 
@@ -109,7 +109,7 @@ This is the two-tier access model: operations engineers can run operational work
 
 ---
 
-## Exercise 13.4 — Emergency Change {#ex134}
+## Exercise 21.2 — Emergency Change {#ex212}
 
 ### The P1 Scenario
 
@@ -193,4 +193,4 @@ The governance failure that caused four hours of incident response becomes a 10-
 
 ---
 
-**Next:** Chapter 35 covers the scheduling layer in detail — how Rundeck's scheduled jobs work, how schedule configuration is version-controlled, and why declarative scheduling is audit evidence in a way that cron jobs are not.
+**Next:** Chapter 22 covers the scheduling layer in detail — how Rundeck's scheduled jobs work, how schedule configuration is version-controlled, and why declarative scheduling is audit evidence in a way that cron jobs are not.

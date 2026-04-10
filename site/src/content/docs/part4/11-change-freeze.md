@@ -2,7 +2,7 @@
 title: "Chapter 11: Change Freeze — Technical Enforcement of a Business Policy"
 ---
 
-> 🟡 **Practitioner** — Module 8.5
+> 🟡 **Practitioner** — Exercise 11.1
 > 🔵 **Strategic** — sections marked
 
 *Estimated time: 20 minutes*
@@ -107,7 +107,7 @@ else:
 
 ---
 
-## Exercise 8.5 — Activate the freeze
+## Exercise 11.1 — Activate the freeze {#ex111}
 
 > 🟡 **Practitioner**
 
@@ -169,5 +169,15 @@ The same principle applies to other operational constraints:
 - "BGP changes require two senior engineers to approve" → `approval_rules` in GitLab with a minimum approval count
 
 Each of these can be encoded in CI. Each one converts a procedural control into a technical control. Technical controls are cheaper to audit, more consistent to enforce, and less dependent on individual compliance.
+
+---
+
+## Debrief
+
+**What was practised:** Activating a change freeze window, observing the pipeline reject a normal commit, testing the emergency bypass mechanism, and restoring normal operations.
+
+**Why it matters:** A change freeze that exists only in a policy document is a freeze that will be violated under pressure. Encoding the freeze as a CI gate means it applies uniformly to every engineer, every commit, every pipeline run. The emergency bypass exists because reality requires exceptions — but the bypass is logged, not silent.
+
+**In production:** Year-end trading halts, regulatory reporting windows, and market-hours restrictions are common in financial services. The pattern demonstrated here — configuration-driven freeze, CI-enforced gate, logged bypass — generalises to any time-window constraint that must be both enforced and auditable.
 
 *Handbook reference: Chapter 9 (Change management), Chapter 10 (Compliance automation)*

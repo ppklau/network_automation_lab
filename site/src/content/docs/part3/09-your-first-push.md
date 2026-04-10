@@ -2,7 +2,7 @@
 title: "Chapter 9: Your First Config Push"
 ---
 
-> 🟡 **Practitioner** — Module 0.4
+> 🟡 **Practitioner** — Exercise 9.1
 
 *Estimated time: 25 minutes*
 
@@ -190,7 +190,7 @@ A description change is a trivial example. The same process applies when a BGP p
 
 ---
 
-## Exercise 0.4 — Your second push
+## Exercise 9.1 — Your second push {#ex91}
 
 > 🟡 **Practitioner**
 

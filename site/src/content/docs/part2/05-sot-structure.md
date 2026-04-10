@@ -2,7 +2,7 @@
 title: "Chapter 5: Walking the SoT"
 ---
 
-> 🟡 **Practitioner** — Module 0.2 (continued)
+> 🟡 **Practitioner**
 > 🔵 sections marked
 
 ---
@@ -261,7 +261,7 @@ This is what the pipeline's validate stage does on every commit. Schema errors a
 
 ---
 
-## Exercise 0.2 (continued) — Branch office structure
+## Exercise 5.1 — Branch office structure {#ex51}
 
 > 🟡 **Practitioner**
 
@@ -288,5 +288,15 @@ Add a new UK branch to the file:
 ```
 
 Run the validator. Fix any issues it finds. Do not push — this is a read-and-validate exercise only.
+
+---
+
+## Debrief
+
+**What was practised:** Adding a new branch office to the SoT, running the validator, and fixing the errors it caught — without pushing anything to a device.
+
+**Why it matters:** The SoT hierarchy (global → region → site → device) is not just file organisation — it encodes inheritance. A branch office inherits its zone permissions, compliance tags, and BGP policies from the regional and global defaults. Understanding this hierarchy means understanding why a device gets the configuration it gets.
+
+**In production:** Most SoT-related incidents are not data errors — they are structural misunderstandings. An engineer adds a device file without realising that the regional defaults already set a constraint. The validator catches the symptoms, but understanding the hierarchy prevents the mistakes.
 
 *Handbook reference: Chapter 3 (SoT design), Chapter 4 (IPAM and naming conventions)*

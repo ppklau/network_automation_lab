@@ -14,7 +14,7 @@ The two dashboards answer different questions. They are both built from the same
 
 ---
 
-## Exercise 9.2 — The TRADING Zone as a Compliance Artefact {#ex92}
+## Exercise 30.1 — The TRADING Zone as a Compliance Artefact {#ex301}
 
 🟡 **Practitioner** / 🔵 **Strategic**
 
@@ -126,7 +126,7 @@ This is the financial services angle that makes this more than a technical monit
 
 ---
 
-## Exercise 9.2b — Correlating a BGP Drop to a Config Push {#ex92b}
+## Exercise 30.2 — Correlating a BGP Drop to a Config Push {#ex302}
 
 🟡 **Practitioner**
 
@@ -138,7 +138,7 @@ Make a deliberate, trivial config change to a device that affects a BGP session:
 # Inject a brief BGP session disruption by toggling maintenance mode on border-lon-01
 ansible-playbook playbooks/maintenance_window.yml \
   --limit border-lon-01 \
-  --extra-vars "duration_minutes=1 reason='Exercise 9.2b - correlation test'"
+  --extra-vars "duration_minutes=1 reason='Exercise 30.2 - correlation test'"
 ```
 
 While maintenance mode is active, run the metrics playbook:
@@ -163,4 +163,14 @@ Run the metrics playbook again. The sessions will recover. On the session histor
 
 ---
 
-**Next:** Chapter 27 builds the alerting layer — turning these dashboard observations into automated notifications.
+## Debrief
+
+**What was practised:** Using the TRADING Zone dashboard as a compliance monitoring tool and correlating a BGP session drop on a Grafana graph to a configuration push event.
+
+**Why it matters:** Dashboards transform the raw Prometheus metrics from Day-2 playbooks into visual, time-correlated evidence. The TRADING Zone view is not a network operations dashboard — it is a compliance dashboard: it answers "was TRADING zone isolation maintained continuously?" with a time-series graph rather than a point-in-time assertion.
+
+**In production:** The distinction between planned and unplanned events on a monitoring graph is the pipeline annotation. A session drop with a corresponding commit annotation is a planned change. A session drop without one is an incident. This correlation — visible on the dashboard — is the first thing an incident responder checks.
+
+---
+
+**Next:** Chapter 31 builds the alerting layer — turning these dashboard observations into automated notifications.

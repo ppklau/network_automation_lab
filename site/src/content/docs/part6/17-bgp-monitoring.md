@@ -10,7 +10,7 @@ But the most dangerous BGP problems are not session failures. They are prefix pr
 
 Consider what happens when a route-map on `border-lon-01` is modified out-of-band to suppress a `permit` statement. The BGP session to `border-nyc-01` stays up. Both peers show `Established`. The daily health check shows green. But `branch-lon-01`'s prefix (`10.100.0.0/29`) is no longer being advertised to New York. Any transatlantic traffic destined for the London branch is now black-holing silently.
 
-This is exactly Exercise 8.4 — and it would not be detected by session monitoring alone.
+This is exactly Exercise 17.1 — and it would not be detected by session monitoring alone.
 
 Prefix monitoring adds a second dimension: not just "is the session up?" but "is the right number of routes being exchanged?"
 
@@ -120,7 +120,7 @@ border-lon-01:
 
 ---
 
-## Exercise 8.4 — Route-Map Suppressing Branch Prefix {#ex84}
+## Exercise 17.1 — Route-Map Suppressing Branch Prefix {#ex171}
 
 🟡 **Practitioner**
 
@@ -237,6 +237,16 @@ ansible-playbook playbooks/interface_utilisation.yml --limit spine-lon-01
 The Prometheus output at `monitoring/prometheus/network_utilisation.prom` uses the `acme_interface_utilisation_percent` and `acme_interface_errors_total` metrics that you will visualise in Part 7.
 
 > **Note on FRR:** EOS provides native JSON output for interface statistics. FRR would require SNMP or a Prometheus `node_exporter` on the container for equivalent data. In the lab, utilisation monitoring is EOS-only; the FRR nodes are noted in the playbook as `# FRR: requires node_exporter`.
+
+---
+
+## Debrief
+
+**What was practised:** Detecting a route-map that suppressed a branch prefix — a failure where the BGP session remains UP but the expected routes are missing. Health checks would not catch this because the session is established; only prefix-level monitoring reveals the problem.
+
+**Why it matters:** BGP session monitoring tells you whether neighbours are talking. Prefix monitoring tells you whether they are saying the right things. A session that is UP with zero received prefixes is functionally equivalent to a session that is DOWN — the traffic is not flowing — but it produces no alarm in session-only monitoring.
+
+**In production:** Route leaks and prefix suppression are among the hardest network faults to diagnose without prefix-level baselines. The intent-driven baseline (expected prefix count per peer, derived from the SoT) turns a "something feels slow" investigation into a clear "prefix count below threshold on peer X" alert.
 
 ---
 

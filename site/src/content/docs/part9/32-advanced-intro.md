@@ -15,7 +15,7 @@ Most organisations move through a recognisable sequence:
 3. **Proactive** — the pipeline detects problems and acts on them within defined constraints. Drift is self-healing. Rollouts are staged.
 4. **Measured** — every operation produces a metric. MTTR is tracked. The automation system itself is observable.
 
-After completing Modules 1–9, ACME is solidly at Level 2 and moving into Level 3. This module covers the Level 3 patterns. The maturity assessment worksheet in Module 12.4 will help you map your own organisation's current position.
+After completing Parts 1–8, ACME is solidly at Level 2 and moving into Level 3. This part covers the Level 3 patterns. The maturity assessment worksheet in Exercise 36.4 will help you map your own organisation's current position.
 
 ## Three Patterns
 
@@ -25,17 +25,17 @@ After completing Modules 1–9, ACME is solidly at Level 2 and moving into Level
 
 **Bulk import.** The SoT is a structured database. When ACME opens 20 new branches in a quarter, the SoT should accept a spreadsheet and validate it — not require an engineer to hand-craft 20 YAML files. The bulk import script is a thin conversion layer with a schema validation gate.
 
-## What This Module Does Not Cover
+## What This Part Does Not Cover
 
 These patterns are not AIOps. They do not use machine learning, anomaly detection, or predictive analytics. Those capabilities require streaming telemetry infrastructure that is beyond the scope of this lab.
 
-What this module covers is practical and implementable at most financial institutions today, with the tooling already in place. The goal is not to impress — it is to remove human toil from well-understood, repetitive decisions.
+What this part covers is practical and implementable at most financial institutions today, with the tooling already in place. The goal is not to impress — it is to remove human toil from well-understood, repetitive decisions.
 
 ## Prerequisites
 
-Before starting Module 11, verify:
+Before starting Part 9, verify:
 
-- All previous modules complete (lab healthy from Phase 1–9)
+- All previous parts complete (lab healthy from Parts 1–8)
 - `ansible-playbook scenarios/common/verify_lab_healthy.yml` passes cleanly
 - `bash batfish/run_checks.sh` exits 0
 - `ansible-playbook playbooks/drift_detection.yml` shows zero drift

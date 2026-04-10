@@ -2,7 +2,7 @@
 title: "Chapter 2: Setting Up the Lab"
 ---
 
-> 🟡 **Practitioner** — Module 0.1
+> 🟡 **Practitioner**
 
 *Estimated time: 45–60 minutes (most of that is image download and container startup)*
 

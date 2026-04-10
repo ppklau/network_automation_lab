@@ -47,7 +47,7 @@ This is what it means to make compliance a property of the system rather than a 
 
 🟡 **Practitioner**
 
-## Exercise 13.3 — Working with Scheduled Jobs {#ex133}
+## Exercise 22.1 — Working with Scheduled Jobs {#ex221}
 
 ### Part 1 — Observe the Daily Health Check Schedule
 
@@ -223,4 +223,4 @@ Scheduled jobs shift the reliability requirement from human memory to system ava
 
 ---
 
-**Next:** Chapter 36 brings together the Rundeck execution log and the GitLab pipeline artefact into a unified compliance record — and explains why a regulated environment needs both.
+**Next:** Chapter 23 brings together the Rundeck execution log and the GitLab pipeline artefact into a unified compliance record — and explains why a regulated environment needs both.

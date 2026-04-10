@@ -195,7 +195,7 @@ intents:
 
 ---
 
-## Exercise 11.1 — Write a new design intent
+## Exercise 6.1 — Write a new design intent {#ex61}
 
 > 🟡 **Practitioner**
 

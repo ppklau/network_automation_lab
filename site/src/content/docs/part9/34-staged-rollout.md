@@ -32,7 +32,7 @@ The playbook has six plays.
 
 **Play 6 — Verify remaining devices.** Runs `verify_state.yml` across the full group.
 
-## Exercise 11.3 — Canary Push {#ex113}
+## Exercise 34.1 — Canary Push {#ex341}
 
 🟡 **Practitioner**
 
@@ -71,7 +71,7 @@ Confirms: leaf-lon-01 rolled back (RM_LEAF_IN restored), leaf-lon-02 and leaf-lo
 
 Fix the injected fault: run `ansible-playbook playbooks/render_configs.yml --limit leaf-lon-01` to restore the correct config to `configs/`, then re-run `staged_rollout.yml`. Observe the canary pass and the group push proceed. Verify all 8 leaves match their SoT-rendered configs.
 
-## Exercise 11.5 — Automated Rollback Trigger {#ex115}
+## Exercise 34.2 — Automated Rollback Trigger {#ex342}
 
 🟡 **Practitioner**
 
@@ -104,7 +104,7 @@ ansible-playbook scenarios/ch11/ex115_verify.yml
 
 Modify `staged_rollout.yml` to add a second tier: after the group push completes (play 5), run a final Batfish check across all devices. If this final check fails, trigger a group rollback. Validate your change by injecting a fault that passes the canary check but would be caught by a group-wide assertion.
 
-### Debrief
+## Debrief
 
 **What the canary protects against:** Not just syntax errors. A syntactically valid config can still be semantically wrong — a route-map that filters too aggressively, a prefix-list that blocks legitimate advertisements. Batfish catches this class of error even before traffic is affected.
 

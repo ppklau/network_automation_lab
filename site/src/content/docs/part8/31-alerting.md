@@ -35,7 +35,7 @@ The key component is **Alertmanager**, which sits between Prometheus and the not
 
 ---
 
-## Exercise 9.3 — BGP Session Loss Alert {#ex93}
+## Exercise 31.1 — BGP Session Loss Alert {#ex311}
 
 🟡 **Practitioner**
 
@@ -204,8 +204,18 @@ At the end of Part 8, ACME's monitoring stack provides:
 
 What it does not yet provide:
 
-- **Capacity trending** — the utilisation graphs show current state but trend analysis requires longer retention and a capacity planning workflow. This is Module 11.
-- **Incident correlation** — the annotations on graphs require manual correlation. The advanced chapter (Module 11.2) covers automated drift detection with auto-remediation, which extends this toward closed-loop operation.
+- **Capacity trending** — the utilisation graphs show current state but trend analysis requires longer retention and a capacity planning workflow.
+- **Incident correlation** — the annotations on graphs require manual correlation. Chapter 33 (auto-remediation) covers automated drift detection with auto-remediation, which extends this toward closed-loop operation.
+
+---
+
+## Debrief
+
+**What was practised:** Configuring Alertmanager rules for BGP session loss, prefix drops, and stale metrics — with deduplication, inhibition, and routing rules that prevent alert storms while ensuring critical events are not missed.
+
+**Why it matters:** Monitoring without alerting is a dashboard that nobody watches. Alerting without deduplication and inhibition is noise that teaches engineers to ignore alerts. The Alertmanager configuration balances sensitivity (60-second trigger for BGP session loss) with noise reduction (inhibiting downstream alerts when the root cause is already firing).
+
+**In production:** The most common monitoring failure in financial services networks is not missing data — it is alert fatigue. A spine failure that triggers alerts for every leaf session, every prefix drop, and every health check simultaneously overwhelms the on-call engineer. Inhibition rules ensure they see one root-cause alert, not twenty symptoms.
 
 ---
 

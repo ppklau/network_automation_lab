@@ -61,7 +61,7 @@ Output YAML (excerpt):
         route_map_out: RM_BRANCH_OUT
 ```
 
-## Exercise 11.7 — Bulk Import {#ex117}
+## Exercise 35.1 — Bulk Import {#ex351}
 
 🟡 **Practitioner**
 
@@ -116,7 +116,7 @@ ansible-playbook scenarios/ch11/ex117_verify.yml
 
 Add a `eol_date` column to the CSV and extend `bulk_import.py` to include it in the YAML output. Then write a validation rule (in `validate_sot.py` or as a separate pytest) that rejects any branch record where `eol_date` is in the past. Demonstrate that a CSV with a 2020 EOL date fails at the import gate.
 
-### Debrief
+## Debrief
 
 **What makes bulk import safe:** the schema validation gate. The script does not trust the CSV. It trusts the schema. Every record is validated before it touches the SoT. An invalid record — wrong ASN range, missing required field, TRADING zone on an EU entry — causes the script to exit with a clear error message and a zero-byte impact on the SoT.
 

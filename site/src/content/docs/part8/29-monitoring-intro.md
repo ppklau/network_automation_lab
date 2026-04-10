@@ -18,7 +18,7 @@ The third thing the monitoring stack enables is harder to quantify but arguably 
 
 ## What Is Being Monitored
 
-Module 9 builds a monitoring stack that covers four domains:
+This section builds a monitoring stack that covers four domains:
 
 | Domain | Metrics | Source | Dashboard |
 |--------|---------|--------|-----------|
@@ -49,7 +49,7 @@ This has a tradeoff worth understanding: the metrics are only as fresh as the la
 
 ---
 
-## Exercise 9.1 — Deploy the Monitoring Stack {#ex91}
+## Exercise 29.1 — Deploy the Monitoring Stack {#ex291}
 
 🟡 **Practitioner**
 
@@ -222,4 +222,4 @@ The verify checks:
 
 ---
 
-**Next:** Chapter 26 walks through the dashboards in detail and introduces the TRADING Zone view as a compliance monitoring tool.
+**Next:** Chapter 30 walks through the dashboards in detail and introduces the TRADING Zone view as a compliance monitoring tool.

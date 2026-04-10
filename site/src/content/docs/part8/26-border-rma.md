@@ -30,7 +30,7 @@ The graceful-shutdown phase waits 90 seconds — longer than the 60 seconds in t
 
 ---
 
-## Exercise 10.3 — Border Router RMA {#ex103}
+## Exercise 26.1 — Border Router RMA {#ex261}
 
 🟡 **Practitioner**
 
@@ -155,4 +155,14 @@ The automation also changes the calculus for the redundant border. Without autom
 
 ---
 
-**Next:** Chapter 23 covers zero-touch provisioning for branch routers — deploying to a new office without touching the device manually.
+## Debrief
+
+**What was practised:** Replacing a border router — the same SoT-driven pattern as leaf RMA, but with higher blast radius because the border carries all inter-region and branch traffic.
+
+**Why it matters:** A border router RMA without a redundant peer is a multi-hour outage. With a redundant peer, it is a 10-minute planned operation. The automation changes the ROI calculation for the second border: without it, a redundant border doubles config management overhead; with SoT-driven deployment, the second border is derived from the same SoT as the first.
+
+**In production:** The business case for border redundancy is not "redundancy" in the abstract — it is the difference between an MiFID II reportable outage and a routine maintenance event. The automation makes the redundant border operationally free to maintain.
+
+---
+
+**Next:** Chapter 27 covers zero-touch provisioning for branch routers — deploying to a new office without touching the device manually.

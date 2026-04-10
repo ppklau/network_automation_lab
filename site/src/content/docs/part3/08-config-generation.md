@@ -174,7 +174,7 @@ This is the multi-vendor templating pattern the Handbook describes: the SoT is p
 
 ---
 
-## Exercise 11.4 — Multi-vendor templating
+## Exercise 8.1 — Multi-vendor templating {#ex81}
 
 > 🟡 **Practitioner**
 
@@ -193,7 +193,7 @@ Answer:
 
 ---
 
-## Exercise 0.3 — Trace a render
+## Exercise 8.2 — Trace a render {#ex82}
 
 > 🟡 **Practitioner**
 

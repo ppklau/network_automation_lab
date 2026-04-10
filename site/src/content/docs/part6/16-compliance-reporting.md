@@ -79,7 +79,7 @@ The playbook fails with `rc=1` on any CRITICAL failure. In the CI pipeline, this
 
 ---
 
-## Exercise 4.3 — Telnet Compliance Violation {#ex43}
+## Exercise 16.1 — Telnet Compliance Violation {#ex161}
 
 🟡 **Practitioner**
 
@@ -196,7 +196,7 @@ This is not paranoia. It is the same chain-of-custody reasoning that courts appl
 
 ---
 
-## Exercise 4.4 — Produce a Regulatory Artefact {#ex44}
+## Exercise 16.2 — Produce a Regulatory Artefact {#ex162}
 
 🔴 **Deep Dive**
 
@@ -255,6 +255,16 @@ ACME's change management team is preparing documentation for a quarterly FCA sub
 - The `manifest.json` is the document you would hand to a regulator. It references the pipeline URL, the engineer who committed the SoT change, and the specific articles being satisfied.
 - In production, the GitLab CI environment variables (`CI_PIPELINE_URL`, `CI_COMMIT_AUTHOR`, `CI_JOB_ID`) are populated automatically. In the lab, they appear as empty strings, but the structure is identical.
 - The SHA256 of the diff file is deterministic — run the same change twice against the same pre-state, and you get the same hash. This makes artefacts independently reproducible.
+
+---
+
+## Debrief
+
+**What was practised:** Detecting a Telnet compliance violation across the fleet and generating a SHA256-signed regulatory artefact with a manifest that links every check to its governing regulation.
+
+**Why it matters:** Compliance reporting that takes two engineers a full day to compile manually becomes a 90-second playbook run. The SHA256 hash of each artefact file, recorded in the manifest, provides tamper evidence — if any file is modified after generation, the hash will not match. This is the level of evidence integrity that MiFID II and FCA SYSC 8 auditors expect.
+
+**In production:** The most expensive compliance task is not running the checks — it is assembling the evidence package. Automated artefact generation with cryptographic hashes eliminates the assembly time and removes the risk of human error in evidence compilation.
 
 ---
 

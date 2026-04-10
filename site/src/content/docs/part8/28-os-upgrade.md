@@ -66,7 +66,7 @@ Run against all active devices, this becomes a pre-upgrade audit: which devices 
 
 ---
 
-## Exercise 10.5 — Firmware Upgrade {#ex105}
+## Exercise 28.1 — Firmware Upgrade {#ex281}
 
 🟡 **Practitioner**
 
@@ -245,4 +245,14 @@ The same governance model applies to every other SoT field. This is what makes t
 
 ---
 
-**Next:** Part 8 (monitoring stack) covers Prometheus, Grafana, and the observability layer that connects the Day-2 operational data to real-time dashboards and alerting.
+## Debrief
+
+**What was practised:** Running a firmware upgrade driven by the SoT's `target_version` field — with pre-checks that verify readiness, post-checks that confirm success, and a governance model that tracks the upgrade from change-board approval to completion.
+
+**Why it matters:** The `target_version` pattern makes version drift visible and actionable. A device without `target_version` is at its correct version. A device with `target_version` is in a documented remediation state — the SoT records what version it should be, and the playbook enforces it. This eliminates the implicit version management where "whatever the device reports" is the only truth.
+
+**In production:** OS upgrades in financial services networks are among the most risk-sensitive operations. The pre-check/post-check pattern ensures that an upgrade does not proceed if prerequisites are not met (wrong image, insufficient disk, active maintenance window) and that success is verified programmatically, not assumed.
+
+---
+
+**Next:** Chapter 29 introduces the monitoring stack — Prometheus, Grafana, and the observability layer that connects the Day-2 operational data to real-time dashboards and alerting.

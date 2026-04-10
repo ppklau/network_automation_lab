@@ -121,7 +121,7 @@ Without this chain, automation is a productivity tool. With it, automation is a 
 
 A SoT does not automatically become correct just because it exists. It is only as accurate as the discipline that maintains it. Three common failure modes:
 
-**1. The SoT diverges from the network.** Engineers make emergency changes directly on devices and do not update the SoT. The pipeline then "fixes" their emergency change on the next run. This is the drift problem — addressed in Module 8.
+**1. The SoT diverges from the network.** Engineers make emergency changes directly on devices and do not update the SoT. The pipeline then "fixes" their emergency change on the next run. This is the drift problem — addressed in Chapter 15.
 
 **2. The SoT contains incorrect intent.** Someone adds a wrong IP address or a misconfigured BGP policy. The pipeline faithfully renders and pushes the incorrect config. This is why validation (schema checks, Batfish intent verification) must run before the push, not after.
 

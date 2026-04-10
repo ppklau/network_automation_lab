@@ -49,7 +49,7 @@ Sets `remediation_approved: true` or `false` and records the block reason if any
 
 **Play 4 — Report block reason.** Runs only when `remediation_approved` is false. Writes the block reason to the Ansible output and exits non-zero (which triggers an alert in the CI/monitoring pipeline).
 
-## Exercise 11.2 — Auto-Remediation {#ex112}
+## Exercise 33.1 — Auto-Remediation {#ex331}
 
 🟡 **Practitioner**
 
@@ -95,7 +95,7 @@ ansible-playbook scenarios/ch11/ex112_verify.yml
 
 Without using `force=true`: configure a cron entry that triggers `auto_remediate.yml` every 15 minutes. Inject the fault again and wait for it to self-heal. Record the time from injection to remediation. This is your MTTR for low-risk drift in ACME's configuration.
 
-### Debrief
+## Debrief
 
 **What was injected:** BGP keepalive timers set to 5/15 (SoT default: 30/90) and interface description changed.
 

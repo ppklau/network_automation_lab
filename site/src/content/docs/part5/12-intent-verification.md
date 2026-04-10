@@ -161,7 +161,7 @@ The CI wrapper:
 
 ---
 
-## Exercise 6.1 — Zone isolation verification
+## Exercise 12.1 — Zone isolation verification {#ex121}
 
 > 🟡 **Practitioner**
 
@@ -210,9 +210,9 @@ pytest batfish/tests/test_zone_isolation.py -v
 
 ---
 
-## Exercise 6.2 — Frankfurt violation (caught pre-push)
+## Exercise 12.2 — Frankfurt violation (caught pre-push) {#ex122}
 
-> 🟡 **Practitioner** — Module 4.1
+> 🟡 **Practitioner**
 
 This is the VLAN 100 scenario from the chapter introduction.
 
@@ -246,5 +246,15 @@ pytest batfish/tests/test_frankfurt_isolation.py -v
 Observe the Batfish failures. The Frankfurt tests provide a second line of defence — even if someone managed to bypass the SoT validator, Batfish would catch the violation.
 
 **Fix:** `git checkout sot/devices/fra-dc1/border-fra-01.yml`
+
+---
+
+## Debrief
+
+**What was practised:** Injecting a zone isolation violation and a Frankfurt TRADING constraint violation, then observing Batfish catch both before any device was touched.
+
+**Why it matters:** Batfish analyses configurations statically — it does not connect to devices, does not require a maintenance window, and does not risk production traffic. The zone isolation test and the Frankfurt ring-fence test run on every pipeline push, verifying intents that would otherwise require manual inspection or periodic audits.
+
+**In production:** The most dangerous configuration errors are the ones that do not cause an immediate outage — a missing ACL that silently allows cross-zone traffic, a route-map that leaks prefixes to a peer that should not see them. These errors survive for weeks or months until an audit or an incident reveals them. Batfish catches them at commit time.
 
 *Handbook reference: Chapter 11 (Intent-based networking), Chapter 7 (Batfish and network modelling)*

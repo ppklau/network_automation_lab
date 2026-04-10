@@ -107,7 +107,7 @@ A CRITICAL run fails the play immediately and outputs which device triggered it,
 
 ---
 
-## Exercise 8.1 — BGP Auth Mismatch {#ex81}
+## Exercise 15.1 — BGP Auth Mismatch {#ex151}
 
 🟡 **Practitioner**
 
@@ -224,7 +224,7 @@ In auto-remediate mode, the playbook calls `push_config.yml` for any device with
 
 ---
 
-## Exercise 8.2 — OOB Configuration Changes {#ex82}
+## Exercise 15.2 — OOB Configuration Changes {#ex152}
 
 🟡 **Practitioner**
 
@@ -268,6 +268,16 @@ Two changes are injected:
 - Both are `+` lines in the diff: additions that don't exist in the SoT. This means someone added them out-of-band, not that the SoT is missing something.
 
 > **Open exercise:** In a production environment, would you auto-remediate a `WARNING` drift? What about `INFORMATIONAL`? Consider: if you auto-remediate a description change, you silently remove evidence that someone was debugging. Sometimes the right action is to file a ticket, not push a config.
+
+---
+
+## Debrief
+
+**What was practised:** Injecting a BGP authentication mismatch and an out-of-band configuration change, then using health checks and drift detection to identify, classify, and remediate both.
+
+**Why it matters:** Health checks and drift detection are the two most frequently run Day-2 playbooks. Health checks answer "is the network operating correctly right now?" Drift detection answers "does the running config still match the SoT?" The severity classification (CRITICAL/WARNING/INFORMATIONAL) determines whether remediation is automatic, manual, or deferred — a distinction that prevents over-reaction to trivial changes and under-reaction to serious ones.
+
+**In production:** OOB changes are the most common source of drift in financial services networks. They accumulate silently — a timer tweak here, a debug command left running there — until a compliance audit or an incident reveals the gap between what the SoT says and what the device is running. Scheduled drift detection catches these gaps before they compound.
 
 ---
 
