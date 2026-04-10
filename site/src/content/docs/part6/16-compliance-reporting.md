@@ -92,7 +92,7 @@ This is a REQ-017 violation. In ACME's trading network, Telnet exposure on any n
 ### Inject the Fault
 
 ```bash
-ansible-playbook scenarios/ch07/ex43_inject.yml
+ansible-playbook scenarios/part6/ex161_inject.yml
 ```
 
 ### Your Task
@@ -122,7 +122,7 @@ ansible-playbook scenarios/ch07/ex43_inject.yml
 4. **Verify:**
 
    ```bash
-   ansible-playbook scenarios/ch07/ex43_verify.yml
+   ansible-playbook scenarios/part6/ex161_verify.yml
    ```
 
 5. **Re-run the compliance report** and confirm leaf-lon-02 is back to PASS.

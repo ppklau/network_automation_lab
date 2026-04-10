@@ -105,7 +105,7 @@ This is not a fault-injection exercise — there is no pre-existing problem to f
 ### Set Up the Scenario
 
 ```bash
-ansible-playbook scenarios/ch07/ex121_inject.yml
+ansible-playbook scenarios/part6/ex191_inject.yml
 ```
 
 This writes a breadcrumb explaining the context (the inject here is purely informational — the device is already in its pre-decommission state in the lab).
@@ -149,7 +149,7 @@ python3 scripts/generate_inventory.py
 **Step 5 — Verify.**
 
 ```bash
-ansible-playbook scenarios/ch07/ex121_verify.yml
+ansible-playbook scenarios/part6/ex191_verify.yml
 ```
 
 The verify checks three things:
@@ -250,7 +250,7 @@ Neither issue caused an immediate failure. But the duplicate ASN will cause BGP 
 ### Inject the Fault
 
 ```bash
-ansible-playbook scenarios/ch07/ex88_inject.yml
+ansible-playbook scenarios/part6/ex192_inject.yml
 ```
 
 This modifies the SoT YAML files directly:
@@ -294,7 +294,7 @@ python3 scripts/sot_hygiene.py
 **Step 4 — Verify.**
 
 ```bash
-ansible-playbook scenarios/ch07/ex88_verify.yml
+ansible-playbook scenarios/part6/ex192_verify.yml
 ```
 
 ### What to Notice

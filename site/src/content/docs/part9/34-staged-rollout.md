@@ -43,7 +43,7 @@ A route-map update has been prepared for lon-dc1 leaves. You need to stage the r
 ### Inject the fault
 
 ```bash
-ansible-playbook scenarios/ch11/ex113_inject.yml
+ansible-playbook scenarios/part9/ex341_inject.yml
 ```
 
 This removes the inbound route-map (`RM_LEAF_IN`) from leaf-lon-01's BGP configuration — simulating a config that would fail Batfish's routing policy checks.
@@ -62,7 +62,7 @@ Play 3 runs `batfish/run_checks.sh`. The route-map absence causes `test_routing_
 ### Verify
 
 ```bash
-ansible-playbook scenarios/ch11/ex113_verify.yml
+ansible-playbook scenarios/part9/ex341_verify.yml
 ```
 
 Confirms: leaf-lon-01 rolled back (RM_LEAF_IN restored), leaf-lon-02 and leaf-lon-03 unchanged (confirming the halt worked).
@@ -82,7 +82,7 @@ The same scenario as 11.3, but this time the focus is on the automated rollback 
 ### Inject
 
 ```bash
-ansible-playbook scenarios/ch11/ex115_inject.yml
+ansible-playbook scenarios/part9/ex342_inject.yml
 ```
 
 ### Run and observe
@@ -97,7 +97,7 @@ Pay attention to the output of play 4. You will see the rollback execute and the
 ### Verify
 
 ```bash
-ansible-playbook scenarios/ch11/ex115_verify.yml
+ansible-playbook scenarios/part9/ex342_verify.yml
 ```
 
 ### Your turn — Open

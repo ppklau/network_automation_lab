@@ -62,7 +62,7 @@ Your task: verify the drift, confirm the gate conditions, and observe auto-remed
 ### Inject the fault
 
 ```bash
-ansible-playbook scenarios/ch11/ex112_inject.yml
+ansible-playbook scenarios/part9/ex331_inject.yml
 ```
 
 This applies two changes to leaf-lon-03: a BGP timer adjustment (`timers bgp 5 15`) and a description change on Ethernet1. The BGP timer change is classified as CRITICAL drift — fast keepalive timers affect convergence behaviour.
@@ -88,7 +88,7 @@ Watch play 2 evaluate the gate. You will see the condition checks logged. Play 3
 ### Step 3 — Verify
 
 ```bash
-ansible-playbook scenarios/ch11/ex112_verify.yml
+ansible-playbook scenarios/part9/ex331_verify.yml
 ```
 
 ### Your turn — Structured

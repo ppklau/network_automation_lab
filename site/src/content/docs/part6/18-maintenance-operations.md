@@ -87,7 +87,7 @@ The exit step will not proceed if the state file shows the window was opened mor
 ### Inject the Fault
 
 ```bash
-ansible-playbook scenarios/ch07/ex86_inject.yml
+ansible-playbook scenarios/part6/ex181_inject.yml
 ```
 
 This puts `leaf-lon-04` into BGP graceful-shutdown and writes a maintenance state file with a start timestamp three days in the past.
@@ -141,7 +141,7 @@ Watch the output — the playbook will wait for BGP sessions to recover before r
 **Step 5 — Verify.**
 
 ```bash
-ansible-playbook scenarios/ch07/ex86_verify.yml
+ansible-playbook scenarios/part6/ex181_verify.yml
 ```
 
 The verify checks:

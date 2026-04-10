@@ -120,7 +120,7 @@ The BGP session to border-lon-01 is bouncing. Every few minutes it comes up brie
 ### Inject the Fault
 
 ```bash
-ansible-playbook scenarios/ch07/ex81_inject.yml
+ansible-playbook scenarios/part6/ex151_inject.yml
 ```
 
 This changes the BGP MD5 password on branch-lon-01 to a value that doesn't match what border-lon-01 expects. The BGP session will go down.
@@ -150,7 +150,7 @@ This changes the BGP MD5 password on branch-lon-01 to a value that doesn't match
 4. **Verify** the session recovers:
 
    ```bash
-   ansible-playbook scenarios/ch07/ex81_verify.yml
+   ansible-playbook scenarios/part6/ex151_verify.yml
    ```
 
 ### What to Notice
@@ -235,7 +235,7 @@ The overnight monitoring report flags leaf-lon-03 as having `WARNING` drift. You
 ### Inject the Fault
 
 ```bash
-ansible-playbook scenarios/ch07/ex82_inject.yml
+ansible-playbook scenarios/part6/ex152_inject.yml
 ```
 
 Two changes are injected:
@@ -258,7 +258,7 @@ Two changes are injected:
 
    ```bash
    ansible-playbook playbooks/push_config.yml --limit leaf-lon-03
-   ansible-playbook scenarios/ch07/ex82_verify.yml
+   ansible-playbook scenarios/part6/ex152_verify.yml
    ```
 
 ### What to Notice

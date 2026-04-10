@@ -72,7 +72,7 @@ Five new US branch offices. The Americas team has sent a CSV.
 ### Set up
 
 ```bash
-ansible-playbook scenarios/ch11/ex117_inject.yml
+ansible-playbook scenarios/part9/ex351_inject.yml
 ```
 
 This writes `/tmp/new_branches_import.csv` with five records for branch-nyc-09 through branch-nyc-13.
@@ -109,7 +109,7 @@ python3 scripts/validate_sot.py
 ### Verify
 
 ```bash
-ansible-playbook scenarios/ch11/ex117_verify.yml
+ansible-playbook scenarios/part9/ex351_verify.yml
 ```
 
 ### Your turn — Open

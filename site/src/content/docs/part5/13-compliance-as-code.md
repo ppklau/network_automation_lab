@@ -51,7 +51,7 @@ In the ACME SoT, every `bgp.neighbors` entry has an `md5_password_ref`. The vali
 
 ```bash
 ansible-playbook scenarios/common/reset_lab.yml
-ansible-playbook scenarios/ch07/ex72_inject.yml   # introduces MD5 mismatch on branch-lon-01
+ansible-playbook scenarios/part6/ex151_inject.yml   # introduces MD5 mismatch on branch-lon-01
 ```
 
 Now run the BGP standards test:

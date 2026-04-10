@@ -56,7 +56,7 @@ ACME is opening a new branch office in Newark, NJ. The branch router (`branch-ny
 ### Inject the Fault
 
 ```bash
-ansible-playbook scenarios/ch08/ex104_inject.yml
+ansible-playbook scenarios/part8/ex271_inject.yml
 ```
 
 This clears the FRR configuration on `branch-nyc-02` to simulate a factory-fresh device — removing the BGP configuration and WAN interface IPs. Only management access (eth0) remains.
@@ -93,7 +93,7 @@ Watch the phases:
 **Step 3 — Verify.**
 
 ```bash
-ansible-playbook scenarios/ch08/ex104_verify.yml
+ansible-playbook scenarios/part8/ex271_verify.yml
 ```
 
 Checks:

@@ -211,7 +211,7 @@ tail -f /tmp/acme_metrics.log
 ### Verify
 
 ```bash
-ansible-playbook scenarios/ch09/ex91_verify.yml
+ansible-playbook scenarios/part8/ex291_verify.yml
 ```
 
 The verify checks:

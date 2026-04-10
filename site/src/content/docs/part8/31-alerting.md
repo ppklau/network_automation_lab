@@ -46,7 +46,7 @@ ACME's SLA for the inter-region BGP sessions requires that any session loss is d
 ### Inject the Fault
 
 ```bash
-ansible-playbook scenarios/ch09/ex93_inject.yml
+ansible-playbook scenarios/part8/ex311_inject.yml
 ```
 
 This shuts down the BGP session from `border-lon-01` to `border-nyc-01` by applying an inbound route-map that drops all received routes, simulating a session that is technically `Established` but not passing prefixes — and then brings the session fully down.
@@ -104,7 +104,7 @@ This is worth verifying explicitly. A monitoring system that produces false-posi
 Identify the failing session from the alert data, then remediate:
 
 ```bash
-ansible-playbook scenarios/ch09/ex93_verify.yml
+ansible-playbook scenarios/part8/ex311_verify.yml
 ```
 
 The verify playbook restores the BGP session and confirms it recovers to `Established`. After running it, write fresh metrics:

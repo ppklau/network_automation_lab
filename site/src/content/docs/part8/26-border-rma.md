@@ -43,7 +43,7 @@ A replacement unit is racked and accessible on management. Your task is to execu
 ### Inject the Fault
 
 ```bash
-ansible-playbook scenarios/ch08/ex103_inject.yml
+ansible-playbook scenarios/part8/ex261_inject.yml
 ```
 
 This shuts down `border-lon-01`'s WAN interfaces (Ethernet3, Ethernet4, Ethernet5), dropping the inter-region eBGP sessions. The SoT serial is also set to `FAIL000001` to simulate a stale record.
@@ -99,7 +99,7 @@ Watch the phases:
 **Step 5 — Verify.**
 
 ```bash
-ansible-playbook scenarios/ch08/ex103_verify.yml
+ansible-playbook scenarios/part8/ex261_verify.yml
 ```
 
 Checks:

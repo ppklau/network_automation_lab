@@ -55,7 +55,7 @@ ACME's trading floor in London DC1 reported intermittent connectivity to CORPORA
 ### Inject the Fault
 
 ```bash
-ansible-playbook scenarios/ch08/ex101_inject.yml
+ansible-playbook scenarios/part8/ex251_inject.yml
 ```
 
 This shuts down `leaf-lon-02`'s fabric uplinks (Ethernet1 and Ethernet2) to simulate a powered-off device, and overwrites the serial number in the SoT with `FAIL000000` to simulate a stale record.
@@ -105,7 +105,7 @@ Watch the output. The playbook will:
 **Step 5 — Verify.**
 
 ```bash
-ansible-playbook scenarios/ch08/ex101_verify.yml
+ansible-playbook scenarios/part8/ex251_verify.yml
 ```
 
 The verify checks:

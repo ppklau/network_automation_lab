@@ -17,14 +17,14 @@ This is what operational readiness looks like: the tools are there, the knowledg
 ACME's Frankfurt operations team has submitted a provisioning request for a new branch office. You receive the specification file. Nothing else.
 
 ```bash
-ansible-playbook scenarios/ch12/ex121_inject.yml
+ansible-playbook scenarios/part9/ex361_inject.yml
 cat /tmp/new_office_spec.txt
 ```
 
 Provision the new Frankfurt branch using only SoT edits, the pipeline, and the available validation tools. The spec file tells you everything you need to know. Do not guess at the compliance requirements — read the spec.
 
 ```bash
-ansible-playbook scenarios/ch12/ex121_verify.yml
+ansible-playbook scenarios/part9/ex361_verify.yml
 ```
 
 > **Stuck?** The required steps, in order: (1) add the branch to `sot/devices/branches/eu-branches.yml` following the existing entry format, (2) ensure `trading_zone_prohibited: true` is set at the file level, (3) run `python3 scripts/validate_sot.py`, (4) run `ansible-playbook playbooks/render_configs.yml --limit fra-branch-05`, (5) run `pytest batfish/tests/test_frankfurt_isolation.py -v`. The schema will tell you if you've missed a required field.
@@ -40,7 +40,7 @@ ansible-playbook scenarios/ch12/ex121_verify.yml
 A fault has been injected into the lab environment. You do not know which one. You have the full tooling suite: daily health checks, drift detection, compliance reporting, Batfish intent verification, BGP monitoring, and the Grafana dashboards.
 
 ```bash
-ansible-playbook scenarios/ch12/ex122_inject.yml
+ansible-playbook scenarios/part9/ex362_inject.yml
 ```
 
 Begin your investigation. Treat this as a real incident. As you work, document:
@@ -54,7 +54,7 @@ Begin your investigation. Treat this as a real incident. As you work, document:
 When you are confident the lab is healthy:
 
 ```bash
-ansible-playbook scenarios/ch12/ex122_verify.yml
+ansible-playbook scenarios/part9/ex362_verify.yml
 ```
 
 This runs the full health, compliance, and Batfish suite and reveals which scenario was active.

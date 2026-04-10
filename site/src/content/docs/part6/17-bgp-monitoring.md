@@ -131,7 +131,7 @@ A vendor engineer was given temporary access to `border-lon-01` to test a new ca
 ### Inject the Fault
 
 ```bash
-ansible-playbook scenarios/ch07/ex84_inject.yml
+ansible-playbook scenarios/part6/ex171_inject.yml
 ```
 
 This adds a route-map `RM_INTERDC_SUMMARISE deny 5` entry on `border-lon-01` with a prefix-list that blocks `10.100.0.0/29` from being advertised to the WAN peers.
@@ -179,7 +179,7 @@ This adds a route-map `RM_INTERDC_SUMMARISE deny 5` entry on `border-lon-01` wit
 6. **Verify:**
 
    ```bash
-   ansible-playbook scenarios/ch07/ex84_verify.yml
+   ansible-playbook scenarios/part6/ex171_verify.yml
    ```
 
 ### What to Notice

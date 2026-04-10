@@ -77,7 +77,7 @@ ACME's change board has approved upgrading `leaf-lon-02` from EOS 4.32.2F to 4.3
 ### Inject the Fault
 
 ```bash
-ansible-playbook scenarios/ch08/ex105_inject.yml
+ansible-playbook scenarios/part8/ex281_inject.yml
 ```
 
 This adds `target_version: "4.32.3F"` to `leaf-lon-02`'s SoT entry with the CAB reference in a comment. The device is still running 4.32.2F — the SoT now declares a mismatch.
@@ -131,10 +131,10 @@ Watch the maintenance phase — BGP graceful-shutdown is applied and you can obs
 
 ```bash
 # Detection-only mode (default — no real image needed)
-ansible-playbook scenarios/ch08/ex105_verify.yml
+ansible-playbook scenarios/part8/ex281_verify.yml
 
 # Full upgrade mode (if you completed the actual upgrade)
-ansible-playbook scenarios/ch08/ex105_verify.yml \
+ansible-playbook scenarios/part8/ex281_verify.yml \
   --extra-vars "verify_mode=full_upgrade"
 ```
 
