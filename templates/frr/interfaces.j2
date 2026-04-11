@@ -10,10 +10,12 @@
 #}
 ! ── Interfaces ───────────────────────────────────────────────────────────
 !
+{% if loopback is defined %}
 interface lo
  description Loopback — router-id
  ip address {{ loopback.ip }}
 !
+{% endif %}
 {% for intf in interfaces if intf.name != 'eth0' and not intf.name.startswith('lo') %}
 interface {{ intf.name }}
  description {{ intf.description | default('') }}
