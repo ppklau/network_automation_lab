@@ -23,7 +23,7 @@ vrf instance {{ vrf.name }}
    rd {{ vrf.rd }}
 {% endif %}
 !
-{% if vrf.route_target_import is defined %}
+{% if vrf.name != 'MGMT' %}
 ip routing vrf {{ vrf.name }}
 {% endif %}
 {% endif %}

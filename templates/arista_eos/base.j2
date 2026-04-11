@@ -42,11 +42,6 @@ EOF
 !
 service routing protocols model multi-agent
 ip routing
-{% if vrfs is defined %}
-{% for vrf in vrfs if vrf.name != 'MGMT' %}
-ip routing vrf {{ vrf.name }}
-{% endfor %}
-{% endif %}
 !
 ! ── AAA — TACACS+ with local break-glass fallback ────────────────────────
 !
