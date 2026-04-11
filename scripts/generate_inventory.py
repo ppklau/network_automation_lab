@@ -21,7 +21,7 @@ Host variables set per device:
   ansible_host         — containerlab mgmt IP (172.20.20.x) if topology is
                          provided, otherwise SoT management IP
   ansible_network_os   — mapped from platform (arista_eos → eos, frr → frr)
-  ansible_connection   — network_cli (EOS) or network_cli (FRR)
+  ansible_connection   — httpapi (EOS) or network_cli (FRR)
   site                 — site code
   region               — region code
   role                 — device role
@@ -54,13 +54,13 @@ CLAB_TOPOLOGY = REPO_ROOT / "topology" / "containerlab.yml"
 
 # Platform → Ansible network_os mapping
 PLATFORM_TO_NETWORK_OS = {
-    "arista_eos": "eos",
+    "arista_eos": "arista.eos.eos",
     "frr":        "frr",
 }
 
 # Platform → Ansible connection plugin
 PLATFORM_TO_CONNECTION = {
-    "arista_eos": "network_cli",
+    "arista_eos": "ansible.netcommon.httpapi",
     "frr":        "network_cli",
 }
 

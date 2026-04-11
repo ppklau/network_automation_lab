@@ -52,6 +52,11 @@ topology:
         CEOS: 1
         EOS_PLATFORM: ceoslab
         container: docker
+      # cEOS sometimes does not apply eAPI settings from startup-config
+      # reliably during boot. This ensures eAPI HTTP is always enabled.
+      exec:
+        - "Cli -p 15 -c 'configure\nmanagement api http-commands\nprotocol http\nno shutdown'"
+        - "Cli -p 15 -c 'configure\nusername ansible privilege 15 role network-admin secret CHANGEME'"
 
     linux:
       image: quay.io/frrouting/frr:9.1.3
