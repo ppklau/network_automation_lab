@@ -22,7 +22,7 @@ hostname {{ hostname }}
 !
 ! ── DNS / Domain ─────────────────────────────────────────────────────────
 !
-ip domain-name {{ platform_defaults.dns.domain_name }}
+dns domain {{ platform_defaults.dns.domain_name }}
 {% for ns in platform_defaults.dns.servers %}
 ip name-server vrf {{ platform_defaults.dns.vrf }} {{ ns }}
 {% endfor %}
