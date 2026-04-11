@@ -111,9 +111,10 @@ All commands in this guide assume you are working from the repository root unles
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+ansible-galaxy collection install -r requirements.yml
 ```
 
-The `requirements.txt` includes Ansible, pybatfish, jsonschema, PyYAML, and pytest.
+The `requirements.txt` includes Ansible, pybatfish, jsonschema, PyYAML, and pytest. The `requirements.yml` installs the Ansible collections needed for device connectivity: `ansible.netcommon`, `arista.eos`, and `frr.frr`.
 
 ---
 
