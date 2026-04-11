@@ -47,8 +47,7 @@ ip routing
 !
 aaa group server tacacs+ TACACS_SERVERS
 {% for server in platform_defaults.aaa.tacacs_servers %}
-   server {{ server.ip }} vrf {{ server.vrf }}
-   timeout 3
+   server {{ server.ip }} vrf {{ server.vrf }} timeout 3
 {% endfor %}
 !
 aaa authentication login default group TACACS_SERVERS local
