@@ -8,4 +8,4 @@ collections:
   - name: ansible.netcommon
   - name: arista.eos
   - name: frr.frr
-  - name: community.network
+  - name: napalm.napalm
