@@ -18,7 +18,8 @@ Groups generated:
   site_{code}  — per-site groups (e.g. site_lon_dc1)
 
 Host variables set per device:
-  ansible_host         — management IP (without prefix length)
+  ansible_host         — containerlab mgmt IP (172.20.20.x) if topology is
+                         provided, otherwise SoT management IP
   ansible_network_os   — mapped from platform (arista_eos → eos, frr → frr)
   ansible_connection   — network_cli (EOS) or network_cli (FRR)
   site                 — site code
@@ -28,6 +29,7 @@ Host variables set per device:
 Usage:
   python3 scripts/generate_inventory.py [--sot-dir SOT_DIR] [--output OUTPUT]
   python3 scripts/generate_inventory.py --dry-run    # print to stdout only
+  python3 scripts/generate_inventory.py --clab-topology topology/containerlab.yml
 
 Dependencies:
   pip install pyyaml
@@ -48,6 +50,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 SOT_DIR = REPO_ROOT / "sot"
 INVENTORY_DIR = REPO_ROOT / "inventory"
 OUTPUT_FILE = INVENTORY_DIR / "hosts.yml"
+CLAB_TOPOLOGY = REPO_ROOT / "topology" / "containerlab.yml"
 
 # Platform → Ansible network_os mapping
 PLATFORM_TO_NETWORK_OS = {
@@ -86,9 +89,31 @@ def dump_yaml(data: Any) -> str:
     return yaml.dump(data, default_flow_style=False, sort_keys=False, allow_unicode=True)
 
 
+# ── Containerlab topology ──────────────────────────────────────────────────────
+
+def load_clab_mgmt_ips(topology_path: Path) -> dict[str, str]:
+    """
+    Parse a containerlab topology YAML and return a mapping of
+    node name → mgmt-ipv4 address (without prefix length).
+    Returns an empty dict if the file cannot be read.
+    """
+    data = load_yaml(topology_path)
+    if not data or not isinstance(data, dict):
+        return {}
+    nodes = data.get("topology", {}).get("nodes", {})
+    mapping: dict[str, str] = {}
+    for node_name, node_data in nodes.items():
+        if not isinstance(node_data, dict):
+            continue
+        mgmt_ip = node_data.get("mgmt-ipv4", "")
+        if mgmt_ip:
+            mapping[node_name] = mgmt_ip.split("/")[0]
+    return mapping
+
+
 # ── Device discovery ───────────────────────────────────────────────────────────
 
-def collect_dc_devices(sot_dir: Path) -> list[dict]:
+def collect_dc_devices(sot_dir: Path, clab_ips: dict[str, str] | None = None) -> list[dict]:
     """
     Collect all active DC devices from sot/devices/{site}/*.yml.
     Branch files (in sot/devices/branches/) are handled separately.
@@ -120,10 +145,14 @@ def collect_dc_devices(sot_dir: Path) -> list[dict]:
         role_raw = data.get("role", "")
         role = ROLE_NORMALISE.get(role_raw, role_raw)
 
-        # Extract management IP (strip prefix length)
-        mgmt = data.get("management", {})
-        mgmt_ip_raw = mgmt.get("ip", "") if isinstance(mgmt, dict) else ""
-        mgmt_ip = mgmt_ip_raw.split("/")[0] if mgmt_ip_raw else ""
+        # Prefer containerlab mgmt IP; fall back to SoT management IP
+        clab_ip = (clab_ips or {}).get(hostname, "")
+        if clab_ip:
+            mgmt_ip = clab_ip
+        else:
+            mgmt = data.get("management", {})
+            mgmt_ip_raw = mgmt.get("ip", "") if isinstance(mgmt, dict) else ""
+            mgmt_ip = mgmt_ip_raw.split("/")[0] if mgmt_ip_raw else ""
 
         site_code = data.get("site", "")
         # Normalise site code for use as group name: lon-dc1 → site_lon_dc1
@@ -145,7 +174,7 @@ def collect_dc_devices(sot_dir: Path) -> list[dict]:
     return devices
 
 
-def collect_branch_devices(sot_dir: Path) -> list[dict]:
+def collect_branch_devices(sot_dir: Path, clab_ips: dict[str, str] | None = None) -> list[dict]:
     """
     Collect active branch CPEs from sot/devices/branches/*.yml.
     Returns same structure as collect_dc_devices().
@@ -171,8 +200,12 @@ def collect_branch_devices(sot_dir: Path) -> list[dict]:
             if not hostname:
                 continue
 
-            mgmt_ip_raw = branch.get("management_ip", "")
-            mgmt_ip = mgmt_ip_raw.split("/")[0] if mgmt_ip_raw else ""
+            clab_ip = (clab_ips or {}).get(hostname, "")
+            if clab_ip:
+                mgmt_ip = clab_ip
+            else:
+                mgmt_ip_raw = branch.get("management_ip", "")
+                mgmt_ip = mgmt_ip_raw.split("/")[0] if mgmt_ip_raw else ""
 
             # Branch site group based on uplink DC
             uplink_dc = data.get("uplink_dc", "")
@@ -293,15 +326,28 @@ def main() -> int:
         help=f"Output path for hosts.yml (default: {OUTPUT_FILE})",
     )
     parser.add_argument(
+        "--clab-topology",
+        type=Path,
+        default=CLAB_TOPOLOGY,
+        help=f"Path to containerlab topology YAML (default: {CLAB_TOPOLOGY})",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Print inventory to stdout instead of writing to file",
     )
     args = parser.parse_args()
 
+    # Load containerlab management IPs (used as ansible_host in the lab)
+    clab_ips = load_clab_mgmt_ips(args.clab_topology)
+    if clab_ips:
+        print(f"Loaded {len(clab_ips)} mgmt IPs from {args.clab_topology}")
+    else:
+        print(f"WARN: Could not load containerlab topology from {args.clab_topology} — using SoT IPs", file=sys.stderr)
+
     # Collect devices
-    dc_devices = collect_dc_devices(args.sot_dir)
-    branch_devices = collect_branch_devices(args.sot_dir)
+    dc_devices = collect_dc_devices(args.sot_dir, clab_ips)
+    branch_devices = collect_branch_devices(args.sot_dir, clab_ips)
     all_devices = dc_devices + branch_devices
 
     active_count = len(all_devices)

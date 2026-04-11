@@ -103,6 +103,14 @@ cd network-automation-lab
 
 All commands in this guide assume you are working from the repository root unless otherwise stated.
 
+Generate the Ansible inventory from the SoT and containerlab topology:
+
+```bash
+python3 scripts/generate_inventory.py
+```
+
+This sets `ansible_host` to the containerlab management IPs (`172.20.20.x`) for all lab devices. Re-run this command any time the topology changes.
+
 ---
 
 ## Step 2 — Install Python dependencies

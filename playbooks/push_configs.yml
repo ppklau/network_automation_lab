@@ -126,15 +126,16 @@
     # via docker cp / docker exec delegated to localhost instead.
 
     - name: Copy FRR running config to container
-      ansible.builtin.command: >
-        docker cp {{ configs_dir }}/{{ inventory_hostname }}/running.conf
-        clab-acme-lab-{{ inventory_hostname }}:/etc/frr/frr.conf
+      ansible.builtin.shell: >
+        docker exec -i clab-acme-lab-{{ inventory_hostname }}
+        sh -c 'cat > /tmp/frr_push.conf'
+        < {{ configs_dir }}/{{ inventory_hostname }}/running.conf
       delegate_to: localhost
       when: platform | default('') == 'frr' or ansible_network_os == 'frr'
 
     - name: Reload FRR config via vtysh
       ansible.builtin.command: >
-        docker exec clab-acme-lab-{{ inventory_hostname }} vtysh -f /etc/frr/frr.conf
+        docker exec clab-acme-lab-{{ inventory_hostname }} vtysh -f /tmp/frr_push.conf
       delegate_to: localhost
       when: platform | default('') == 'frr' or ansible_network_os == 'frr'
       register: frr_reload_result
