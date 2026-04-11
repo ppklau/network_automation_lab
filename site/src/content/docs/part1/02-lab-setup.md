@@ -143,7 +143,33 @@ docker images | grep ceos
 # ceos   4.32.2F   <id>   <size>
 ```
 
-The FRRouting image is pulled automatically by containerlab from Docker Hub.
+The FRRouting image is pulled automatically by containerlab from Quay.io (`quay.io/frrouting/frr:9.1.3`).
+
+---
+
+## Check — Verify containerlab is installed
+
+Before starting the lab, confirm containerlab is available:
+
+```bash
+containerlab version
+```
+
+You should see output similar to:
+
+```
+                           _                   _       _
+                 _        (_)                 | |     | |
+ ____ ___  ____ | |_  ____ _ ____  ____  ____| | ____| | _
+/ ___) _ \|  _ \|  _)/ _  | |  _ \|  _ \/ _  | |/ _  |_/ )
+( (__| |_|| | | | |_( ( | | | | | | |_| ( ( | | ( ( | |_  (
+\____)___/|_| |_|\___)_||_|_|_| |_|  __/ \_||_|_|\_||_(_/
+                                   |_|
+
+    version: 0.54.x
+```
+
+If the command is not found, install containerlab before proceeding: [containerlab.dev/install](https://containerlab.dev/install/).
 
 ---
 

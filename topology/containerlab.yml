@@ -23,7 +23,7 @@
 #
 # Image requirements:
 #   ceos:4.32.2F — requires Arista account (https://www.arista.com/en/support/software-download)
-#   frrouting/frr:9.1.0 — public Docker Hub image
+#   quay.io/frrouting/frr:9.1.3 — public Quay.io image (FRR moved from Docker Hub after v8.4.x)
 #
 # Deploy: cd topology && containerlab deploy -t containerlab.yml
 # Destroy: containerlab destroy -t containerlab.yml --cleanup
@@ -54,7 +54,7 @@ topology:
         container: docker
 
     linux:
-      image: frrouting/frr:9.1.0
+      image: quay.io/frrouting/frr:9.1.3
 
   # ── Nodes ───────────────────────────────────────────────────────────────────
   nodes:
