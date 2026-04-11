@@ -27,7 +27,7 @@
   vars:
     configs_dir: "{{ playbook_dir }}/../configs"
     state_dir: "{{ playbook_dir }}/../configs/{{ inventory_hostname }}/state"
-    push_timestamp: "{{ ansible_date_time.iso8601_basic_short }}"
+    push_timestamp: "{{ now(utc=True, fmt='%Y%m%dT%H%M%S') }}"
 
   pre_tasks:
 
@@ -121,23 +121,22 @@
       when: ansible_network_os == 'eos' or ansible_network_os == 'arista.eos.eos'
 
     # ── Push configuration — FRR ─────────────────────────────────────────
-    # FRR nodes (firewall, border stubs, branches) use vtysh to load config.
-    # The rendered frr.conf is copied to the container and loaded via vtysh.
+    # FRR nodes run in containerlab Linux containers. network_cli for FRR
+    # drops into vtysh — not a Linux shell — so file operations are done
+    # via docker cp / docker exec delegated to localhost instead.
 
-    - name: Copy FRR running config to node
-      ansible.builtin.copy:
-        src: "{{ configs_dir }}/{{ inventory_hostname }}/running.conf"
-        dest: /etc/frr/frr.conf
-        mode: "0640"
-        owner: frr
-        group: frr
+    - name: Copy FRR running config to container
+      ansible.builtin.command: >
+        docker cp {{ configs_dir }}/{{ inventory_hostname }}/running.conf
+        clab-acme-lab-{{ inventory_hostname }}:/etc/frr/frr.conf
+      delegate_to: localhost
       when: platform | default('') == 'frr' or ansible_network_os == 'frr'
-      become: true
 
     - name: Reload FRR config via vtysh
-      ansible.builtin.command: vtysh -f /etc/frr/frr.conf
+      ansible.builtin.command: >
+        docker exec clab-acme-lab-{{ inventory_hostname }} vtysh -f /etc/frr/frr.conf
+      delegate_to: localhost
       when: platform | default('') == 'frr' or ansible_network_os == 'frr'
-      become: true
       register: frr_reload_result
       changed_when: frr_reload_result.rc == 0
 
