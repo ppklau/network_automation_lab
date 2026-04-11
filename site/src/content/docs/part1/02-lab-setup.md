@@ -10,7 +10,7 @@ title: "Chapter 2: Setting Up the Lab"
 
 ## What you are building
 
-By the end of this chapter you will have 18 network nodes running on your laptop, BGP sessions established between them, and the full automation stack ready to use.
+By the end of this chapter you will have 13 network nodes running on your laptop, BGP sessions established between them, and the full automation stack ready to use.
 
 ```
 London DC1 (fully instantiated)
@@ -182,7 +182,7 @@ sudo containerlab deploy --topo topology/containerlab.yml
 
 This will:
 - Create Docker networks for the management plane and all inter-device links
-- Start all 18 nodes (cEOS nodes take about 60–90 seconds to boot)
+- Start all 13 nodes (cEOS nodes take about 60–90 seconds to boot)
 - Apply the startup configs from `topology/startup_configs/`
 
 **Expected output (abbreviated):**
@@ -193,7 +193,7 @@ INFO[0000] Parsing & checking topology file: topology/containerlab.yml
 INFO[0001] Creating lab directory: /root/clab-acme_lab
 INFO[0002] Creating container: spine-lon-01
 ...
-INFO[0087] 18 nodes created
+INFO[0087] 13 nodes created
 +---+------------------+-------+-----------+---------+------------------+
 | # | Name             | Kind  | Image     | State   | IPv4 Address     |
 +---+------------------+-------+-----------+---------+------------------+
@@ -213,6 +213,8 @@ ansible -i inventory/hosts.yml lab_active -m ping
 ```
 
 **Expected:** All nodes return `"ping": "pong"`.
+
+You may see deprecation warnings from the `frr.frr` collection about internal Ansible APIs. These are harmless and do not affect functionality.
 
 If some nodes are not reachable yet, wait 30 seconds and try again. cEOS takes a moment to initialise eAPI after first boot.
 
