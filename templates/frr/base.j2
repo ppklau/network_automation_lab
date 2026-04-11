@@ -10,7 +10,7 @@
 ! {{ hostname }}  |  {{ role }}  |  {{ site }}  |  {{ region }}
 ! Rendered by automation pipeline — do NOT edit manually.
 ! Source: sot/devices/{{ site }}/{{ hostname }}.yml
-! Last rendered: {{ ansible_date_time.iso8601 }}
+! Last rendered: {{ now(utc=True, fmt='%Y-%m-%dT%H:%M:%SZ') }}
 ! ═══════════════════════════════════════════════════════════════════════════
 frr version 9.1
 frr defaults traditional
