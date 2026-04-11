@@ -57,12 +57,12 @@ Before starting Part 1, you need:
 
 | Requirement | Version | Notes |
 |-------------|---------|-------|
-| Docker Engine | ≥ 24.0 | Docker Desktop works on macOS and Windows |
-| containerlab | ≥ 0.54 | `bash -c "$(curl -sL https://get.containerlab.dev)"` |
+| Docker Engine | ≥ 24.0 | Runs inside your Linux environment (see Chapter 2) |
+| containerlab | ≥ 0.54 | Requires Linux — macOS and Windows users need OrbStack or WSL2 first |
 | Python | ≥ 3.11 | Used for SoT validation scripts and Batfish interaction |
-| Ansible | ≥ 9.0 (core 2.16) | `pip install ansible` |
-| pybatfish | ≥ 0.36 | `pip install pybatfish` |
-| Arista cEOS image | 4.32.2F | Requires free Arista account at arista.com |
+| Ansible | ≥ 9.0 (core 2.16) | Installed via `requirements.txt` |
+| pybatfish | ≥ 0.36 | Installed via `requirements.txt` |
+| Arista cEOS image | 4.32.2F | Requires free Arista account at arista.com; ARM64 image available for Apple Silicon |
 | Git | any recent | Used throughout |
 
 **RAM:** 16 GB minimum. 32 GB recommended if running GitLab locally.

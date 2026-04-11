@@ -1,0 +1,24 @@
+# ACME Investments Network Automation Lab — Python dependencies
+#
+# Install with:
+#   python3 -m venv .venv
+#   source .venv/bin/activate
+#   pip install -r requirements.txt
+
+# Ansible — config push, Day-2 operations, and all playbooks
+ansible>=9.0
+
+# pybatfish — intent verification and compliance checks
+pybatfish>=0.36
+
+# pandas — used by pybatfish query results and Batfish test helpers
+pandas>=2.0
+
+# pytest — Batfish intent test suite
+pytest>=7.0
+
+# PyYAML — SoT parsing in scripts
+PyYAML>=6.0
+
+# jsonschema — SoT schema validation
+jsonschema>=4.0

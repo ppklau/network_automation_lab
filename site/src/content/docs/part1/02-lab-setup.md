@@ -34,9 +34,47 @@ Management plane
 
 ---
 
+## Host machine requirements
+
+containerlab requires a Linux kernel. It does not run natively on macOS or Windows. Before installing anything, follow the setup path for your operating system.
+
+**RAM:** 16 GB minimum. 32 GB recommended if running GitLab locally (see resource usage table at the end of this chapter).
+
+**Disk:** 20 GB free minimum — Arista cEOS images are large.
+
+---
+
+### Linux
+
+You are ready to proceed. Skip to [Prerequisites](#prerequisites).
+
+---
+
+### macOS (Intel and Apple Silicon)
+
+Install [OrbStack](https://orbstack.dev) — a lightweight container and Linux machine manager optimised for macOS. It is significantly more resource-efficient than Docker Desktop and works well with containerlab on both Intel and Apple Silicon Macs.
+
+Once OrbStack is installed, open a Linux machine terminal from within OrbStack. All subsequent steps in this chapter run inside that terminal.
+
+> **Apple Silicon (M-series) users:** Arista released a native ARM64 cEOS image in January 2025. When downloading cEOS in Step 3, select the `cEOS64-lab-ARM` image rather than the standard x86_64 image.
+
+Docker Desktop is not recommended — it adds significant resource overhead and can interfere with containerlab's network stack access.
+
+---
+
+### Windows
+
+Install WSL2 and use the [WSL-Containerlab](https://containerlab.dev/windows/) distribution published by the containerlab team. This is a pre-configured WSL environment with containerlab already installed — setup takes a few minutes.
+
+> If you have Docker Desktop installed, disable its WSL integration for the containerlab WSL instance. The two conflict with each other.
+
+All subsequent steps in this chapter run inside your WSL2 terminal.
+
+---
+
 ## Prerequisites
 
-The following must be installed before you begin. Install instructions are linked — the lab does not cover installation of these tools.
+Once you have a Linux environment (native, OrbStack, or WSL2), install the following tools inside it. Install instructions are linked.
 
 | Tool | Minimum version | Install guide |
 |------|----------------|---------------|
@@ -45,7 +83,7 @@ The following must be installed before you begin. Install instructions are linke
 | **Python** | 3.10+ | [python.org/downloads](https://www.python.org/downloads/) |
 | **Git** | any | [git-scm.com](https://git-scm.com/) |
 
-> **Linux only.** containerlab requires a Linux kernel. On macOS or Windows use a Linux VM or WSL2. Docker Desktop does not work — containerlab needs direct access to the host network stack.
+> **Docker Engine, not Docker Desktop.** The table above refers to Docker Engine running inside your Linux environment. Docker Desktop is a separate product designed for desktop use and is not required here.
 
 Verify your Docker install before proceeding:
 
@@ -59,7 +97,7 @@ docker run --rm hello-world
 ## Step 1 — Clone the repository
 
 ```bash
-git clone <repo-url> network-automation-lab
+git clone https://github.com/ppklau/network_automation_lab.git network-automation-lab
 cd network-automation-lab
 ```
 
@@ -85,11 +123,17 @@ cEOS is Arista's containerised EOS. It is free but requires an Arista account.
 
 1. Register at [arista.com](https://www.arista.com) (free)
 2. Navigate to **Software Downloads → EOS → cEOS-lab**
-3. Download `cEOS64-lab-4.32.2F.tar.xz`
+3. Download the correct image for your architecture:
+   - **x86_64 (Linux/Intel Mac/Windows WSL2):** `cEOS64-lab-4.32.2F.tar.xz`
+   - **ARM64 (Apple Silicon Mac):** `cEOS64-lab-ARM-4.32.2F.tar.xz`
 4. Import the image:
 
 ```bash
+# x86_64
 docker import cEOS64-lab-4.32.2F.tar.xz ceos:4.32.2F
+
+# ARM64 (Apple Silicon)
+docker import cEOS64-lab-ARM-4.32.2F.tar.xz ceos:4.32.2F
 ```
 
 Verify:
