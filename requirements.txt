@@ -8,6 +8,7 @@
 # Ansible — config push, Day-2 operations, and all playbooks
 ansible>=9.0
 ansible-pylibssh>=1.0
+napalm>=5.0
 
 # pybatfish — intent verification and compliance checks
 pybatfish>=0.36
