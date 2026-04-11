@@ -209,7 +209,7 @@ INFO[0087] 13 nodes created
 
 ```bash
 # All management IPs should be reachable
-ansible -i inventory/hosts.yml lab_active -m ping
+ansible lab_active -m ping
 ```
 
 **Expected:** All nodes return `"ping": "pong"`.
@@ -324,9 +324,43 @@ curl -s http://localhost:9996/
 
 ---
 
+## Stopping and restarting the lab
+
+### Stop (preserve containers)
+
+To free CPU and RAM without losing container state:
+
+```bash
+docker stop $(docker ps -q --filter "label=clab-topo-file=topology/containerlab.yml")
+```
+
+This stops all lab containers but keeps them on disk. Any config changes made inside the containers are preserved.
+
+### Restart stopped containers
+
+```bash
+docker start $(docker ps -aq --filter "label=clab-topo-file=topology/containerlab.yml")
+```
+
+Wait 60–90 seconds for cEOS nodes to reinitialise eAPI before running playbooks.
+
+### Full redeploy
+
+If you destroyed the lab or want a clean slate:
+
+```bash
+sudo containerlab deploy --topo topology/containerlab.yml
+ansible-playbook playbooks/render_configs.yml
+ansible-playbook playbooks/push_configs.yml
+```
+
+A full redeploy re-applies startup configs but not the full SoT configs — run the two playbooks above to restore the working state.
+
+---
+
 ## Teardown
 
-When you are done with a session:
+To permanently remove the lab:
 
 ```bash
 sudo containerlab destroy --topo topology/containerlab.yml
