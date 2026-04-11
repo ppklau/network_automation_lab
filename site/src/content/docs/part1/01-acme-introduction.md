@@ -6,7 +6,7 @@ title: "Chapter 1: ACME Investments"
 
 ACME Investments is a mid-sized asset management firm headquartered in London, with data centres in New York, Singapore, and Frankfurt. They run their own network infrastructure: a spine-leaf fabric in London, inter-region BGP connecting the sites, and branch offices across the UK and US.
 
-The trading division operates algorithmic and electronic trading platforms. These systems have strict latency requirements, strict isolation requirements, and strict regulatory requirements. MiFID II mandates that trading infrastructure cannot share a network path with corporate systems. The FCA requires auditable records of every change that touches the trading environment. GDPR and BaFin rules mean that data originating in Frankfurt cannot transit non-EU routing paths.
+The trading division operates algorithmic and electronic trading platforms. These systems have strict latency requirements, strict isolation requirements, and strict regulatory requirements. MiFID II requires that trading infrastructure remains resilient and operationally isolated from corporate systems — shielded from congestion or instability caused by other workloads, with clear separation between development and production environments. The FCA requires auditable records of every change that touches the trading environment. GDPR and BaFin rules mean that data originating in Frankfurt cannot transit non-EU routing paths.
 
 These are not hypothetical constraints. They are the kind of requirements that cause incidents when they are not met — regulatory investigations, fines, and trading halts.
 

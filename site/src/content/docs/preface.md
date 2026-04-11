@@ -87,4 +87,4 @@ You do not need to work in financial services to benefit from this. Every organi
 
 ---
 
-*This is a proprietary commercial product. Purchased access is for individual use. Redistribution in any form is prohibited. See `LICENSE.md` for the full licence terms.*
+*Guide content © 2026 Patrick Lau, licensed under [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/). Code in this repository is licensed under the MIT Licence. See [LICENSE.md](https://github.com/ppklau/network_automation_lab/blob/main/LICENSE.md) for full terms.*
