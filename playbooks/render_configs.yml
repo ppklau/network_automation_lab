@@ -20,7 +20,7 @@
 
 - name: Render device configurations from SoT
   hosts: lab_active
-  gather_facts: false
+  gather_facts: true
   connection: local
 
   pre_tasks:
@@ -67,7 +67,6 @@
         paths: "{{ sot_device_dir }}"
         patterns: "{{ inventory_hostname }}.yml"
         recurse: true
-        excludes: "branches"
       register: device_sot_search
 
     - name: Fail if device SoT file not found

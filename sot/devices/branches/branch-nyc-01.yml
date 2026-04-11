@@ -1,0 +1,62 @@
+---
+# ACME Investments — Device: branch-nyc-01
+# Role: Branch CPE (FRR stub) — US, New York
+# lab_state: ACTIVE — FRR node instantiated in containerlab as branch stub
+# eBGP peer to border-nyc-01 on 10.101.0.0/29
+# Last reviewed: 2026-03-01
+
+hostname: branch-nyc-01
+fqdn: branch-nyc-01.americas.acme-investments.internal
+role: branch
+platform: frr
+image: quay.io/frrouting/frr:9.1.3
+hardware_model: "FRR Virtual Router (branch CPE)"
+serial: BRNNYC2401001
+eol_date: "2028-06-30"
+
+site: branch-nyc-01
+region: americas-nyc
+lab_state: active
+
+uplink_dc: nyc-dc1
+uplink_border: border-nyc-01
+
+compliance_tags: [sox, sec]
+security_zones: [CORPORATE, MGMT_ZONE]
+intent_refs: [INTENT-005, INTENT-006, INTENT-007, INTENT-010, INTENT-011]
+
+management:
+  interface: eth0
+  ip: 10.101.0.1/29
+
+interfaces:
+  - name: eth0
+    description: "OOB management"
+    ip: 10.101.0.1/29
+    mtu: 1500
+
+  - name: eth1
+    description: "WAN uplink -> border-nyc-01 [eBGP AS65120<->AS65010]"
+    ip: 10.101.0.1/29
+    peer_device: border-nyc-01
+    peer_ip: 10.101.0.2
+    mtu: 9000
+
+  - name: eth2
+    description: "LAN — branch office network"
+    ip: 10.101.0.1/29
+    mtu: 1500
+
+bgp:
+  local_as: 65120
+  router_id: 10.101.0.1
+  neighbors:
+    - peer_ip: 10.101.0.2
+      remote_as: 65010
+      description: "eBGP -> border-nyc-01"
+      md5_password_ref: bgp_md5_branch_nyc_01
+      route_map_out: RM_BRANCH_OUT
+  networks_advertised:
+    - prefix: 10.101.0.0/29
+      description: "Branch LAN"
+  log_neighbor_changes: true
