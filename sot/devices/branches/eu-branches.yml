@@ -24,7 +24,7 @@ branches:
   - hostname: branch-fra-01
     fqdn: branch-fra-01.eu.acme-investments.internal
     lab_state: sot_only
-    serial: BRNFRA2401001
+    device_serial: BRNFRA2401001
     site_code: branch-fra-01
     asn: 65140
     office_type: corporate
@@ -53,7 +53,7 @@ branches:
   - hostname: branch-fra-02
     fqdn: branch-fra-02.eu.acme-investments.internal
     lab_state: sot_only
-    serial: BRNFRA2401002
+    device_serial: BRNFRA2401002
     site_code: branch-fra-02
     asn: 65141
     office_type: corporate
@@ -78,7 +78,7 @@ branches:
   - hostname: branch-fra-03
     fqdn: branch-fra-03.eu.acme-investments.internal
     lab_state: sot_only
-    serial: BRNFRA2401003
+    device_serial: BRNFRA2401003
     site_code: branch-fra-03
     asn: 65142
     office_type: regional
@@ -103,7 +103,7 @@ branches:
   - hostname: branch-fra-04
     fqdn: branch-fra-04.eu.acme-investments.internal
     lab_state: sot_only
-    serial: BRNFRA2401004
+    device_serial: BRNFRA2401004
     site_code: branch-fra-04
     asn: 65143
     office_type: corporate

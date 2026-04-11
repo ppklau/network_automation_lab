@@ -11,7 +11,7 @@ role: branch
 platform: frr
 image: quay.io/frrouting/frr:9.1.3
 hardware_model: "FRR Virtual Router (branch CPE)"
-serial: BRNNYC2401001
+device_serial: BRNNYC2401001
 eol_date: "2028-06-30"
 
 site: branch-nyc-01

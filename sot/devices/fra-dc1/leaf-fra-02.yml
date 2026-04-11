@@ -8,7 +8,7 @@ role: leaf
 platform: arista_eos
 image: ceos:4.32.2F
 hardware_model: DCS-7050TX3-48C8
-serial: ACE2430012B
+device_serial: ACE2430012B
 eol_date: "2029-06-30"
 lab_state: sot_only
 site: fra-dc1

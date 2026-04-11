@@ -22,7 +22,7 @@ branches:
   - hostname: branch-lon-01
     fqdn: branch-lon-01.emea.acme-investments.internal
     lab_state: active     # Instantiated in containerlab as branch stub
-    serial: BRNLON2401001
+    device_serial: BRNLON2401001
     site_code: branch-lon-01
     asn: 65100
     office_type: trading
@@ -64,7 +64,7 @@ branches:
   - hostname: branch-lon-02
     fqdn: branch-lon-02.emea.acme-investments.internal
     lab_state: sot_only
-    serial: BRNLON2401002
+    device_serial: BRNLON2401002
     site_code: branch-lon-02
     asn: 65101
     office_type: corporate
@@ -89,7 +89,7 @@ branches:
   - hostname: branch-lon-03
     fqdn: branch-lon-03.emea.acme-investments.internal
     lab_state: sot_only
-    serial: BRNLON2401003
+    device_serial: BRNLON2401003
     site_code: branch-lon-03
     asn: 65102
     office_type: corporate
@@ -114,7 +114,7 @@ branches:
   - hostname: branch-lon-04
     fqdn: branch-lon-04.emea.acme-investments.internal
     lab_state: sot_only
-    serial: BRNLON2401004
+    device_serial: BRNLON2401004
     site_code: branch-lon-04
     asn: 65103
     office_type: regional
@@ -139,7 +139,7 @@ branches:
   - hostname: branch-lon-05
     fqdn: branch-lon-05.emea.acme-investments.internal
     lab_state: sot_only
-    serial: BRNLON2401005
+    device_serial: BRNLON2401005
     site_code: branch-lon-05
     asn: 65104
     office_type: corporate
@@ -164,7 +164,7 @@ branches:
   - hostname: branch-lon-06
     fqdn: branch-lon-06.emea.acme-investments.internal
     lab_state: sot_only
-    serial: BRNLON2401006
+    device_serial: BRNLON2401006
     site_code: branch-lon-06
     asn: 65105
     office_type: corporate
@@ -189,7 +189,7 @@ branches:
   - hostname: branch-lon-07
     fqdn: branch-lon-07.emea.acme-investments.internal
     lab_state: sot_only
-    serial: BRNLON2401007
+    device_serial: BRNLON2401007
     site_code: branch-lon-07
     asn: 65106
     office_type: corporate
@@ -214,7 +214,7 @@ branches:
   - hostname: branch-lon-08
     fqdn: branch-lon-08.emea.acme-investments.internal
     lab_state: sot_only
-    serial: BRNLON2401008
+    device_serial: BRNLON2401008
     site_code: branch-lon-08
     asn: 65107
     office_type: corporate
@@ -239,7 +239,7 @@ branches:
   - hostname: branch-lon-09
     fqdn: branch-lon-09.emea.acme-investments.internal
     lab_state: sot_only
-    serial: BRNLON2401009
+    device_serial: BRNLON2401009
     site_code: branch-lon-09
     asn: 65108
     office_type: regional
@@ -264,7 +264,7 @@ branches:
   - hostname: branch-lon-10
     fqdn: branch-lon-10.emea.acme-investments.internal
     lab_state: sot_only
-    serial: BRNLON2401010
+    device_serial: BRNLON2401010
     site_code: branch-lon-10
     asn: 65109
     office_type: corporate
@@ -289,7 +289,7 @@ branches:
   - hostname: branch-lon-11
     fqdn: branch-lon-11.emea.acme-investments.internal
     lab_state: sot_only
-    serial: BRNLON2401011
+    device_serial: BRNLON2401011
     site_code: branch-lon-11
     asn: 65110
     office_type: regional
@@ -314,7 +314,7 @@ branches:
   - hostname: branch-lon-12
     fqdn: branch-lon-12.emea.acme-investments.internal
     lab_state: sot_only
-    serial: BRNLON2401012
+    device_serial: BRNLON2401012
     site_code: branch-lon-12
     asn: 65111
     office_type: corporate

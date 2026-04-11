@@ -11,7 +11,7 @@ role: spine
 platform: arista_eos
 image: ceos:4.32.2F
 hardware_model: DCS-7050CX3-32S
-serial: ACE2401002A
+device_serial: ACE2401002A
 eol_date: "2029-12-31"
 
 site: lon-dc1

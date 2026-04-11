@@ -5,7 +5,7 @@ role: border
 platform: arista_eos
 image: ceos:4.32.2F
 hardware_model: DCS-7050CX3-32S
-serial: ACE2421020C
+device_serial: ACE2421020C
 eol_date: "2029-12-31"
 lab_state: sot_only
 site: hkg-dc1

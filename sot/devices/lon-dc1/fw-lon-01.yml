@@ -16,7 +16,7 @@ role: firewall
 platform: frr
 image: frrouting/frr:9.1.0
 hardware_model: "Virtual Appliance (Linux KVM)"
-serial: FWLON2401030
+device_serial: FWLON2401030
 eol_date: "2028-12-31"
 
 site: lon-dc1

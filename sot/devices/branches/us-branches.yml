@@ -21,7 +21,7 @@ branches:
   - hostname: branch-nyc-01
     fqdn: branch-nyc-01.americas.acme-investments.internal
     lab_state: active     # Instantiated in containerlab
-    serial: BRNNYC2401001
+    device_serial: BRNNYC2401001
     site_code: branch-nyc-01
     asn: 65120
     office_type: trading
@@ -62,7 +62,7 @@ branches:
   - hostname: branch-nyc-02
     fqdn: branch-nyc-02.americas.acme-investments.internal
     lab_state: sot_only
-    serial: BRNNYC2401002
+    device_serial: BRNNYC2401002
     site_code: branch-nyc-02
     asn: 65121
     office_type: corporate
@@ -87,7 +87,7 @@ branches:
   - hostname: branch-nyc-03
     fqdn: branch-nyc-03.americas.acme-investments.internal
     lab_state: sot_only
-    serial: BRNNYC2401003
+    device_serial: BRNNYC2401003
     site_code: branch-nyc-03
     asn: 65122
     office_type: corporate
@@ -112,7 +112,7 @@ branches:
   - hostname: branch-nyc-04
     fqdn: branch-nyc-04.americas.acme-investments.internal
     lab_state: sot_only
-    serial: BRNNYC2401004
+    device_serial: BRNNYC2401004
     site_code: branch-nyc-04
     asn: 65123
     office_type: corporate
@@ -137,7 +137,7 @@ branches:
   - hostname: branch-nyc-05
     fqdn: branch-nyc-05.americas.acme-investments.internal
     lab_state: sot_only
-    serial: BRNNYC2401005
+    device_serial: BRNNYC2401005
     site_code: branch-nyc-05
     asn: 65124
     office_type: regional
@@ -162,7 +162,7 @@ branches:
   - hostname: branch-nyc-06
     fqdn: branch-nyc-06.americas.acme-investments.internal
     lab_state: sot_only
-    serial: BRNNYC2401006
+    device_serial: BRNNYC2401006
     site_code: branch-nyc-06
     asn: 65125
     office_type: corporate
@@ -187,7 +187,7 @@ branches:
   - hostname: branch-nyc-07
     fqdn: branch-nyc-07.americas.acme-investments.internal
     lab_state: sot_only
-    serial: BRNNYC2401007
+    device_serial: BRNNYC2401007
     site_code: branch-nyc-07
     asn: 65126
     office_type: regional
@@ -212,7 +212,7 @@ branches:
   - hostname: branch-nyc-08
     fqdn: branch-nyc-08.americas.acme-investments.internal
     lab_state: sot_only
-    serial: BRNNYC2401008
+    device_serial: BRNNYC2401008
     site_code: branch-nyc-08
     asn: 65127
     office_type: corporate

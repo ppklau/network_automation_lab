@@ -11,7 +11,7 @@ role: firewall
 platform: frr
 image: frrouting/frr:9.1.0
 hardware_model: "Virtual Appliance (Linux KVM)"
-serial: FWFRA2430030
+device_serial: FWFRA2430030
 eol_date: "2028-12-31"
 lab_state: sot_only
 

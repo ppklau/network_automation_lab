@@ -21,7 +21,7 @@ branches:
   - hostname: branch-sin-01
     fqdn: branch-sin-01.apac.acme-investments.internal
     lab_state: sot_only
-    serial: BRNSIN2401001
+    device_serial: BRNSIN2401001
     site_code: branch-sin-01
     asn: 65130
     office_type: trading
@@ -46,7 +46,7 @@ branches:
   - hostname: branch-sin-02
     fqdn: branch-sin-02.apac.acme-investments.internal
     lab_state: sot_only
-    serial: BRNSIN2401002
+    device_serial: BRNSIN2401002
     site_code: branch-sin-02
     asn: 65131
     office_type: corporate
@@ -71,7 +71,7 @@ branches:
   - hostname: branch-sin-03
     fqdn: branch-sin-03.apac.acme-investments.internal
     lab_state: sot_only
-    serial: BRNSIN2401003
+    device_serial: BRNSIN2401003
     site_code: branch-sin-03
     asn: 65132
     office_type: corporate
@@ -96,7 +96,7 @@ branches:
   - hostname: branch-sin-04
     fqdn: branch-sin-04.apac.acme-investments.internal
     lab_state: sot_only
-    serial: BRNSIN2401004
+    device_serial: BRNSIN2401004
     site_code: branch-sin-04
     asn: 65133
     office_type: regional
@@ -121,7 +121,7 @@ branches:
   - hostname: branch-sin-05
     fqdn: branch-sin-05.apac.acme-investments.internal
     lab_state: sot_only
-    serial: BRNSIN2401005
+    device_serial: BRNSIN2401005
     site_code: branch-sin-05
     asn: 65134
     office_type: corporate
@@ -146,7 +146,7 @@ branches:
   - hostname: branch-sin-06
     fqdn: branch-sin-06.apac.acme-investments.internal
     lab_state: sot_only
-    serial: BRNSIN2401006
+    device_serial: BRNSIN2401006
     site_code: branch-sin-06
     asn: 65135
     office_type: regional

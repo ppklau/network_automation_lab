@@ -13,7 +13,7 @@ role: leaf
 platform: arista_eos
 image: ceos:4.32.2F
 hardware_model: DCS-7050TX3-48C8
-serial: ACE2401014B
+device_serial: ACE2401014B
 eol_date: "2029-06-30"
 
 site: lon-dc1
@@ -136,14 +136,13 @@ interfaces:
     speed: 10G
 
   - name: Ethernet6
-    description: "Management server access — MGMT VLAN 400"
+    description: "Jump host / bastion — MGMT_VRF access only"
     mode: access
     access_vlan: 400
     peer_device: jump-host-01
     peer_interface: eth0
     mtu: 9214
     speed: 1G
-    description: "Jump host / bastion — MGMT_VRF access only"
 
   - name: Vlan100
     description: "SVI TRADING — leaf-lon-04 standby"
