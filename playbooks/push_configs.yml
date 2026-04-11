@@ -110,6 +110,9 @@
         replace_config: true
         get_diffs: true
         diff_file: "{{ state_dir }}/diff_{{ push_timestamp }}.txt"
+        optional_args:
+          transport: http
+          port: 80
       when: ansible_network_os == 'eos' or ansible_network_os == 'arista.eos.eos'
       register: eos_push_result
 
@@ -177,7 +180,7 @@
           hostname: {{ inventory_hostname }}
           timestamp: {{ push_timestamp }}
           platform: {{ platform | default(ansible_network_os) }}
-          result: {{ 'success' if not (eos_push_result is defined and eos_push_result.failed) else 'failed' }}
+          result: {{ 'success' if not (eos_push_result is defined and eos_push_result.failed | default(false)) else 'failed' }}
           rendered_config: {{ configs_dir }}/{{ inventory_hostname }}/running.conf
           diff: {{ state_dir }}/diff_{{ push_timestamp }}.txt
           pre_state: {{ state_dir }}/pre_push_bgp_{{ push_timestamp }}.txt
