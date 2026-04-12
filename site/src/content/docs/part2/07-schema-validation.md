@@ -338,6 +338,8 @@ bgp:
 
 **Verify:** `python3 scripts/validate_sot.py` returns `0 errors`.
 
-**Debrief:** The loopback `/24` is caught by the JSONSchema regex (`^\\d+\\.\\d+\\.\\d+\\.\\d+/32$`). A new spine also needs all its iBGP neighbors defined — are they? Would the Batfish resilience tests pass with a third spine that is not configured as an RR for all leaves? These are the questions the validation layer forces you to consider before a device ever gets configured.
+## Debrief
+
+The loopback `/24` is caught by the JSONSchema regex (`^\\d+\\.\\d+\\.\\d+\\.\\d+/32$`). A new spine also needs all its iBGP neighbors defined — are they? Would the Batfish resilience tests pass with a third spine that is not configured as an RR for all leaves? These are the questions the validation layer forces you to consider before a device ever gets configured.
 
 *Handbook reference: Chapter 5 (Pipeline design), Chapter 3 (SoT schema)*
