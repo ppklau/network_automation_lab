@@ -107,7 +107,7 @@ logging format timestamp traditional year
 logging format hostname fqdn
 logging format sequence-numbers
 {% for srv in platform_defaults.logging.servers %}
-logging host {{ srv.ip }} {{ srv.port }} vrf MGMT protocol {{ srv.protocol | default('udp') }}
+logging vrf MGMT host {{ srv.ip }} {{ srv.port }} protocol {{ srv.protocol | default('udp') }}
 {% endfor %}
 !
 ! ── SNMP v3 ──────────────────────────────────────────────────────────────
