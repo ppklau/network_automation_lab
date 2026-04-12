@@ -22,8 +22,8 @@ router bgp {{ bgp.local_as }}
    router-id {{ bgp.router_id }}
    no bgp default ipv4-unicast
    !
-   bgp graceful-restart
-   bgp graceful-restart restart-time 300
+   graceful-restart
+   graceful-restart restart-time 300
    !
    timers bgp {{ bgp.timers.keepalive | default(30) }} {{ bgp.timers.hold_time | default(90) }}
    !
@@ -42,7 +42,7 @@ router bgp {{ bgp.local_as }}
    neighbor {{ neighbor.peer_ip }} update-source {{ neighbor.update_source }}
 {% endif %}
 {% if neighbor.md5_password_ref is defined %}
-   neighbor {{ neighbor.peer_ip }} password 7 {{ vault_bgp_passwords[neighbor.md5_password_ref] | default('CHANGEME') }}
+   neighbor {{ neighbor.peer_ip }} password 0 {{ vault_bgp_passwords[neighbor.md5_password_ref] | default('CHANGEME') }}
 {% endif %}
 {% if neighbor.remote_as == bgp.local_as %}
 {# iBGP — set route-reflector-client if this RR is configured to reflect to this peer #}
@@ -120,7 +120,7 @@ router bgp {{ bgp.local_as }}
          network {{ inner_net.prefix }}
 {% endfor %}
       exit-address-family
-   exit-vrf
+   exit
    !
 {% endif %}
 {% endfor %}
