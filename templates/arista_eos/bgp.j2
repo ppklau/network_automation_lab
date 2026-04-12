@@ -98,7 +98,7 @@ router bgp {{ bgp.local_as }}
 
 {% endfor %}
 {% endif %}
-   exit-address-family
+   exit
    !
 {# ── Per-VRF address families (TRADING_VRF, CORPORATE_VRF, etc.) #}
 {% if bgp.networks_advertised is defined %}
@@ -119,7 +119,7 @@ router bgp {{ bgp.local_as }}
 {% for inner_net in bgp.networks_advertised if inner_net.vrf is defined and inner_net.vrf == net.vrf %}
          network {{ inner_net.prefix }}
 {% endfor %}
-      exit-address-family
+      exit
    exit
    !
 {% endif %}
