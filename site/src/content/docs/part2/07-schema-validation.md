@@ -78,43 +78,51 @@ The `schema/` directory contains JSONSchema definitions for each SoT file type.
 cat schema/device.schema.json
 ```
 
-Key constraints in the device schema:
+Key constraints in the device schema (abbreviated):
 
 ```json
 {
-  "required": ["hostname", "platform", "role", "site", "lab_state"],
+  "required": ["hostname", "fqdn", "role", "platform", "site", "region",
+               "lab_state", "compliance_tags", "security_zones",
+               "intent_refs", "management", "loopback"],
   "properties": {
     "platform": {
-      "enum": ["arista_eos", "frr", "cisco_ios"]
+      "enum": ["arista_eos", "frr"]
     },
     "role": {
-      "enum": ["spine", "leaf", "border", "firewall", "branch"]
+      "enum": ["spine", "leaf", "border", "fw", "firewall"]
     },
     "lab_state": {
-      "enum": ["active", "sot_only", "decommissioned"]
+      "enum": ["active", "sot_only"]
     },
     "loopback": {
-      "required": ["ip"],
-      "properties": {
-        "ip": {
-          "pattern": "^\\d+\\.\\d+\\.\\d+\\.\\d+/32$"
-        }
-      }
+      "required": ["interface", "ip"]
     }
   }
 }
 ```
 
-The `platform` and `role` fields are enums — any value not in the list fails validation. The loopback IP must be a `/32` — the regex pattern enforces this. If someone accidentally writes a `/24` for a loopback, the validator catches it before Jinja2 tries to render it.
+The `platform` and `role` fields are enums — any value not in the list fails validation. All fields in `required` must be present; a minimal stub that omits `fqdn` or `management` will fail before any property-level checks run.
 
 ```bash
 # Try it: temporarily break a device file
 cat > /tmp/test_device.yml << 'EOF'
 hostname: test-device
+fqdn: test-device.acme-investments.internal
 platform: juniper_eos    # invalid platform
 role: spine
 site: lon-dc1
+region: emea-lon
 lab_state: active
+compliance_tags: [pci]
+security_zones: [TRADING]
+intent_refs: [INTENT-001]
+management:
+  interface: Management0
+  ip: 172.20.20.99
+loopback:
+  interface: Loopback0
+  ip: 10.1.255.99
 EOF
 
 python3 -c "
@@ -126,7 +134,7 @@ jsonschema.validate(device, schema)
 ```
 
 ```
-jsonschema.exceptions.ValidationError: 'juniper_eos' is not one of ['arista_eos', 'frr', 'cisco_ios']
+jsonschema.exceptions.ValidationError: 'juniper_eos' is not one of ['arista_eos', 'frr']
 ```
 
 > 🔴 **Deep Dive** — The schema for branch records (`schema/branch.schema.json`) includes an ASN range check: branch ASNs must be in the range 65100–65143. This is enforced with a `minimum`/`maximum` constraint. However, JSONSchema cannot check uniqueness across multiple files — that requires the cross-validation script. This is a deliberate separation: the schema validates structure; the script validates cross-file consistency.
@@ -136,7 +144,7 @@ jsonschema.exceptions.ValidationError: 'juniper_eos' is not one of ['arista_eos'
 ## `validate_sot.py` — cross-file validation
 
 ```bash
-python3 scripts/validate_sot.py --verbose
+python3 scripts/validate_sot.py
 ```
 
 The script performs checks that JSON Schema cannot:
@@ -171,7 +179,8 @@ The script performs checks that JSON Schema cannot:
 **5. Vault reference integrity**
 ```python
 # Collects all md5_password_ref values from device files
-# Verifies each one appears as a key in inventory/group_vars/vault.yml
+# Verifies each one appears as a key in inventory/group_vars/all/vault.yml
+# under vault_bgp_passwords
 ```
 
 ---
@@ -215,7 +224,7 @@ git checkout sot/devices/fra-dc1/border-fra-01.yml
 
 ```bash
 # Set branch-lon-02's ASN to the same value as branch-lon-01
-# Edit sot/devices/branches/uk_branches.yml — find branch-lon-02 and change asn: 65101 to asn: 65100
+# Edit sot/devices/branches/uk-branches.yml — find branch-lon-02 and change asn: 65101 to asn: 65100
 
 python3 scripts/validate_sot.py
 ```
@@ -227,23 +236,26 @@ SoT validation FAILED — 1 error
 ```
 
 ```bash
-git checkout sot/devices/branches/uk_branches.yml
+git checkout sot/devices/branches/uk-branches.yml
 ```
 
 **Test 3 — Missing vault ref:**
 
 ```bash
 # In sot/devices/lon-dc1/leaf-lon-01.yml, change an md5_password_ref to a non-existent key
-# Find an md5_password_ref value and append "_typo" to it
+# The file uses bgp_md5_lon_dc1_fabric — append "_typo" to get bgp_md5_lon_dc1_fabric_typo
 
 python3 scripts/validate_sot.py
 ```
 
 Expected:
 ```
-[FAIL] md5_password_ref 'ibgp_lon_leaf01_spine01_typo' not found in vault.yml
-SoT validation FAILED — 1 error
+✗ FAILED — 2 error(s):
+  ERROR  sot/devices/lon-dc1/leaf-lon-01.yml [leaf-lon-01]: md5_password_ref 'bgp_md5_lon_dc1_fabric_typo' not found in inventory/group_vars/all/vault.yml (vault_bgp_passwords)
+  ERROR  sot/devices/lon-dc1/leaf-lon-01.yml [leaf-lon-01]: md5_password_ref 'bgp_md5_lon_dc1_fabric_typo' not found in inventory/group_vars/all/vault.yml (vault_bgp_passwords)
 ```
+
+*(Two errors because both iBGP neighbors on that leaf use the same ref.)*
 
 ```bash
 git checkout sot/devices/lon-dc1/leaf-lon-01.yml
@@ -253,7 +265,7 @@ After each test, verify the validator returns clean:
 
 ```bash
 python3 scripts/validate_sot.py
-# SoT validation passed — 75 devices, 0 errors
+# ✓ All checks passed.
 ```
 
 ---

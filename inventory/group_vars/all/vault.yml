@@ -37,14 +37,24 @@ vault_snmp_keys:
 vault_bgp_passwords:
   # LON DC1 fabric iBGP
   bgp_md5_lon_dc1_fabric: CHANGEME
+  # LON DC2 fabric iBGP
+  bgp_md5_lon_dc2_fabric: CHANGEME
+  # Inter-DC LON1–LON2
+  bgp_md5_interdc_lon1_lon2: CHANGEME
   # Inter-DC WAN eBGP
   bgp_md5_wan_lon_nyc: CHANGEME
   bgp_md5_wan_lon_sin: CHANGEME
   bgp_md5_wan_lon_fra: CHANGEME
   # NYC DC1 fabric iBGP
   bgp_md5_nyc_dc1_fabric: CHANGEME
+  # NYC DC2 fabric iBGP
+  bgp_md5_nyc_dc2_fabric: CHANGEME
+  # Inter-DC NYC1–NYC2
+  bgp_md5_interdc_nyc1_nyc2: CHANGEME
   # SIN DC1 fabric iBGP
   bgp_md5_sin_dc1_fabric: CHANGEME
+  # HKG DC1 fabric iBGP
+  bgp_md5_hkg_dc1_fabric: CHANGEME
   # FRA DC1 fabric iBGP
   bgp_md5_fra_dc1_fabric: CHANGEME
   # UK branches (65100–65111)

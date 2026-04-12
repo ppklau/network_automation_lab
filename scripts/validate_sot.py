@@ -53,6 +53,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 SOT_DIR = REPO_ROOT / "sot"
 INTENTS_DIR = REPO_ROOT / "design_intents"
 SCHEMA_DIR = REPO_ROOT / "schema"
+VAULT_PATH = REPO_ROOT / "inventory" / "group_vars" / "all" / "vault.yml"
 
 # Regional compliance tag requirements — each region must carry these tags
 REQUIRED_TAGS_BY_REGION = {
@@ -111,6 +112,26 @@ def load_schema(name: str) -> dict:
         return json.load(f)
 
 
+def load_vault_keys() -> set[str]:
+    """Return the set of keys defined under vault_bgp_passwords in vault.yml.
+
+    Returns an empty set if the file is missing or encrypted (ansible-vault
+    encrypted files start with '$ANSIBLE_VAULT') — in that case the check is
+    skipped rather than failing the whole run.
+    """
+    if not VAULT_PATH.exists():
+        return set()
+    raw = VAULT_PATH.read_text()
+    if raw.startswith("$ANSIBLE_VAULT"):
+        return set()  # encrypted — skip existence check
+    try:
+        data = yaml.safe_load(raw)
+    except yaml.YAMLError:
+        return set()
+    bgp_passwords = data.get("vault_bgp_passwords", {}) if isinstance(data, dict) else {}
+    return set(bgp_passwords.keys()) if isinstance(bgp_passwords, dict) else set()
+
+
 # ── Schema validation ─────────────────────────────────────────────────────────
 
 def validate_schema(data: Any, schema: dict, path: Path, v: Validator) -> None:
@@ -153,6 +174,7 @@ def check_device_file(
     loopback_ip_seen: dict[str, str],
     site_asn_seen: dict[int, str],
     v: Validator,
+    vault_keys: set[str] | None = None,
 ) -> None:
     """Run all checks for a single DC device file."""
     rel = str(path.relative_to(REPO_ROOT))
@@ -214,15 +236,22 @@ def check_device_file(
                         f"has forbidden inline field '{field}' — use md5_password_ref (INTENT-005, SC-103)"
                     )
 
-        # 4c. md5_password_ref naming convention (should be bgp_md5_*)
+        # 4c. md5_password_ref: naming convention + vault existence
         for neighbor in bgp.get("neighbors", []):
             if not isinstance(neighbor, dict):
                 continue
             ref = neighbor.get("md5_password_ref", "")
-            if ref and not re.match(r"^bgp_md5_", ref):
+            if not ref:
+                continue
+            if not re.match(r"^bgp_md5_", ref):
                 v.warn(
                     f"{rel} [{hostname}]: md5_password_ref '{ref}' does not follow "
                     f"naming convention bgp_md5_<scope> (SC-101)"
+                )
+            if vault_keys is not None and ref not in vault_keys:
+                v.error(
+                    f"{rel} [{hostname}]: md5_password_ref '{ref}' not found in "
+                    f"inventory/group_vars/all/vault.yml (vault_bgp_passwords)"
                 )
 
     # 5. Frankfurt-specific constraints
@@ -279,6 +308,7 @@ def check_branch_file(
     known_intent_ids: set[str],
     branch_asn_seen: dict[int, str],
     v: Validator,
+    vault_keys: set[str] | None = None,
 ) -> None:
     """Run all checks for a branch region file."""
     rel = str(path.relative_to(REPO_ROOT))
@@ -339,7 +369,7 @@ def check_branch_file(
                 except ValueError:
                     v.error(f"{rel} [{hostname}]: {field} '{prefix_str}' is not a valid CIDR prefix")
 
-        # 3d. No inline passwords in BGP neighbors
+        # 3d. No inline passwords in BGP neighbors; vault existence for md5_password_ref
         bgp = branch.get("bgp", {})
         if isinstance(bgp, dict):
             for neighbor in bgp.get("neighbors", []):
@@ -351,6 +381,12 @@ def check_branch_file(
                             f"{rel} [{hostname}]: BGP neighbor {neighbor.get('peer_ip', '?')} "
                             f"has forbidden inline field '{field}' (INTENT-005, SC-103)"
                         )
+                ref = neighbor.get("md5_password_ref", "")
+                if ref and vault_keys is not None and ref not in vault_keys:
+                    v.error(
+                        f"{rel} [{hostname}]: md5_password_ref '{ref}' not found in "
+                        f"inventory/group_vars/all/vault.yml (vault_bgp_passwords)"
+                    )
 
 
 # ── Site file checks ──────────────────────────────────────────────────────────
@@ -476,6 +512,9 @@ def main() -> int:
 
     v = Validator()
 
+    # Load vault keys for md5_password_ref existence checks
+    vault_keys: set[str] | None = load_vault_keys() or None
+
     # Load schemas
     try:
         device_schema = load_schema("device.schema.json")
@@ -539,6 +578,7 @@ def main() -> int:
             loopback_ip_seen,
             device_asn_context,
             v,
+            vault_keys=vault_keys,
         )
 
     print(f"  Validated {len(device_paths)} DC device files")
@@ -556,7 +596,7 @@ def main() -> int:
             # Individual active-device file — validated as a DC device, not a bulk branch file
             continue
         validate_schema(data, branch_schema, branch_path, v)
-        check_branch_file(branch_path, data, known_intent_ids, branch_asn_seen, v)
+        check_branch_file(branch_path, data, known_intent_ids, branch_asn_seen, v, vault_keys=vault_keys)
         count = len(data.get("branches", []))
         print(f"  {branch_path.name}: {count} branches")
 
