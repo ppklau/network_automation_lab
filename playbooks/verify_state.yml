@@ -118,10 +118,11 @@
     # ── FRR verification ─────────────────────────────────────────────────
 
     - name: Collect BGP summary (FRR via vtysh)
-      ansible.builtin.command: /usr/bin/vtysh -c "show bgp summary json"
+      ansible.builtin.shell: >
+        docker exec clab-acme-lab-{{ inventory_hostname }}
+        vtysh -c 'show bgp summary json'
       register: frr_bgp_raw
       when: platform | default('') == 'frr' or ansible_network_os == 'frr'
-      become: true
       retries: "{{ verify_retries }}"
       delay: "{{ verify_delay }}"
       until: frr_bgp_raw.rc == 0
