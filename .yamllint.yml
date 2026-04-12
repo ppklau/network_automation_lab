@@ -95,8 +95,7 @@ rules:
     allow-non-breakable-inline-mappings: true
 
   # ── New line at end of file ─────────────────────────────────────────────────
-  new-line-at-end-of-file:
-    present: true
+  new-line-at-end-of-file: enable
 
   # ── New lines ──────────────────────────────────────────────────────────────
   new-lines:
