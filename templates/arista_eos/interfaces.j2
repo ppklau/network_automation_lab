@@ -16,6 +16,22 @@
    VRRP groups are rendered from device SoT vrrp[] list, keyed by vlan.
    ─────────────────────────────────────────────────────────────────────────
 #}
+! ── VRRP Tracked Objects (global) ────────────────────────────────────────
+!
+{% if vrrp is defined %}
+{% set tracked_intfs = [] %}
+{% for vg in vrrp %}
+{% if vg.track is defined %}
+{% for track in vg.track %}
+{% if track.interface not in tracked_intfs %}
+{% set _ = tracked_intfs.append(track.interface) %}
+track TO-{{ track.interface }} interface {{ track.interface }} line-protocol
+{% endif %}
+{% endfor %}
+{% endif %}
+{% endfor %}
+{% endif %}
+!
 ! ── Interfaces ───────────────────────────────────────────────────────────
 !
 {% for intf in interfaces %}
@@ -46,7 +62,7 @@ interface {{ intf.name }}
 {% endif %}
 {% if vg.track is defined %}
 {% for track in vg.track %}
-   vrrp {{ vg.group }} track {{ track.interface }} decrement {{ track.decrement }}
+   vrrp {{ vg.group }} tracked-object TO-{{ track.interface }} decrement {{ track.decrement }}
 {% endfor %}
 {% endif %}
 {% endfor %}
