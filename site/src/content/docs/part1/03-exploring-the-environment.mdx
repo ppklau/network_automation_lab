@@ -1,6 +1,7 @@
 ---
 title: "Chapter 3: A First Look at the Environment"
 ---
+import Mermaid from '../../../components/Mermaid.astro';
 
 > 🟡 **Practitioner** — Modules 0.2 and 0.3
 > 🔵 **Strategic** — sections marked
@@ -168,37 +169,27 @@ Before running anything, trace this change mentally: *Add a description to Ether
 
 **What happens next?**
 
-```
-SoT edit (leaf-lon-01.yml)
-  ↓
-git commit → GitLab CI triggered
-  ↓
-Stage 1: validate
-  yamllint checks all YAML files
-  validate_sot.py checks schemas + cross-references
-  ↓
-Stage 2: intent-check
-  Batfish loads rendered configs, runs pytest assertions
-  Checks: zone isolation, routing policy, BGP standards, resilience
-  ↓
-Stage 3: render
-  Jinja2 templates + SoT → configs/leaf-lon-01/running.conf
-  ↓
-Stage 4: diff
-  New running.conf vs last deployed config
-  Shows exactly what will change on the device
-  ↓
-Stage 5: approve (manual gate)
-  Engineer reviews the diff and clicks Approve in GitLab
-  ↓
-Stage 6: push
-  Ansible connects to leaf-lon-01, pushes config atomically
-  Captures before/after state
-  ↓
-Stage 7: verify
-  Checks BGP neighbors up, interfaces up, management reachable
-  Stores artefact in GitLab pipeline
-```
+<Mermaid code={`
+flowchart TD
+    A["SoT edit\\nleaf-lon-01.yml"] --> B["git commit\\nGitLab CI triggered"]
+
+    B --> C["Stage 1: validate\\nyamllint · validate_sot.py\\nschemas + cross-references"]
+    C -->|pass| D["Stage 2: intent-check\\nBatfish pytest assertions\\nzone isolation · routing policy · BGP standards"]
+    C -->|fail| STOP1["Pipeline halted\\nno change deployed"]
+
+    D -->|pass| E["Stage 3: render\\nJinja2 + SoT\\n→ configs/leaf-lon-01/running.conf"]
+    D -->|fail| STOP2["Pipeline halted\\nno change deployed"]
+
+    E --> F["Stage 4: diff\\nrunning.conf vs last deployed\\nshows exactly what will change"]
+
+    F --> G["Stage 5: approve\\nEngineer reviews diff\\nclicks Approve in GitLab"]
+    G -->|approved| H["Stage 6: push\\nAnsible pushes config atomically\\ncaptures before/after state"]
+    G -->|rejected| STOP3["Pipeline halted\\nno change deployed"]
+
+    H --> I["Stage 7: verify\\nBGP neighbors up · interfaces up\\nmanagement reachable\\nartefact stored in GitLab"]
+    I -->|fail| J["Rollback triggered\\nprevious config restored"]
+    I -->|pass| K["Change complete\\naudit artefact recorded"]
+`} />
 
 A description change on one interface goes through seven stages. That might seem like a lot. The point is that the same pipeline that handles a description change also handles a VLAN addition, a BGP policy change, or a Frankfurt device modification. The pipeline does not know whether the change is trivial or dangerous — it applies the same rigour either way. That consistency is what makes the audit evidence credible.
 
@@ -256,7 +247,7 @@ The pipeline is not a lock. It is a record. Every change that goes through it is
 
 ---
 
-## Exercise 3.1 — Explore the SoT {#ex31}
+## Exercise 3.1 — Explore the SoT
 
 > 🟡 **Practitioner**
 
@@ -273,7 +264,7 @@ Answer these questions by reading the SoT files — do not log into any device.
 
 ---
 
-## Exercise 3.2 — Trace a change through the pipeline {#ex32}
+## Exercise 3.2 — Trace a change through the pipeline
 
 > 🟡 **Practitioner**
 
