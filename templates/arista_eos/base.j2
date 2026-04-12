@@ -84,7 +84,7 @@ ntp authentication-key 1 md5 {{ vault_ntp_keys['ntp_key_primary'] | default('CHA
 ntp authentication-key 2 md5 {{ vault_ntp_keys['ntp_key_secondary'] | default('CHANGEME') }}
 ntp trusted-key 1
 ntp trusted-key 2
-ntp source-interface {{ ntp_source_interface | default('Loopback0') }}
+ntp local-interface {{ ntp_source_interface | default('Loopback0') }}
 {% for server in platform_defaults.ntp.servers %}
 {% if server.ip is defined and server.ip is not none %}
 {% if server.preferred | default(false) %}
