@@ -314,6 +314,7 @@ Then run the bootstrap script, which creates the project, registers the CI runne
 ```bash
 bash scripts/setup_gitlab.sh
 ```
+> **Note:** `jq` must be installed for `setup_gitlab.sh` to run. Install it with `apt-get install -y jq` (Linux) or `brew install jq` (macOS/OrbStack).
 
 When the script completes you will see a summary:
 
@@ -329,8 +330,6 @@ When the script completes you will see a summary:
 ```
 
 Open `http://localhost:8929` in your browser and log in as `root` / `ACMElab2024!` to confirm the project is visible.
-
-> **Note:** `jq` must be installed for `setup_gitlab.sh` to run. Install it with `apt-get install -y jq` (Linux) or `brew install jq` (macOS/OrbStack).
 
 > **First-boot behaviour:** GitLab's initial password is set by `GITLAB_OMNIBUS_CONFIG`. If you log in and are prompted to change the password, set it to `ACMElab2024!` to match what `setup_gitlab.sh` expects. On subsequent boots the password is already set.
 

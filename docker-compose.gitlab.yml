@@ -20,7 +20,6 @@ services:
         redis_exporter['enable'] = false
         postgres_exporter['enable'] = false
         gitlab_exporter['enable'] = false
-        grafana['enable'] = false
         puma['worker_processes'] = 2
         sidekiq['concurrency'] = 5
     ports:
