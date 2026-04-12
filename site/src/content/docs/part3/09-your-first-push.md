@@ -140,7 +140,7 @@ This runs the post-push verification suite:
 **Then verify on the device itself:**
 
 ```bash
-ssh admin@172.20.20.21
+ssh netadmin@172.20.20.21       # password: CHANGEME
 leaf-lon-01# show interface Ethernet3
 ```
 

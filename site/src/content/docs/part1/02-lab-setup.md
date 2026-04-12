@@ -254,7 +254,7 @@ You should see all tasks passing. If any BGP sessions are not yet Established, t
 **To check manually on a cEOS node:**
 
 ```bash
-ssh admin@172.20.20.11       # spine-lon-01
+ssh netadmin@172.20.20.11       # spine-lon-01  (password: CHANGEME)
 spine-lon-01# show bgp summary
 ```
 
@@ -271,9 +271,10 @@ Neighbor        AS     MsgRcvd  MsgSent  InQ  OutQ  Up/Down  State/PfxRcd
 
 **To check an FRR node:**
 
+FRR containers do not expose an SSH server. Access them via `docker exec` from the containerlab host:
+
 ```bash
-ssh admin@172.20.20.51       # border-nyc-01
-border-nyc-01# vtysh -c "show bgp summary"
+docker exec clab-acme-lab-border-nyc-01 vtysh -c "show bgp summary"
 ```
 
 ---
