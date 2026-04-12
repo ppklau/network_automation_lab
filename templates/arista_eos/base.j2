@@ -115,7 +115,7 @@ logging vrf MGMT host {{ srv.ip }} {{ srv.port }} protocol {{ srv.protocol | def
 !
 snmp-server location {{ site }}-{{ role }}-{{ hostname }}
 snmp-server contact netops@acme-investments.com
-snmp-server source-interface {{ snmp_source_interface | default('Loopback0') }}
+snmp-server local-interface {{ snmp_source_interface | default('Loopback0') }}
 snmp-server vrf MGMT
 {% for user in platform_defaults.snmp.users %}
 snmp-server user {{ user.username }} ACME_MONITORS v3 auth sha {{ vault_snmp_keys[user.auth_key_ref] | default('CHANGEME') }} priv aes128 {{ vault_snmp_keys[user.priv_key_ref] | default('CHANGEME') }}
