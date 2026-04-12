@@ -59,7 +59,7 @@ echo "[2/3] Waiting for Batfish service at ${BATFISH_HOST}:9996..."
 
 max_wait=60
 waited=0
-until curl -sf "http://${BATFISH_HOST}:9996/" >/dev/null 2>&1; do
+until python3 -c "import socket; s=socket.create_connection(('${BATFISH_HOST}',9996),timeout=2); s.close()" 2>/dev/null; do
     if [[ "${waited}" -ge "${max_wait}" ]]; then
         echo "ERROR: Batfish not ready after ${max_wait}s. Is the container running?"
         echo "       docker run --name batfish -d -p 9996:9996 -p 9997:9997 batfish/batfish"

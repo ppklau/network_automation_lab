@@ -293,9 +293,11 @@ docker run -d \
 Verify it is running:
 
 ```bash
-curl -s http://localhost:9996/
-# {"version":"...","status":"healthy"}
+python3 -c "import socket; s=socket.create_connection(('localhost',9996),timeout=5); s.close(); print('Batfish is ready')"
+# Batfish is ready
 ```
+
+Batfish can take 20–30 seconds to initialise after the container starts. If the command fails immediately, wait a moment and retry.
 
 ---
 
