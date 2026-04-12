@@ -80,8 +80,8 @@ management api http-commands
 ! ── NTP ──────────────────────────────────────────────────────────────────
 !
 ntp authenticate
-ntp authentication-key 1 md5 7 {{ vault_ntp_keys['ntp_key_primary'] | default('CHANGEME') }}
-ntp authentication-key 2 md5 7 {{ vault_ntp_keys['ntp_key_secondary'] | default('CHANGEME') }}
+ntp authentication-key 1 md5 {{ vault_ntp_keys['ntp_key_primary'] | default('CHANGEME') }}
+ntp authentication-key 2 md5 {{ vault_ntp_keys['ntp_key_secondary'] | default('CHANGEME') }}
 ntp trusted-key 1
 ntp trusted-key 2
 ntp source-interface {{ ntp_source_interface | default('Loopback0') }}
