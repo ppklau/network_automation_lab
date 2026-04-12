@@ -95,35 +95,35 @@
     - name: Render EOS base config
       ansible.builtin.template:
         src: "{{ playbook_dir }}/../templates/arista_eos/base.j2"
-        dest: "{{ configs_output_dir }}/{{ inventory_hostname }}/base.conf"
+        dest: "{{ configs_output_dir }}/{{ inventory_hostname }}/01_base.conf"
         mode: "0644"
       when: platform == 'arista_eos'
 
     - name: Render EOS VRF config
       ansible.builtin.template:
         src: "{{ playbook_dir }}/../templates/arista_eos/vrfs.j2"
-        dest: "{{ configs_output_dir }}/{{ inventory_hostname }}/vrfs.conf"
+        dest: "{{ configs_output_dir }}/{{ inventory_hostname }}/02_vrfs.conf"
         mode: "0644"
       when: platform == 'arista_eos' and vrfs is defined
 
     - name: Render EOS VLAN config
       ansible.builtin.template:
         src: "{{ playbook_dir }}/../templates/arista_eos/vlans.j2"
-        dest: "{{ configs_output_dir }}/{{ inventory_hostname }}/vlans.conf"
+        dest: "{{ configs_output_dir }}/{{ inventory_hostname }}/03_vlans.conf"
         mode: "0644"
       when: platform == 'arista_eos' and vlans is defined
 
     - name: Render EOS interface config
       ansible.builtin.template:
         src: "{{ playbook_dir }}/../templates/arista_eos/interfaces.j2"
-        dest: "{{ configs_output_dir }}/{{ inventory_hostname }}/interfaces.conf"
+        dest: "{{ configs_output_dir }}/{{ inventory_hostname }}/04_interfaces.conf"
         mode: "0644"
       when: platform == 'arista_eos' and interfaces is defined
 
     - name: Render EOS BGP config
       ansible.builtin.template:
         src: "{{ playbook_dir }}/../templates/arista_eos/bgp.j2"
-        dest: "{{ configs_output_dir }}/{{ inventory_hostname }}/bgp.conf"
+        dest: "{{ configs_output_dir }}/{{ inventory_hostname }}/05_bgp.conf"
         mode: "0644"
       when: platform == 'arista_eos' and bgp is defined
 
@@ -132,7 +132,7 @@
         src: "{{ configs_output_dir }}/{{ inventory_hostname }}"
         dest: "{{ configs_output_dir }}/{{ inventory_hostname }}/running.conf"
         delimiter: "!"
-        regexp: "^(base|vrfs|vlans|interfaces|bgp)\\.conf$"
+        regexp: "^0[1-5]_.*\\.conf$"
         mode: "0644"
       when: platform == 'arista_eos'
 

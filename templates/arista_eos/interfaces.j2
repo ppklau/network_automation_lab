@@ -25,7 +25,6 @@ interface {{ intf.name }}
    ip address {{ intf.ip }}
 {% elif intf.name.startswith('Management') %}
    ip address {{ intf.ip }}
-   no autostate
 {% elif intf.name.startswith('Vlan') %}
 {# SVI interface — look up VRRP group for this VLAN #}
 {% set vlan_id = intf.name | replace('Vlan', '') | int %}
@@ -100,6 +99,5 @@ interface {{ management.interface }}
    description OOB management
    ip address {{ management.ip }}
    vrf {{ management.vrf | default('MGMT') }}
-   no autostate
 !
 {% endif %}
