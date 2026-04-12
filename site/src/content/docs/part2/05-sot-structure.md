@@ -266,7 +266,7 @@ This is what the pipeline's validate stage does on every commit. Schema errors a
 > 🟡 **Practitioner**
 
 ```bash
-cat sot/devices/branches/uk_branches.yml
+cat sot/devices/branches/uk-branches.yml
 ```
 
 Answer:
