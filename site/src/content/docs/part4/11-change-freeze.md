@@ -111,47 +111,66 @@ else:
 
 > 🟡 **Practitioner**
 
+This exercise runs through the freeze gate in the real GitLab pipeline.
+
 **Part 1 — Enable the freeze:**
 
-Edit `gitlab/change_freeze.yml`:
+Create a feature branch and edit `gitlab/change_freeze.yml`:
+
+```bash
+git checkout -b test/change-freeze
+```
 
 ```yaml
 CHANGE_FREEZE_ENABLED: "true"
 FREEZE_START: "2020-01-01T00:00:00"   # past date — freeze is always active
 FREEZE_END:   "2099-12-31T23:59:59"   # far future — freeze never expires
-FREEZE_REASON: "Test freeze — lab exercise 8.5"
+FREEZE_REASON: "Test freeze — lab exercise 11.1"
 ```
 
-Now run the freeze check locally:
+Commit and push, then open an MR:
 
 ```bash
-CI_COMMIT_MESSAGE="Add description to leaf-lon-01 Ethernet3" \
-python3 -c "
-import yaml, datetime, sys, os
-
-config = yaml.safe_load(open('gitlab/change_freeze.yml'))
-# ... (paste the full check script from .gitlab-ci.yml)
-"
+git add gitlab/change_freeze.yml
+git commit -m "Test: enable change freeze"
+git push lab test/change-freeze
 ```
 
-Expected: the check fails with `CHANGE FREEZE ACTIVE`.
+Open the MR in GitLab. Watch the `change-freeze-check` job fail with:
+
+```
+CHANGE FREEZE ACTIVE
+  Window:  2020-01-01T00:00:00 → 2099-12-31T23:59:59 UTC
+  Reason:  Test freeze — lab exercise 11.1
+To bypass: include '[emergency]' in your commit message.
+```
+
+The MR pipeline stops. No rendering, no diff, no push.
 
 **Part 2 — Test the emergency bypass:**
 
 ```bash
-CI_COMMIT_MESSAGE="[emergency] Fix BGP session drop on border-lon-01" \
-python3 -c "..."
+git commit --allow-empty -m "[emergency] Simulate emergency bypass for exercise 11.1"
+git push lab test/change-freeze
 ```
 
-Expected: the check passes with `Emergency bypass detected`.
+The new pipeline passes `change-freeze-check` with `EMERGENCY OVERRIDE detected`. The emergency keyword is now visible in the git history — the audit trail shows it was used.
 
 **Part 3 — Restore the freeze config:**
 
 ```bash
 git checkout gitlab/change_freeze.yml
+git add gitlab/change_freeze.yml
+git commit -m "Restore: disable test freeze"
+git push lab test/change-freeze
 ```
 
-Verify the freeze check passes (no freeze active).
+Close the MR without merging (this is a test exercise — don't merge freeze-enabled config to main).
+
+```bash
+git checkout main
+git branch -D test/change-freeze
+```
 
 ---
 

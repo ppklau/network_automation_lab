@@ -160,31 +160,45 @@ When `CHANGE_FREEZE_ENABLED: "true"`, the validate stage reads this file and fai
 
 > 🟡 **Practitioner**
 
-Run the full pipeline locally to see what each stage produces:
+Introduce a validate-stage failure and watch it block the pipeline in GitLab.
+
+**Part 1 — Break the SoT and push:**
+
+Create a feature branch, introduce an invalid platform, and open an MR:
 
 ```bash
-# Stage 1: validate
-yamllint sot/ && python3 scripts/validate_sot.py
-echo "Validate: $?"
-
-# Stage 2: intent-check (requires Batfish running)
-bash batfish/run_checks.sh
-echo "Intent-check: $?"
-
-# Stage 3: render
-ansible-playbook playbooks/render_configs.yml
-echo "Render: $?"
+git checkout -b test/invalid-platform
+# Edit sot/devices/lon-dc1/leaf-lon-01.yml — change platform to:
+#   platform: invalid_platform
+git add sot/devices/lon-dc1/leaf-lon-01.yml
+git commit -m "Test: invalid platform to trigger pipeline failure"
+git push lab test/invalid-platform
 ```
 
-Now introduce a validate-stage failure. Edit `sot/devices/lon-dc1/leaf-lon-01.yml` and add an invalid platform:
+Open an MR in GitLab. Watch the `schema-validate` job fail. The pipeline stops there — `render-configs` never runs because its `needs:` list includes `schema-validate`.
 
-```yaml
-platform: invalid_platform
+**Part 2 — Read the failure in the UI:**
+
+In the MR pipeline view, click the `schema-validate` job. The job log shows:
+```
+ERROR  sot/devices/lon-dc1/leaf-lon-01.yml [leaf-lon-01]: Schema violation ... 'invalid_platform' is not one of ['arista_eos', 'frr']
+✗ FAILED — 1 error(s)
 ```
 
-Run stage 1 again. Observe the failure. Restore the file. Run stage 1 again to confirm it passes.
+**Part 3 — Restore and confirm recovery:**
 
-**Question:** If stage 1 fails in the real GitLab pipeline, does stage 2 (Batfish) still run? Look at the `needs:` directives in `.gitlab-ci.yml`.
+```bash
+git checkout sot/devices/lon-dc1/leaf-lon-01.yml
+git add sot/devices/lon-dc1/leaf-lon-01.yml
+git commit -m "Restore: revert invalid platform"
+git push lab test/invalid-platform
+```
+
+The pipeline re-runs on the updated MR branch. All validate jobs pass this time.
+
+**Clean up:** Close or delete the MR; delete the branch.
+
+**Question:** Why do `render-configs` and `batfish-intent-check` not run when `schema-validate` fails? Find the `needs:` directives in `.gitlab-ci.yml` that enforce this ordering.
 
 ---
 
@@ -192,7 +206,16 @@ Run stage 1 again. Observe the failure. Restore the file. Run stage 1 again to c
 
 > 🟡 **Practitioner**
 
-After any config push (from Chapter 9 or your own change), examine the full audit trail:
+After the Chapter 9 push pipeline has completed, locate the audit artefacts in GitLab.
+
+**In the GitLab UI:**
+
+1. Go to `http://localhost:8929/acme/network-automation-lab` → **Pipelines**
+2. Find the pipeline that ran on `main` after your Chapter 9 MR was merged
+3. Click the `push-configs` job → **Browse** the artefacts (or download the zip)
+4. Inspect `state/push_record_<timestamp>.yml` — it records who triggered the push, which pipeline run, and which commit
+
+**From the command line** (artefacts are also written locally during the push):
 
 ```bash
 ls state/
@@ -203,7 +226,7 @@ cat state/pre_push_leaf-lon-01_*.json | python3 -m json.tool | grep -A5 "bgp"
 Answer:
 1. What timestamp is recorded in the push record?
 2. Is the pre-push BGP state stored per-device or aggregated?
-3. If a regulator asked "what was the BGP state of leaf-lon-01 at 14:32 on the day of change X?", could you answer that from the stored state?
+3. The `push-artefact` is retained for 12 weeks (set in `.gitlab-ci.yml`). In production ACME would retain for 5 years (MiFID II). If a regulator asked "what was the BGP state of leaf-lon-01 at 14:32 on the day of change X?", could you answer that from the stored artefact?
 
 ---
 

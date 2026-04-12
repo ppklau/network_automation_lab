@@ -330,13 +330,13 @@ bgp:
   role: route_reflector
 ```
 
-1. Add this record to `sot/devices/lon-dc1/spine-lon-03.yml`
+1. Create `sot/devices/lon-dc1/spine-lon-03.yml` with the record above (the file does not exist yet)
 2. Run `python3 scripts/validate_sot.py`
 3. The validator should fail. How many errors does it catch?
 4. Fix all errors and re-run until the validator passes
 5. Do **not** push — this is a validation-only exercise. Remove the file when done.
 
-**Verify:** `python3 scripts/validate_sot.py` returns `0 errors`.
+**Verify:** `python3 scripts/validate_sot.py` exits with `✓ All checks passed.`
 
 ## Debrief
 

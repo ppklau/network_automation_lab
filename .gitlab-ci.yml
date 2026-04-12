@@ -147,9 +147,14 @@ generate-inventory:
 
 batfish-intent-check:
   stage: intent-check
-  services:
-    - name: batfish/batfish:latest
-      alias: batfish
+  # Lab: Batfish runs as a shared container started in Chapter 2 Step 8.
+  #      BATFISH_HOST is set to 'localhost' in CI/CD variables by setup_gitlab.sh.
+  #      Job containers use host networking (runner configured with --docker-network-mode=host)
+  #      so localhost:9996 reaches the already-running Batfish container.
+  # Production: uncomment `services:` below to spin up a fresh Batfish instance per pipeline run.
+  # services:
+  #   - name: batfish/batfish:latest
+  #     alias: batfish
   script:
     - pip install --cache-dir .pip_cache -q pybatfish pytest
     - python3 batfish/run_checks.sh || (echo "Intent checks FAILED" && exit 1)

@@ -10,7 +10,7 @@ title: "Chapter 2: Setting Up the Lab"
 
 ## What you are building
 
-By the end of this chapter you will have 13 network nodes running on your laptop, BGP sessions established between them, and the full automation stack ready to use.
+By the end of this chapter you will have 13 network nodes running on your laptop, BGP sessions established between them, GitLab CE running locally with a registered CI runner, and the full automation stack ready to use.
 
 ```
 London DC1 (fully instantiated)
@@ -301,6 +301,41 @@ Batfish can take 20–30 seconds to initialise after the container starts. If th
 
 ---
 
+## Step 9 — Start GitLab CE
+
+GitLab CE provides the CI/CD pipeline, merge request workflow, and audit artefact storage that the lab exercises use from Chapter 9 onwards. It runs as a Docker container alongside the lab.
+
+```bash
+docker compose -f docker-compose.gitlab.yml -p acme-gitlab up -d
+```
+
+Then run the bootstrap script, which creates the project, registers the CI runner, and pushes the repo. This takes **3–8 minutes** on first boot while GitLab initialises:
+
+```bash
+bash scripts/setup_gitlab.sh
+```
+
+When the script completes you will see a summary:
+
+```
+╔══════════════════════════════════════════════════════════╗
+║              GitLab Lab Setup Complete!                  ║
+╚══════════════════════════════════════════════════════════╝
+
+  GitLab URL:    http://localhost:8929
+  Credentials:   root / ACMElab2024!
+  Project:       http://localhost:8929/acme/network-automation-lab
+  Runner:        registered as acme-lab-runner (instance, Docker executor)
+```
+
+Open `http://localhost:8929` in your browser and log in as `root` / `ACMElab2024!` to confirm the project is visible.
+
+> **Note:** `jq` must be installed for `setup_gitlab.sh` to run. Install it with `apt-get install -y jq` (Linux) or `brew install jq` (macOS/OrbStack).
+
+> **First-boot behaviour:** GitLab's initial password is set by `GITLAB_OMNIBUS_CONFIG`. If you log in and are prompted to change the password, set it to `ACMElab2024!` to match what `setup_gitlab.sh` expects. On subsequent boots the password is already set.
+
+---
+
 ## Management IP reference
 
 | Node | Role | IP |
@@ -328,10 +363,9 @@ Batfish can take 20–30 seconds to initialise after the container starts. If th
 | 7× Arista cEOS | ~1.4 GB | ~200 MB each |
 | 6× FRRouting | ~300 MB | ~50 MB each |
 | Batfish | ~1.5 GB | Spikes during analysis |
-| GitLab CE (optional) | ~3.0 GB | Skip if using gitlab.com |
+| GitLab CE | ~3.0 GB | Required — started in Step 9 |
 | OS + tooling | ~3.0 GB | Python, Docker overhead |
-| **Total (without GitLab)** | **~6.2 GB** | Comfortable on 16 GB |
-| **Total (with GitLab)** | **~9.2 GB** | Fine on 16 GB, tight on 8 GB |
+| **Total** | **~9.2 GB** | 16 GB host recommended; 8 GB is tight |
 
 ---
 
@@ -342,22 +376,28 @@ Batfish can take 20–30 seconds to initialise after the container starts. If th
 To free CPU and RAM without losing container state:
 
 ```bash
+# Stop network lab containers
 docker stop $(docker ps -q --filter "label=clab-topo-file=topology/containerlab.yml")
-```
 
-This stops all lab containers but keeps them on disk. Any config changes made inside the containers are preserved.
+# Stop GitLab (preserves all data in named volumes)
+docker compose -f docker-compose.gitlab.yml -p acme-gitlab stop
+```
 
 ### Restart stopped containers
 
 ```bash
+# Restart network lab containers
 docker start $(docker ps -aq --filter "label=clab-topo-file=topology/containerlab.yml")
+
+# Restart GitLab (data persists from named volumes)
+docker compose -f docker-compose.gitlab.yml -p acme-gitlab start
 ```
 
-Wait 60–90 seconds for cEOS nodes to reinitialise eAPI before running playbooks.
+Wait 60–90 seconds for cEOS nodes to reinitialise eAPI, and 2–3 minutes for GitLab to become healthy after a restart.
 
-### Full redeploy
+### Full redeploy (network lab only)
 
-If you destroyed the lab or want a clean slate:
+If you destroyed the network lab or want a clean slate:
 
 ```bash
 sudo containerlab deploy --topo topology/containerlab.yml
@@ -365,7 +405,7 @@ ansible-playbook playbooks/render_configs.yml
 ansible-playbook playbooks/push_configs.yml
 ```
 
-A full redeploy re-applies startup configs but not the full SoT configs — run the two playbooks above to restore the working state.
+GitLab data lives in Docker named volumes and survives a network lab redeploy. You do not need to re-run `setup_gitlab.sh` unless you explicitly remove the `acme-gitlab` volumes.
 
 ---
 
