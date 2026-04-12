@@ -73,6 +73,7 @@ management ssh
 ! ── Management API (eAPI — required for Ansible httpapi) ─────────────────
 !
 management api http-commands
+   protocol http
    protocol https
    no shutdown
    vrf {{ management.vrf | default('MGMT') }}

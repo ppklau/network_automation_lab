@@ -40,6 +40,7 @@ export default defineConfig({
 					items: [
 						{ label: 'ACME Investments', slug: 'part1/01-acme-introduction' },
 						{ label: 'Lab Setup', slug: 'part1/02-lab-setup' },
+						{ label: 'Lab Mechanics', slug: 'part1/02b-lab-mechanics' },
 						{ label: 'Exploring the Environment', slug: 'part1/03-exploring-the-environment' },
 					],
 				},
