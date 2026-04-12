@@ -33,19 +33,19 @@ loopback:
 
 interfaces:
   - name: Ethernet1
-    description: "P2P -> leaf-fra-01 Ethernet1"
+    description: P2P -> leaf-fra-01 Ethernet1
     ip: 10.30.100.0/31
     peer_device: leaf-fra-01
     peer_interface: Ethernet1
     mtu: 9214
   - name: Ethernet2
-    description: "P2P -> leaf-fra-02 Ethernet1"
+    description: P2P -> leaf-fra-02 Ethernet1
     ip: 10.30.100.2/31
     peer_device: leaf-fra-02
     peer_interface: Ethernet1
     mtu: 9214
   - name: Ethernet5
-    description: "P2P -> border-fra-01 eth1"
+    description: P2P -> border-fra-01 eth1
     ip: 10.30.100.16/31
     peer_device: border-fra-01
     peer_interface: eth1
@@ -58,25 +58,25 @@ bgp:
   neighbors:
     - peer_ip: 10.30.255.2
       remote_as: 65030
-      description: "iBGP peer -> spine-fra-02"
+      description: iBGP peer -> spine-fra-02
       update_source: Loopback0
       route_reflector_client: false
       md5_password_ref: bgp_md5_fra_dc1_fabric
     - peer_ip: 10.30.255.11
       remote_as: 65030
-      description: "iBGP RR client -> leaf-fra-01"
+      description: iBGP RR client -> leaf-fra-01
       update_source: Loopback0
       route_reflector_client: true
       md5_password_ref: bgp_md5_fra_dc1_fabric
     - peer_ip: 10.30.255.12
       remote_as: 65030
-      description: "iBGP RR client -> leaf-fra-02"
+      description: iBGP RR client -> leaf-fra-02
       update_source: Loopback0
       route_reflector_client: true
       md5_password_ref: bgp_md5_fra_dc1_fabric
     - peer_ip: 10.30.255.20
       remote_as: 65030
-      description: "iBGP RR client -> border-fra-01"
+      description: iBGP RR client -> border-fra-01
       update_source: Loopback0
       route_reflector_client: true
       md5_password_ref: bgp_md5_fra_dc1_fabric

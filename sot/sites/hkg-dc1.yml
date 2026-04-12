@@ -4,13 +4,13 @@
 # Last reviewed: 2026-03-01
 
 site:
-  name: "Hong Kong Data Centre 1"
+  name: Hong Kong Data Centre 1
   code: hkg-dc1
   short_code: hkg1
   region: apac
-  address: "Tseung Kwan O Industrial Estate, New Territories, Hong Kong"
+  address: Tseung Kwan O Industrial Estate, New Territories, Hong Kong
   country: HongKong
-  tier: "Tier III+"
+  tier: Tier III+
   lab_instantiated: false
 
   network_os_primary: arista_eos
@@ -48,26 +48,26 @@ site:
       active: true
 
   zone_permissions:
-    TRADING:    true
-    CORPORATE:  true
-    DMZ:        true
-    MGMT_ZONE:  true
+    TRADING: true
+    CORPORATE: true
+    DMZ: true
+    MGMT_ZONE: true
 
   subnets:
-    management:     10.21.0.0/25
-    loopbacks:      10.21.255.0/24
-    fabric_p2p:     10.21.100.0/24
-    trading_svi:    10.21.1.0/24
-    corporate_svi:  10.21.2.0/22
-    dmz_svi:        10.21.6.0/24
+    management: 10.21.0.0/25
+    loopbacks: 10.21.255.0/24
+    fabric_p2p: 10.21.100.0/24
+    trading_svi: 10.21.1.0/24
+    corporate_svi: 10.21.2.0/22
+    dmz_svi: 10.21.6.0/24
 
   management_ips:
-    spine-hkg-01:   10.21.0.1
-    spine-hkg-02:   10.21.0.2
-    leaf-hkg-01:    10.21.0.11
-    leaf-hkg-02:    10.21.0.12
-    border-hkg-01:  10.21.0.20
-    fw-hkg-01:      10.21.0.30
+    spine-hkg-01: 10.21.0.1
+    spine-hkg-02: 10.21.0.2
+    leaf-hkg-01: 10.21.0.11
+    leaf-hkg-02: 10.21.0.12
+    border-hkg-01: 10.21.0.20
+    fw-hkg-01: 10.21.0.30
 
   devices:
     - hostname: spine-hkg-01

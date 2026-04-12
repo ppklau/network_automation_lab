@@ -36,7 +36,7 @@ intents:
   # ──────────────────────────────────────────────────────────────────
 
   - id: INTENT-001
-    title: "TRADING_VRF must have no reachability to CORPORATE_VRF"
+    title: TRADING_VRF must have no reachability to CORPORATE_VRF
     requirement_refs: [REQ-007]
     regulatory_refs: [MIFID2-001, MIFID2-002, FCA-005, REGSCI-003]
     related_intents: [INTENT-002, INTENT-003]
@@ -87,7 +87,7 @@ intents:
           - "Each device file: vrfs list must contain TRADING_VRF and CORPORATE_VRF as separate entries"
           - "TRADING_VRF: route_target_import: 65001:100 — only imports its own routes"
           - "CORPORATE_VRF: route_target_import: 65001:200 — only imports its own routes"
-          - "No device file may have a static route from TRADING_VRF to CORPORATE_VRF prefix space"
+          - No device file may have a static route from TRADING_VRF to CORPORATE_VRF prefix space
         primary: true
 
       - layer: firewall_zone_policy
@@ -114,114 +114,114 @@ intents:
         sot_enforcement:
           - "sot/compliance/zone_policies.yml — ZONE-001 audit_check: vlan_absent vlan_id=100 target=fra-dc1"
           - "sot/devices/fra-dc1/ — no device file may have vlans containing id: 100"
-          - "sot/devices/fra-dc1/ — security_zones must not include TRADING"
-          - "sot/sites/fra-dc1.yml — vlans_prohibited must include 100"
+          - sot/devices/fra-dc1/ — security_zones must not include TRADING
+          - sot/sites/fra-dc1.yml — vlans_prohibited must include 100
         sites_in_scope: [fra-dc1]
         primary: true
 
     assertion_type: batfish_check
 
     batfish_check:
-      test_file: "batfish/tests/test_zone_isolation.py"
+      test_file: batfish/tests/test_zone_isolation.py
 
       assertions:
 
         - id: BA-001
-          function: "test_trading_to_corporate_denied"
+          function: test_trading_to_corporate_denied
           description: >
             Assert that no IP flow can travel from any source IP in
             TRADING_VRF address space to any destination IP in
             CORPORATE_VRF address space, on any port, via any path
             in the network model.
-          pybatfish_api: "reachability"
+          pybatfish_api: reachability
           parameters:
             headers:
-              srcIps: "10.1.1.0/24, 10.2.1.0/24, 10.10.1.0/24, 10.11.1.0/24, 10.20.1.0/24, 10.21.1.0/24"
-              dstIps: "10.1.2.0/22, 10.2.2.0/22, 10.10.2.0/22, 10.11.2.0/22, 10.20.2.0/22, 10.21.2.0/22"
-              ipProtocols: ["TCP", "UDP", "ICMP"]
+              srcIps: 10.1.1.0/24, 10.2.1.0/24, 10.10.1.0/24, 10.11.1.0/24, 10.20.1.0/24, 10.21.1.0/24
+              dstIps: 10.1.2.0/22, 10.2.2.0/22, 10.10.2.0/22, 10.11.2.0/22, 10.20.2.0/22, 10.21.2.0/22
+              ipProtocols: [TCP, UDP, ICMP]
             pathConstraints:
-              startLocation: "TRADING_VRF"
-            actions: ["DENIED"]
+              startLocation: TRADING_VRF
+            actions: [DENIED]
           expected_result: >
             All flows must be DENIED. Any flow that reaches PERMITTED
             or FORWARDED is a test failure and a compliance violation.
-          failure_action: "BLOCK pipeline — do not proceed to render or push stage"
+          failure_action: BLOCK pipeline — do not proceed to render or push stage
 
         - id: BA-002
-          function: "test_corporate_to_trading_denied"
+          function: test_corporate_to_trading_denied
           description: >
             Assert that no IP flow can travel from CORPORATE_VRF address
             space to TRADING_VRF address space (reverse direction check).
-          pybatfish_api: "reachability"
+          pybatfish_api: reachability
           parameters:
             headers:
-              srcIps: "10.1.2.0/22, 10.2.2.0/22, 10.10.2.0/22, 10.11.2.0/22, 10.20.2.0/22, 10.21.2.0/22"
-              dstIps: "10.1.1.0/24, 10.2.1.0/24, 10.10.1.0/24, 10.11.1.0/24, 10.20.1.0/24, 10.21.1.0/24"
-              ipProtocols: ["TCP", "UDP", "ICMP"]
-            actions: ["DENIED"]
-          expected_result: "All flows DENIED"
-          failure_action: "BLOCK pipeline"
+              srcIps: 10.1.2.0/22, 10.2.2.0/22, 10.10.2.0/22, 10.11.2.0/22, 10.20.2.0/22, 10.21.2.0/22
+              dstIps: 10.1.1.0/24, 10.2.1.0/24, 10.10.1.0/24, 10.11.1.0/24, 10.20.1.0/24, 10.21.1.0/24
+              ipProtocols: [TCP, UDP, ICMP]
+            actions: [DENIED]
+          expected_result: All flows DENIED
+          failure_action: BLOCK pipeline
 
         - id: BA-003
-          function: "test_vrf_route_leak_trading_to_corporate"
+          function: test_vrf_route_leak_trading_to_corporate
           description: >
             Assert that no route from TRADING_VRF prefix space appears
             in the CORPORATE_VRF routing table on any device, and vice
             versa. This tests the control plane (routing table), not
             just the data plane (forwarding).
-          pybatfish_api: "routes"
+          pybatfish_api: routes
           parameters:
-            vrfs: ["TRADING_VRF", "CORPORATE_VRF"]
+            vrfs: [TRADING_VRF, CORPORATE_VRF]
           expected_result: >
             No device has a route to a CORPORATE_VRF prefix (10.x.2.0/22)
             in its TRADING_VRF table, and no device has a route to a
             TRADING_VRF prefix (10.x.1.0/24) in its CORPORATE_VRF table.
-          failure_action: "BLOCK pipeline"
+          failure_action: BLOCK pipeline
 
         - id: BA-004
-          function: "test_no_trading_vlan_frankfurt"
+          function: test_no_trading_vlan_frankfurt
           description: >
             Assert that VLAN 100 does not appear in the VLAN database
             of any fra-dc1 device in the Batfish network model.
-          pybatfish_api: "switchedVlanProperties"
+          pybatfish_api: switchedVlanProperties
           parameters:
-            nodes: "border-fra-01, spine-fra-01, spine-fra-02, leaf-fra-01, leaf-fra-02, fw-fra-01"
-          expected_result: "VLAN 100 is absent from all listed nodes"
-          failure_action: "BLOCK pipeline — critical regulatory violation"
+            nodes: border-fra-01, spine-fra-01, spine-fra-02, leaf-fra-01, leaf-fra-02, fw-fra-01
+          expected_result: VLAN 100 is absent from all listed nodes
+          failure_action: BLOCK pipeline — critical regulatory violation
 
     sot_checks:
       # These are the SoT-level assertions run by scripts/validate_sot.py
       # They run before Batfish (in the validate stage) as a fast pre-check
 
       - id: SC-001
-        description: "All in-scope devices must have TRADING_VRF and CORPORATE_VRF as separate VRF entries"
+        description: All in-scope devices must have TRADING_VRF and CORPORATE_VRF as separate VRF entries
         check_type: field_presence
-        target_devices: "all devices at sites in sites_in_scope"
-        field_path: "vrfs[*].name"
-        must_contain: ["TRADING_VRF", "CORPORATE_VRF"]
+        target_devices: all devices at sites in sites_in_scope
+        field_path: vrfs[*].name
+        must_contain: [TRADING_VRF, CORPORATE_VRF]
         must_not_share: true  # they must be separate entries, not the same VRF
 
       - id: SC-002
-        description: "TRADING_VRF route targets must not overlap with CORPORATE_VRF route targets"
+        description: TRADING_VRF route targets must not overlap with CORPORATE_VRF route targets
         check_type: field_value_disjoint
-        field_a: "vrfs[name=TRADING_VRF].route_target_import"
-        field_b: "vrfs[name=CORPORATE_VRF].route_target_import"
-        target_devices: "all devices at sites in sites_in_scope"
+        field_a: vrfs[name=TRADING_VRF].route_target_import
+        field_b: vrfs[name=CORPORATE_VRF].route_target_import
+        target_devices: all devices at sites in sites_in_scope
 
       - id: SC-003
-        description: "Frankfurt devices must not have VLAN 100 in any vlans list"
+        description: Frankfurt devices must not have VLAN 100 in any vlans list
         check_type: field_absence
         target_sites: [fra-dc1]
-        field_path: "vlans[*].id"
+        field_path: vlans[*].id
         must_not_contain: [100]
         severity: critical
 
       - id: SC-004
-        description: "Frankfurt devices must not have TRADING or TRADING_VRF in security_zones"
+        description: Frankfurt devices must not have TRADING or TRADING_VRF in security_zones
         check_type: field_absence
         target_sites: [fra-dc1]
-        field_path: "security_zones"
-        must_not_contain: ["TRADING", "TRADING_VRF"]
+        field_path: security_zones
+        must_not_contain: [TRADING, TRADING_VRF]
         severity: critical
 
     violation:
@@ -255,7 +255,7 @@ intents:
   # ──────────────────────────────────────────────────────────────────
 
   - id: INTENT-002
-    title: "TRADING_VRF must have no reachability to DMZ_VRF"
+    title: TRADING_VRF must have no reachability to DMZ_VRF
     requirement_refs: [REQ-008]
     regulatory_refs: [MIFID2-001, FCA-005, REGSCI-003]
     related_intents: [INTENT-001, INTENT-003]
@@ -299,7 +299,7 @@ intents:
         sot_enforcement:
           - "DMZ_VRF: route_target_import: 65001:300 — only imports its own routes"
           - "TRADING_VRF: route_target_import: 65001:100 — only imports its own routes"
-          - "No static route from TRADING_VRF prefix space to DMZ_VRF prefix space"
+          - No static route from TRADING_VRF prefix space to DMZ_VRF prefix space
         primary: true
 
       - layer: firewall_zone_policy
@@ -319,83 +319,83 @@ intents:
     assertion_type: batfish_check
 
     batfish_check:
-      test_file: "batfish/tests/test_zone_isolation.py"
+      test_file: batfish/tests/test_zone_isolation.py
 
       assertions:
 
         - id: BA-005
-          function: "test_trading_to_dmz_denied"
+          function: test_trading_to_dmz_denied
           description: >
             Assert that no IP flow can travel from TRADING_VRF address
             space to DMZ_VRF address space on any port or protocol.
-          pybatfish_api: "reachability"
+          pybatfish_api: reachability
           parameters:
             headers:
-              srcIps: "10.1.1.0/24, 10.2.1.0/24, 10.10.1.0/24, 10.11.1.0/24, 10.20.1.0/24, 10.21.1.0/24"
-              dstIps: "10.1.6.0/24, 10.2.6.0/24, 10.10.6.0/24, 10.11.6.0/24, 10.20.6.0/24, 10.21.6.0/24"
-              ipProtocols: ["TCP", "UDP", "ICMP"]
-            actions: ["DENIED"]
-          expected_result: "All flows DENIED"
-          failure_action: "BLOCK pipeline"
+              srcIps: 10.1.1.0/24, 10.2.1.0/24, 10.10.1.0/24, 10.11.1.0/24, 10.20.1.0/24, 10.21.1.0/24
+              dstIps: 10.1.6.0/24, 10.2.6.0/24, 10.10.6.0/24, 10.11.6.0/24, 10.20.6.0/24, 10.21.6.0/24
+              ipProtocols: [TCP, UDP, ICMP]
+            actions: [DENIED]
+          expected_result: All flows DENIED
+          failure_action: BLOCK pipeline
 
         - id: BA-006
-          function: "test_dmz_to_trading_denied"
+          function: test_dmz_to_trading_denied
           description: >
             Assert that no IP flow can travel from DMZ_VRF address
             space to TRADING_VRF address space (reverse direction).
-          pybatfish_api: "reachability"
+          pybatfish_api: reachability
           parameters:
             headers:
-              srcIps: "10.1.6.0/24, 10.2.6.0/24, 10.10.6.0/24, 10.11.6.0/24, 10.20.6.0/24, 10.21.6.0/24"
-              dstIps: "10.1.1.0/24, 10.2.1.0/24, 10.10.1.0/24, 10.11.1.0/24, 10.20.1.0/24, 10.21.1.0/24"
-              ipProtocols: ["TCP", "UDP", "ICMP"]
-            actions: ["DENIED"]
-          expected_result: "All flows DENIED"
-          failure_action: "BLOCK pipeline"
+              srcIps: 10.1.6.0/24, 10.2.6.0/24, 10.10.6.0/24, 10.11.6.0/24, 10.20.6.0/24, 10.21.6.0/24
+              dstIps: 10.1.1.0/24, 10.2.1.0/24, 10.10.1.0/24, 10.11.1.0/24, 10.20.1.0/24, 10.21.1.0/24
+              ipProtocols: [TCP, UDP, ICMP]
+            actions: [DENIED]
+          expected_result: All flows DENIED
+          failure_action: BLOCK pipeline
 
         - id: BA-007
-          function: "test_vrf_route_leak_trading_to_dmz"
+          function: test_vrf_route_leak_trading_to_dmz
           description: >
             Assert that no route from TRADING_VRF prefix space appears
             in the DMZ_VRF routing table on any device, and vice versa.
-          pybatfish_api: "routes"
+          pybatfish_api: routes
           parameters:
-            vrfs: ["TRADING_VRF", "DMZ_VRF"]
+            vrfs: [TRADING_VRF, DMZ_VRF]
           expected_result: >
             No device has a route to a DMZ_VRF prefix (10.x.6.0/24)
             in its TRADING_VRF table, and no device has a route to a
             TRADING_VRF prefix (10.x.1.0/24) in its DMZ_VRF table.
-          failure_action: "BLOCK pipeline"
+          failure_action: BLOCK pipeline
 
         - id: BA-008
-          function: "test_shared_dmz_firewall_no_trading_interface"
+          function: test_shared_dmz_firewall_no_trading_interface
           description: >
             Assert that the shared DC firewall (fw-lon-01, fw-nyc-01,
             fw-sin-01, fw-hkg-01) does not have any interface in
             TRADING_VRF. The TRADING zone dedicated firewall is a
             separate device not modelled in the main DC fabric.
-          pybatfish_api: "interfaceProperties"
+          pybatfish_api: interfaceProperties
           parameters:
-            nodes: "fw-lon-01, fw-nyc-01, fw-sin-01, fw-hkg-01"
-            properties: ["VRF"]
-          expected_result: "No interface on listed firewalls is in TRADING_VRF"
-          failure_action: "BLOCK pipeline"
+            nodes: fw-lon-01, fw-nyc-01, fw-sin-01, fw-hkg-01
+            properties: [VRF]
+          expected_result: No interface on listed firewalls is in TRADING_VRF
+          failure_action: BLOCK pipeline
 
     sot_checks:
 
       - id: SC-005
-        description: "DMZ_VRF route targets must not overlap with TRADING_VRF route targets"
+        description: DMZ_VRF route targets must not overlap with TRADING_VRF route targets
         check_type: field_value_disjoint
-        field_a: "vrfs[name=TRADING_VRF].route_target_import"
-        field_b: "vrfs[name=DMZ_VRF].route_target_import"
-        target_devices: "all devices at sites in sites_in_scope"
+        field_a: vrfs[name=TRADING_VRF].route_target_import
+        field_b: vrfs[name=DMZ_VRF].route_target_import
+        target_devices: all devices at sites in sites_in_scope
 
       - id: SC-006
-        description: "DC firewalls must not list both TRADING and DMZ in zones_handled"
+        description: DC firewalls must not list both TRADING and DMZ in zones_handled
         check_type: field_mutual_exclusion
-        target_devices: "fw-lon-01, fw-lon2-01, fw-nyc-01, fw-sin-01, fw-hkg-01"
-        field_path: "zones_handled"
-        mutually_exclusive: ["TRADING", "DMZ"]
+        target_devices: fw-lon-01, fw-lon2-01, fw-nyc-01, fw-sin-01, fw-hkg-01
+        field_path: zones_handled
+        mutually_exclusive: [TRADING, DMZ]
         severity: critical
 
     violation:

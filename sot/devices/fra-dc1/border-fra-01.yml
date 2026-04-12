@@ -11,7 +11,7 @@ fqdn: border-fra-01.fra-dc1.acme-investments.internal
 role: border
 platform: frr
 image: frrouting/frr:9.1.0
-hardware_model: "FRR Virtual Router (containerlab stub)"
+hardware_model: FRR Virtual Router (containerlab stub)
 device_serial: FRRFRA2430020
 eol_date: "2028-12-31"
 
@@ -35,35 +35,35 @@ loopback:
 
 interfaces:
   - name: eth0
-    description: "OOB management"
+    description: OOB management
     ip: 10.30.0.20/25
     mtu: 1500
 
   - name: eth1
-    description: "WAN -> border-lon-01 Ethernet5 [eBGP AS65030<->AS65001]"
+    description: WAN -> border-lon-01 Ethernet5 [eBGP AS65030<->AS65001]
     ip: 10.0.3.1/31            # fra=.1, london=.0
     peer_device: border-lon-01
     peer_interface: Ethernet5
     mtu: 9000
     circuit_id: LON-FRA-WAN-001
-    compliance_note: "TRADING prefixes filtered on this interface — both inbound and outbound"
+    compliance_note: TRADING prefixes filtered on this interface — both inbound and outbound
 
   - name: eth2
-    description: "Fabric -> spine-fra-01 Ethernet5 (sot_only)"
+    description: Fabric -> spine-fra-01 Ethernet5 (sot_only)
     ip: 10.30.100.17/31
     peer_device: spine-fra-01
     peer_interface: Ethernet5
     mtu: 9214
 
   - name: eth3
-    description: "Fabric -> spine-fra-02 Ethernet5 (sot_only)"
+    description: Fabric -> spine-fra-02 Ethernet5 (sot_only)
     ip: 10.30.100.19/31
     peer_device: spine-fra-02
     peer_interface: Ethernet5
     mtu: 9214
 
   - name: lo
-    description: "Loopback"
+    description: Loopback
     ip: 10.30.255.20/32
 
 bgp:
@@ -74,19 +74,19 @@ bgp:
   neighbors:
     - peer_ip: 10.30.255.1
       remote_as: 65030
-      description: "iBGP RR -> spine-fra-01"
+      description: iBGP RR -> spine-fra-01
       update_source: lo
       md5_password_ref: bgp_md5_fra_dc1_fabric
 
     - peer_ip: 10.30.255.2
       remote_as: 65030
-      description: "iBGP RR -> spine-fra-02"
+      description: iBGP RR -> spine-fra-02
       update_source: lo
       md5_password_ref: bgp_md5_fra_dc1_fabric
 
     - peer_ip: 10.0.3.0
       remote_as: 65001
-      description: "eBGP WAN -> border-lon-01 [EMEA HQ] — TRADING filtered"
+      description: eBGP WAN -> border-lon-01 [EMEA HQ] — TRADING filtered
       md5_password_ref: bgp_md5_wan_lon_fra
       route_map_in: RM_INTERDC_LON_FRA_IN    # denies any TRADING-tagged prefix
       route_map_out: RM_INTERDC_LON_FRA_OUT  # strips TRADING prefixes outbound
@@ -100,28 +100,28 @@ bgp:
     # EU Branches
     - peer_ip: 10.103.0.1
       remote_as: 65140
-      description: "eBGP branch -> branch-fra-01"
+      description: eBGP branch -> branch-fra-01
       md5_password_ref: bgp_md5_branch_fra_01
       route_map_in: RM_BRANCH_IN
       route_map_out: RM_BRANCH_OUT
 
     - peer_ip: 10.103.0.9
       remote_as: 65141
-      description: "eBGP branch -> branch-fra-02"
+      description: eBGP branch -> branch-fra-02
       md5_password_ref: bgp_md5_branch_fra_02
       route_map_in: RM_BRANCH_IN
       route_map_out: RM_BRANCH_OUT
 
     - peer_ip: 10.103.0.17
       remote_as: 65142
-      description: "eBGP branch -> branch-fra-03"
+      description: eBGP branch -> branch-fra-03
       md5_password_ref: bgp_md5_branch_fra_03
       route_map_in: RM_BRANCH_IN
       route_map_out: RM_BRANCH_OUT
 
     - peer_ip: 10.103.0.25
       remote_as: 65143
-      description: "eBGP branch -> branch-fra-04"
+      description: eBGP branch -> branch-fra-04
       md5_password_ref: bgp_md5_branch_fra_04
       route_map_in: RM_BRANCH_IN
       route_map_out: RM_BRANCH_OUT
@@ -129,9 +129,9 @@ bgp:
   networks_advertised:
     - prefix: 10.30.255.20/32
     - prefix: 10.30.0.0/16
-      description: "FRA DC1 aggregate — CORPORATE and MGMT only; no TRADING"
+      description: FRA DC1 aggregate — CORPORATE and MGMT only; no TRADING
     - prefix: 10.103.0.0/16
-      description: "EU branches aggregate"
+      description: EU branches aggregate
 
   aggregate_addresses:
     - prefix: 10.30.0.0/16

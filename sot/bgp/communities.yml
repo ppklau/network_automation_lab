@@ -12,152 +12,152 @@ standard_communities:
   # Per-Region Origin Communities
   # Used to track where a prefix was originated
   origin:
-    - community: "65001:100"
+    - community: 65001:100
       name: ORIGIN_LON_DC1
-      description: "Prefix originated in London DC1"
+      description: Prefix originated in London DC1
       region: emea-lon
       site: lon-dc1
 
-    - community: "65001:101"
+    - community: 65001:101
       name: ORIGIN_LON_DC2
-      description: "Prefix originated in London DC2"
+      description: Prefix originated in London DC2
       region: emea-lon
       site: lon-dc2
 
-    - community: "65001:110"
+    - community: 65001:110
       name: ORIGIN_NYC_DC1
-      description: "Prefix originated in New York DC1"
+      description: Prefix originated in New York DC1
       region: americas-nyc
       site: nyc-dc1
 
-    - community: "65001:111"
+    - community: 65001:111
       name: ORIGIN_NYC_DC2
-      description: "Prefix originated in New York DC2"
+      description: Prefix originated in New York DC2
       region: americas-nyc
       site: nyc-dc2
 
-    - community: "65001:120"
+    - community: 65001:120
       name: ORIGIN_SIN_DC1
-      description: "Prefix originated in Singapore DC1"
+      description: Prefix originated in Singapore DC1
       region: apac
       site: sin-dc1
 
-    - community: "65001:121"
+    - community: 65001:121
       name: ORIGIN_HKG_DC1
-      description: "Prefix originated in Hong Kong DC1"
+      description: Prefix originated in Hong Kong DC1
       region: apac
       site: hkg-dc1
 
-    - community: "65001:130"
+    - community: 65001:130
       name: ORIGIN_FRA_DC1
-      description: "Prefix originated in Frankfurt DC1"
+      description: Prefix originated in Frankfurt DC1
       region: eu-fra
       site: fra-dc1
 
   # Per-Zone Communities
   # Used to carry VRF/zone information across eBGP boundaries
   zone:
-    - community: "65001:200"
+    - community: 65001:200
       name: ZONE_TRADING
-      description: "Prefix belongs to TRADING_VRF (equities/FX)"
+      description: Prefix belongs to TRADING_VRF (equities/FX)
       vrf: TRADING_VRF
       vlan: 100
-      compliance_note: "Must not be advertised to or from Frankfurt (eu-fra)"
+      compliance_note: Must not be advertised to or from Frankfurt (eu-fra)
 
-    - community: "65001:201"
+    - community: 65001:201
       name: ZONE_CORPORATE
-      description: "Prefix belongs to CORPORATE_VRF"
+      description: Prefix belongs to CORPORATE_VRF
       vrf: CORPORATE_VRF
       vlan: 200
 
-    - community: "65001:202"
+    - community: 65001:202
       name: ZONE_DMZ
-      description: "Prefix belongs to DMZ_VRF"
+      description: Prefix belongs to DMZ_VRF
       vrf: DMZ_VRF
       vlan: 300
 
-    - community: "65001:203"
+    - community: 65001:203
       name: ZONE_MGMT
-      description: "Prefix belongs to MGMT_VRF"
+      description: Prefix belongs to MGMT_VRF
       vrf: MGMT_VRF
       vlan: 400
 
   # Traffic-Engineering Communities
   local_preference:
-    - community: "65001:300"
+    - community: 65001:300
       name: LP_HIGH
-      description: "Set local-preference 200 — preferred path"
+      description: Set local-preference 200 — preferred path
       local_preference: 200
 
-    - community: "65001:301"
+    - community: 65001:301
       name: LP_NORMAL
-      description: "Set local-preference 100 — default path"
+      description: Set local-preference 100 — default path
       local_preference: 100
 
-    - community: "65001:302"
+    - community: 65001:302
       name: LP_LOW
-      description: "Set local-preference 50 — backup path"
+      description: Set local-preference 50 — backup path
       local_preference: 50
 
-    - community: "65001:303"
+    - community: 65001:303
       name: LP_LAST_RESORT
-      description: "Set local-preference 10 — last resort / failover only"
+      description: Set local-preference 10 — last resort / failover only
       local_preference: 10
 
   # AS-Path Prepend Communities
   # Applied by sending router to influence inbound traffic from peers
   as_path_prepend:
-    - community: "65001:400"
+    - community: 65001:400
       name: PREPEND_1X
-      description: "Prepend originating ASN once — slightly less preferred"
+      description: Prepend originating ASN once — slightly less preferred
       prepend_count: 1
 
-    - community: "65001:401"
+    - community: 65001:401
       name: PREPEND_2X
-      description: "Prepend originating ASN twice"
+      description: Prepend originating ASN twice
       prepend_count: 2
 
-    - community: "65001:402"
+    - community: 65001:402
       name: PREPEND_3X
-      description: "Prepend originating ASN three times — significantly less preferred"
+      description: Prepend originating ASN three times — significantly less preferred
       prepend_count: 3
 
   # Special / Control Communities
   control:
-    - community: "65001:666"
+    - community: 65001:666
       name: BLACKHOLE
-      description: "Remotely triggered blackhole (RTBH) — discard matching traffic"
+      description: Remotely triggered blackhole (RTBH) — discard matching traffic
       action: blackhole
       used_for: [ddos_mitigation, security_incident_response]
 
-    - community: "no-export"
+    - community: no-export
       name: NO_EXPORT
-      value: "65535:65281"
-      description: "RFC 1997 — do not advertise to eBGP peers"
+      value: 65535:65281
+      description: RFC 1997 — do not advertise to eBGP peers
       rfc: 1997
 
-    - community: "no-advertise"
+    - community: no-advertise
       name: NO_ADVERTISE
-      value: "65535:65282"
-      description: "RFC 1997 — do not advertise to any peer"
+      value: 65535:65282
+      description: RFC 1997 — do not advertise to any peer
       rfc: 1997
 
-    - community: "65001:500"
+    - community: 65001:500
       name: NO_EXPORT_TO_INTERNET
-      description: "Internal prefix — strip before advertising to any internet peer"
+      description: Internal prefix — strip before advertising to any internet peer
 
-    - community: "65001:501"
+    - community: 65001:501
       name: REGULATORY_ISOLATED
-      description: "Prefix must not cross regulatory boundary (e.g., no FRA->LON for TRADING)"
+      description: Prefix must not cross regulatory boundary (e.g., no FRA->LON for TRADING)
       compliance_use: true
 
-    - community: "65001:502"
+    - community: 65001:502
       name: BRANCH_AGGREGATE
-      description: "Branch aggregate summary — originated at border router"
+      description: Branch aggregate summary — originated at border router
 
-    - community: "65001:503"
+    - community: 65001:503
       name: DC_LOOPBACK
-      description: "DC loopback prefix — used for BGP next-hop reachability"
+      description: DC loopback prefix — used for BGP next-hop reachability
 
 # ──────────────────────────────────────────
 # Large Communities (RFC 8092) — future use
@@ -166,17 +166,17 @@ standard_communities:
 large_communities:
   - large_community: "65001:1:1"
     name: LC_ORIGIN_LON
-    description: "Large community — origin London region (future use)"
+    description: Large community — origin London region (future use)
     status: reserved
 
   - large_community: "65001:1:10"
     name: LC_ORIGIN_NYC
-    description: "Large community — origin NYC region (future use)"
+    description: Large community — origin NYC region (future use)
     status: reserved
 
-  - large_community: "65001:2:100"
+  - large_community: 65001:2:100
     name: LC_DO_NOT_EXPORT_FRA
-    description: "Do not export this prefix to Frankfurt (trading isolation)"
+    description: Do not export this prefix to Frankfurt (trading isolation)
     status: active
     policy_reference: route_policies.yml#POLICY_DENY_TRADING_TO_FRA
 
@@ -187,30 +187,30 @@ large_communities:
 strip_on_egress:
   - to_peer_type: ebgp_external_internet
     strip_communities:
-      - "65001:100"   # Remove all internal origin communities
-      - "65001:101"
-      - "65001:110"
-      - "65001:111"
-      - "65001:120"
-      - "65001:121"
-      - "65001:130"
-      - "65001:200"   # Remove zone tags
-      - "65001:201"
-      - "65001:202"
-      - "65001:203"
-      - "65001:300"   # Remove LP communities
-      - "65001:301"
-      - "65001:302"
-      - "65001:303"
-      - "65001:500"
-      - "65001:501"
+      - 65001:100   # Remove all internal origin communities
+      - 65001:101
+      - 65001:110
+      - 65001:111
+      - 65001:120
+      - 65001:121
+      - 65001:130
+      - 65001:200   # Remove zone tags
+      - 65001:201
+      - 65001:202
+      - 65001:203
+      - 65001:300   # Remove LP communities
+      - 65001:301
+      - 65001:302
+      - 65001:303
+      - 65001:500
+      - 65001:501
 
   - to_peer_type: ebgp_inter_dc
     strip_communities:
-      - "65001:300"   # Strip LP communities — remote end sets its own
-      - "65001:301"
-      - "65001:302"
-      - "65001:303"
+      - 65001:300   # Strip LP communities — remote end sets its own
+      - 65001:301
+      - 65001:302
+      - 65001:303
     keep_communities:
-      - "65001:200"   # Keep zone communities for VRF routing decisions
-      - "65001:501"   # Keep regulatory isolation tag
+      - 65001:200   # Keep zone communities for VRF routing decisions
+      - 65001:501   # Keep regulatory isolation tag

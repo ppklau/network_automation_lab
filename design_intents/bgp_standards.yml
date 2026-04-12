@@ -49,7 +49,7 @@ intents:
   # ──────────────────────────────────────────────────────────────────
 
   - id: INTENT-005
-    title: "All BGP sessions must use MD5 TCP authentication"
+    title: All BGP sessions must use MD5 TCP authentication
     requirement_refs: [REQ-012]
     regulatory_refs: [FCA-002, MAS-002, GDPR-001]
     related_intents: [INTENT-006, INTENT-007]
@@ -76,36 +76,36 @@ intents:
 
     session_scope:
       ibgp_fabric:
-        description: "iBGP sessions within each DC fabric"
-        key_naming_convention: "bgp_md5_{site}_fabric"
+        description: iBGP sessions within each DC fabric
+        key_naming_convention: bgp_md5_{site}_fabric
         examples:
-          - "bgp_md5_lon_dc1_fabric — spine-lon-01, spine-lon-02, all leaves, border-lon-01"
-          - "bgp_md5_nyc_dc1_fabric — spine-nyc-01, spine-nyc-02, all leaves, border-nyc-01"
-          - "bgp_md5_sin_dc1_fabric — spine-sin-01, spine-sin-02, all leaves, border-sin-01"
-          - "bgp_md5_fra_dc1_fabric — spine-fra-01, spine-fra-02, border-fra-01"
+          - bgp_md5_lon_dc1_fabric — spine-lon-01, spine-lon-02, all leaves, border-lon-01
+          - bgp_md5_nyc_dc1_fabric — spine-nyc-01, spine-nyc-02, all leaves, border-nyc-01
+          - bgp_md5_sin_dc1_fabric — spine-sin-01, spine-sin-02, all leaves, border-sin-01
+          - bgp_md5_fra_dc1_fabric — spine-fra-01, spine-fra-02, border-fra-01
         key_per_session: false   # one key per DC fabric shared by all iBGP sessions in that DC
 
       ebgp_wan:
-        description: "eBGP sessions between DC border routers (inter-region WAN)"
-        key_naming_convention: "bgp_md5_wan_{site1}_{site2}"
+        description: eBGP sessions between DC border routers (inter-region WAN)
+        key_naming_convention: bgp_md5_wan_{site1}_{site2}
         examples:
-          - "bgp_md5_wan_lon_nyc — border-lon-01 ↔ border-nyc-01"
-          - "bgp_md5_wan_lon_sin — border-lon-01 ↔ border-sin-01"
-          - "bgp_md5_wan_lon_fra — border-lon-01 ↔ border-fra-01"
+          - bgp_md5_wan_lon_nyc — border-lon-01 ↔ border-nyc-01
+          - bgp_md5_wan_lon_sin — border-lon-01 ↔ border-sin-01
+          - bgp_md5_wan_lon_fra — border-lon-01 ↔ border-fra-01
         key_per_session: true    # unique key per WAN link — compromise of one does not affect others
 
       ebgp_branch:
-        description: "eBGP sessions between DC border routers and branch CPE routers"
-        key_naming_convention: "bgp_md5_branch_{hostname}"
+        description: eBGP sessions between DC border routers and branch CPE routers
+        key_naming_convention: bgp_md5_branch_{hostname}
         examples:
-          - "bgp_md5_branch_lon_01 — border-lon-01 ↔ branch-lon-01 (AS65100)"
-          - "bgp_md5_branch_nyc_01 — border-nyc-01 ↔ branch-nyc-01 (AS65120)"
+          - bgp_md5_branch_lon_01 — border-lon-01 ↔ branch-lon-01 (AS65100)
+          - bgp_md5_branch_nyc_01 — border-nyc-01 ↔ branch-nyc-01 (AS65120)
         key_per_session: true    # unique key per branch — branch compromise does not affect others
 
     enforcement:
-      sot_field: "bgp.neighbors[*].md5_password_ref"
-      rule: "Must be non-null on every neighbor entry — no exceptions"
-      key_format: "Vault reference string (e.g., bgp_md5_lon_dc1_fabric) — not the key value itself"
+      sot_field: bgp.neighbors[*].md5_password_ref
+      rule: Must be non-null on every neighbor entry — no exceptions
+      key_format: Vault reference string (e.g., bgp_md5_lon_dc1_fabric) — not the key value itself
       plain_text_keys_prohibited: true
       key_rotation_procedure: >
         Key rotation is performed via vault. The SoT md5_password_ref
@@ -118,81 +118,81 @@ intents:
     assertion_type: batfish_check
 
     batfish_check:
-      test_file: "batfish/tests/test_bgp_standards.py"
+      test_file: batfish/tests/test_bgp_standards.py
 
       assertions:
 
         - id: BA-101
-          function: "test_md5_on_all_ibgp_sessions"
+          function: test_md5_on_all_ibgp_sessions
           description: >
             Assert that every iBGP session in the network model has
             MD5 authentication configured. Checks both ends of each
             session — a session where only one end has MD5 is a
             misconfiguration that will cause the session not to
             establish, but must still be caught.
-          pybatfish_api: "bgpSessionCompatibility"
+          pybatfish_api: bgpSessionCompatibility
           parameters:
-            type: "IBGP"
+            type: IBGP
           expected_result: >
             All iBGP sessions have status UNIQUE_MATCH with
             md5Authentication: true on both peers. Any session
             with md5Authentication: false or md5Authentication: null
             on either end is a test failure.
-          failure_action: "BLOCK pipeline"
+          failure_action: BLOCK pipeline
 
         - id: BA-102
-          function: "test_md5_on_all_ebgp_wan_sessions"
+          function: test_md5_on_all_ebgp_wan_sessions
           description: >
             Assert that every eBGP inter-region WAN session has MD5
             authentication configured on both endpoints.
-          pybatfish_api: "bgpSessionCompatibility"
+          pybatfish_api: bgpSessionCompatibility
           parameters:
-            type: "EBGP_SINGLEHOP"
-            nodes: "border-lon-01, border-nyc-01, border-sin-01, border-fra-01"
+            type: EBGP_SINGLEHOP
+            nodes: border-lon-01, border-nyc-01, border-sin-01, border-fra-01
           expected_result: >
             All inter-DC eBGP sessions show md5Authentication: true
             on both peers.
-          failure_action: "BLOCK pipeline"
+          failure_action: BLOCK pipeline
 
         - id: BA-103
-          function: "test_md5_on_all_ebgp_branch_sessions"
+          function: test_md5_on_all_ebgp_branch_sessions
           description: >
             Assert that every eBGP branch session has MD5 authentication
             on both the DC border end and the branch CPE end.
-          pybatfish_api: "bgpSessionCompatibility"
+          pybatfish_api: bgpSessionCompatibility
           parameters:
-            type: "EBGP_SINGLEHOP"
-            remoteAsns: "65100-65143"   # all branch ASN range
+            type: EBGP_SINGLEHOP
+            remoteAsns: 65100-65143   # all branch ASN range
           expected_result: >
             All branch eBGP sessions show md5Authentication: true
             on both peers.
-          failure_action: "BLOCK pipeline"
+          failure_action: BLOCK pipeline
 
     sot_checks:
 
       - id: SC-101
-        description: "All BGP neighbor entries must have a non-null md5_password_ref"
+        description: All BGP neighbor entries must have a non-null md5_password_ref
         check_type: field_non_null
         target_devices: all
-        field_path: "bgp.neighbors[*].md5_password_ref"
+        field_path: bgp.neighbors[*].md5_password_ref
         severity: critical
 
       - id: SC-102
-        description: "md5_password_ref values must match the vault key naming convention"
+        description: md5_password_ref values must match the vault key naming convention
         check_type: field_regex
         target_devices: all
-        field_path: "bgp.neighbors[*].md5_password_ref"
-        pattern: "^bgp_md5_(wan_|branch_|[a-z]+_dc[0-9]+_fabric)"
+        field_path: bgp.neighbors[*].md5_password_ref
+        pattern: ^bgp_md5_(wan_|branch_|[a-z]+_dc[0-9]+_fabric)
         severity: high
 
       - id: SC-103
-        description: "No BGP neighbor entry may have an inline password field (security control)"
+        description: No BGP neighbor entry may have an inline password field (security control)
         check_type: field_absence
         target_devices: all
-        field_path: "bgp.neighbors[*].md5_password"
+        field_path: bgp.neighbors[*].md5_password
         must_be_absent: true
         severity: critical
-        rationale: "Inline passwords in SoT would be committed to git — vault refs only"
+        rationale: Inline passwords in SoT would be committed to git — vault refs only
 
     violation:
       severity: critical
@@ -217,7 +217,7 @@ intents:
   # ──────────────────────────────────────────────────────────────────
 
   - id: INTENT-006
-    title: "All eBGP sessions must have explicit route-maps applied inbound and outbound"
+    title: All eBGP sessions must have explicit route-maps applied inbound and outbound
     requirement_refs: [REQ-013]
     regulatory_refs: [REGSCI-003]
     related_intents: [INTENT-005, INTENT-007, INTENT-003, INTENT-004]
@@ -255,17 +255,17 @@ intents:
       # All maps defined in sot/bgp/route_policies.yml
 
       inter_dc_wan:
-        - session: "border-lon-01 ↔ border-nyc-01"
+        - session: border-lon-01 ↔ border-nyc-01
           route_map_in: RM_INTERDC_LON_NYC_IN
           route_map_out: RM_INTERDC_LON_NYC_OUT
-          notes: "Accepts DC aggregates + US branch prefixes; sets origin community"
+          notes: Accepts DC aggregates + US branch prefixes; sets origin community
 
-        - session: "border-lon-01 ↔ border-sin-01"
+        - session: border-lon-01 ↔ border-sin-01
           route_map_in: RM_INTERDC_LON_SIN_IN
           route_map_out: RM_INTERDC_LON_SIN_OUT
-          notes: "Accepts DC aggregates + APAC branch prefixes"
+          notes: Accepts DC aggregates + APAC branch prefixes
 
-        - session: "border-lon-01 ↔ border-fra-01"
+        - session: border-lon-01 ↔ border-fra-01
           route_map_in: RM_INTERDC_LON_FRA_IN
           route_map_out: RM_INTERDC_LON_FRA_OUT
           notes: >
@@ -276,7 +276,7 @@ intents:
             These are the BGP-layer enforcement of INTENT-003/INTENT-004.
 
       branch:
-        - session: "border-* ↔ branch-*"
+        - session: border-* ↔ branch-*
           route_map_in: RM_BRANCH_IN
           route_map_out: RM_BRANCH_OUT
           notes: >
@@ -289,35 +289,35 @@ intents:
 
     enforcement:
       sot_fields:
-        - "bgp.neighbors[*].route_map_in — must be non-null on all eBGP neighbors"
-        - "bgp.neighbors[*].route_map_out — must be non-null on all eBGP neighbors"
-      scope: "eBGP sessions only (remote_as != local_as)"
-      route_map_must_exist_in: "sot/bgp/route_policies.yml"
+        - bgp.neighbors[*].route_map_in — must be non-null on all eBGP neighbors
+        - bgp.neighbors[*].route_map_out — must be non-null on all eBGP neighbors
+      scope: eBGP sessions only (remote_as != local_as)
+      route_map_must_exist_in: sot/bgp/route_policies.yml
 
     assertion_type: batfish_check
 
     batfish_check:
-      test_file: "batfish/tests/test_bgp_standards.py"
+      test_file: batfish/tests/test_bgp_standards.py
 
       assertions:
 
         - id: BA-104
-          function: "test_route_maps_on_all_ebgp_sessions"
+          function: test_route_maps_on_all_ebgp_sessions
           description: >
             Assert that every eBGP session in the network model has
             an import routing policy (route-map in) and an export
             routing policy (route-map out) applied. Sessions without
             both policies are a test failure.
-          pybatfish_api: "bgpEdges"
+          pybatfish_api: bgpEdges
           parameters:
-            type: "EBGP"
+            type: EBGP
           expected_result: >
             Every eBGP edge has non-null importPolicy and exportPolicy.
             Any edge with a null policy in either direction fails.
-          failure_action: "BLOCK pipeline"
+          failure_action: BLOCK pipeline
 
         - id: BA-105
-          function: "test_no_default_route_advertised_to_branches"
+          function: test_no_default_route_advertised_to_branches
           description: >
             Assert that no DC border router originates or forwards a
             default route (0.0.0.0/0) toward any branch router. Branches
@@ -325,64 +325,64 @@ intents:
             not a default route. A default route from the DC to a branch
             would allow the branch to send arbitrary traffic upstream,
             bypassing prefix filtering.
-          pybatfish_api: "routes"
+          pybatfish_api: routes
           parameters:
-            network: "0.0.0.0/0"
-            nodes: "branch-lon-01, branch-nyc-01, border-lon-01, border-nyc-01, border-sin-01, border-fra-01"
+            network: 0.0.0.0/0
+            nodes: branch-lon-01, branch-nyc-01, border-lon-01, border-nyc-01, border-sin-01, border-fra-01
           expected_result: >
             No route to 0.0.0.0/0 appears in the BGP RIB of any
             border router with a next-hop pointing toward a branch
             network (10.100.x.x, 10.101.x.x, 10.102.x.x, 10.103.x.x).
             No branch router has 0.0.0.0/0 in its BGP RIB via eBGP.
-          failure_action: "BLOCK pipeline"
+          failure_action: BLOCK pipeline
 
         - id: BA-106
-          function: "test_fra_route_maps_deny_trading_community"
+          function: test_fra_route_maps_deny_trading_community
           description: >
             Assert that the route-map applied inbound on border-fra-01
             from border-lon-01 contains an explicit deny for prefixes
             carrying the ZONE_TRADING community (65001:200).
             Also asserts the outbound map from border-fra-01 does not
             permit any prefix tagged with ZONE_TRADING.
-          pybatfish_api: "testRoutePolicies"
+          pybatfish_api: testRoutePolicies
           parameters:
-            nodes: ["border-fra-01", "border-lon-01"]
-            policies: ["RM_INTERDC_LON_FRA_IN", "RM_INTERDC_LON_FRA_OUT"]
+            nodes: [border-fra-01, border-lon-01]
+            policies: [RM_INTERDC_LON_FRA_IN, RM_INTERDC_LON_FRA_OUT]
             inputRoute:
-              network: "10.1.1.0/24"
-              communities: ["65001:200"]   # ZONE_TRADING
+              network: 10.1.1.0/24
+              communities: [65001:200]   # ZONE_TRADING
           expected_result: >
             Route with ZONE_TRADING community (65001:200) is DENIED
             by both RM_INTERDC_LON_FRA_IN and RM_INTERDC_LON_FRA_OUT.
             Action must be DENY at seq 5 of each route-map.
-          failure_action: "BLOCK pipeline — critical regulatory compliance check"
+          failure_action: BLOCK pipeline — critical regulatory compliance check
 
     sot_checks:
 
       - id: SC-104
-        description: "All eBGP neighbor entries must have non-null route_map_in"
+        description: All eBGP neighbor entries must have non-null route_map_in
         check_type: field_non_null
         target_devices: all
-        scope: "neighbors where remote_as != local_as"
-        field_path: "bgp.neighbors[?remote_as!=bgp.local_as].route_map_in"
+        scope: neighbors where remote_as != local_as
+        field_path: bgp.neighbors[?remote_as!=bgp.local_as].route_map_in
         severity: critical
 
       - id: SC-105
-        description: "All eBGP neighbor entries must have non-null route_map_out"
+        description: All eBGP neighbor entries must have non-null route_map_out
         check_type: field_non_null
         target_devices: all
-        scope: "neighbors where remote_as != local_as"
-        field_path: "bgp.neighbors[?remote_as!=bgp.local_as].route_map_out"
+        scope: neighbors where remote_as != local_as
+        field_path: bgp.neighbors[?remote_as!=bgp.local_as].route_map_out
         severity: critical
 
       - id: SC-106
-        description: "All referenced route-map names must exist in sot/bgp/route_policies.yml"
+        description: All referenced route-map names must exist in sot/bgp/route_policies.yml
         check_type: cross_reference
-        source_field: "bgp.neighbors[*].route_map_in + bgp.neighbors[*].route_map_out"
-        reference_file: "sot/bgp/route_policies.yml"
-        reference_field: "route_maps[*] (key names)"
+        source_field: bgp.neighbors[*].route_map_in + bgp.neighbors[*].route_map_out
+        reference_file: sot/bgp/route_policies.yml
+        reference_field: route_maps[*] (key names)
         severity: critical
-        rationale: "A device referencing an undefined route-map will default to deny-all on some platforms and accept-all on others — both are dangerous"
+        rationale: A device referencing an undefined route-map will default to deny-all on some platforms and accept-all on others — both are dangerous
 
     violation:
       severity: critical
@@ -409,7 +409,7 @@ intents:
   # ──────────────────────────────────────────────────────────────────
 
   - id: INTENT-007
-    title: "Branch routers must advertise only their single assigned /29 prefix"
+    title: Branch routers must advertise only their single assigned /29 prefix
     requirement_refs: [REQ-014]
     regulatory_refs: [FCA-002]
     related_intents: [INTENT-005, INTENT-006, INTENT-010]
@@ -448,12 +448,12 @@ intents:
 
     prefix_allocation_rules:
       supernets:
-        uk:   "10.100.0.0/16"
-        us:   "10.101.0.0/16"
-        apac: "10.102.0.0/16"
-        eu:   "10.103.0.0/16"
-      prefix_length: "/29"   # exactly /29 — no shorter, no longer
-      allocation_authority: "Network Engineering — tracked in sot/global/ipam.yml"
+        uk: 10.100.0.0/16
+        us: 10.101.0.0/16
+        apac: 10.102.0.0/16
+        eu: 10.103.0.0/16
+      prefix_length: /29   # exactly /29 — no shorter, no longer
+      allocation_authority: Network Engineering — tracked in sot/global/ipam.yml
       uniqueness_required: true   # no two branches may share a /29
 
     enforcement:
@@ -465,9 +465,9 @@ intents:
           No additional prefixes may appear. The prefix must fall
           within the correct regional supernet for that branch.
         sot_enforcement:
-          - "branches[*].networks_advertised must contain exactly one entry"
-          - "networks_advertised[0].prefix must be a /29 within the regional supernet"
-          - "prefix must match the branch's wan_prefix field"
+          - branches[*].networks_advertised must contain exactly one entry
+          - networks_advertised[0].prefix must be a /29 within the regional supernet
+          - prefix must match the branch's wan_prefix field
 
       - layer: border_inbound_policy
         description: >
@@ -487,21 +487,21 @@ intents:
     assertion_type: batfish_check
 
     batfish_check:
-      test_file: "batfish/tests/test_bgp_standards.py"
+      test_file: batfish/tests/test_bgp_standards.py
 
       assertions:
 
         - id: BA-107
-          function: "test_branch_advertises_only_assigned_slash29"
+          function: test_branch_advertises_only_assigned_slash29
           description: >
             For each branch node in the network model, assert that the
             BGP RIB on the parent DC border router contains exactly one
             prefix learned from that branch's ASN, and that prefix is
             a /29 within the correct regional supernet.
-          pybatfish_api: "routes"
+          pybatfish_api: routes
           parameters:
-            protocols: ["bgp"]
-            nodes: "border-lon-01, border-nyc-01, border-sin-01, border-fra-01"
+            protocols: [bgp]
+            nodes: border-lon-01, border-nyc-01, border-sin-01, border-fra-01
           expected_result: >
             For each branch ASN (65100–65143):
               - Exactly one prefix is learned from that ASN.
@@ -511,90 +511,90 @@ intents:
               - APAC branches (65130–65135): prefix in 10.102.0.0/16.
               - EU branches (65140–65143): prefix in 10.103.0.0/16.
               - No branch ASN originates a prefix of any other length.
-          failure_action: "BLOCK pipeline"
+          failure_action: BLOCK pipeline
 
         - id: BA-108
-          function: "test_no_branch_originates_default_route"
+          function: test_no_branch_originates_default_route
           description: >
             Assert that no prefix 0.0.0.0/0 is originated by any
             branch ASN (65100–65143) and that no branch router has
             a BGP network statement for 0.0.0.0/0.
-          pybatfish_api: "routes"
+          pybatfish_api: routes
           parameters:
-            network: "0.0.0.0/0"
-            protocols: ["bgp"]
+            network: 0.0.0.0/0
+            protocols: [bgp]
           expected_result: >
             0.0.0.0/0 does not appear in the BGP RIB of any border
             router with a next-hop in branch prefix space. No branch
             ASN appears in the AS path of any route to 0.0.0.0/0.
-          failure_action: "BLOCK pipeline"
+          failure_action: BLOCK pipeline
 
         - id: BA-109
-          function: "test_no_branch_originates_dc_prefix"
+          function: test_no_branch_originates_dc_prefix
           description: >
             Assert that no branch router originates a prefix from DC
             address space (10.1.0.0/16 through 10.30.0.0/16) or from
             another branch's regional supernet.
-          pybatfish_api: "routes"
+          pybatfish_api: routes
           parameters:
-            protocols: ["bgp"]
-            networks: ["10.1.0.0/16", "10.10.0.0/16", "10.20.0.0/16", "10.30.0.0/16"]
+            protocols: [bgp]
+            networks: [10.1.0.0/16, 10.10.0.0/16, 10.20.0.0/16, 10.30.0.0/16]
           expected_result: >
             No DC aggregate prefix has a branch ASN (65100–65143) as
             the originating AS in the BGP RIB of any device.
-          failure_action: "BLOCK pipeline"
+          failure_action: BLOCK pipeline
 
         - id: BA-110
-          function: "test_branch_prefix_uniqueness"
+          function: test_branch_prefix_uniqueness
           description: >
             Assert that no two branches advertise the same /29 prefix.
             Duplicate prefix advertisements from different branch ASNs
             would indicate an IP address conflict in the SoT.
-          pybatfish_api: "routes"
+          pybatfish_api: routes
           parameters:
-            protocols: ["bgp"]
-            nodeRegex: "border-.*"
+            protocols: [bgp]
+            nodeRegex: border-.*
           expected_result: >
             Each /29 prefix in 10.100-103.0.0/16 appears at most once
             in the BGP RIB, originated by exactly one branch ASN.
-          failure_action: "BLOCK pipeline"
+          failure_action: BLOCK pipeline
 
     sot_checks:
 
       - id: SC-107
-        description: "Each branch must have exactly one entry in networks_advertised"
+        description: Each branch must have exactly one entry in networks_advertised
         check_type: list_length_exact
         target_devices: all_branches
-        field_path: "bgp.networks_advertised"
+        field_path: bgp.networks_advertised
         expected_length: 1
         severity: high
 
       - id: SC-108
-        description: "Branch networks_advertised prefix must be a /29"
+        description: Branch networks_advertised prefix must be a /29
         check_type: prefix_length_exact
         target_devices: all_branches
-        field_path: "bgp.networks_advertised[0].prefix"
+        field_path: bgp.networks_advertised[0].prefix
         expected_prefix_length: 29
         severity: critical
 
       - id: SC-109
-        description: "Branch /29 must fall within the correct regional supernet"
+        description: Branch /29 must fall within the correct regional supernet
         check_type: prefix_within_supernet
         target_devices: all_branches
-        field_path: "bgp.networks_advertised[0].prefix"
+        field_path: bgp.networks_advertised[0].prefix
         supernet_map:
-          emea-lon:    "10.100.0.0/16"
-          americas-nyc: "10.101.0.0/16"
-          apac:        "10.102.0.0/16"
-          eu-fra:      "10.103.0.0/16"
-        key_field: "region"
+          emea-lon: 10.100.0.0/16
+          americas-nyc: 10.101.0.0/16
+          apac: 10.102.0.0/16
+          eu-fra: 10.103.0.0/16
+        key_field: region
         severity: critical
 
       - id: SC-110
-        description: "No two branch devices may share the same /29 prefix"
+        description: No two branch devices may share the same /29 prefix
         check_type: global_uniqueness
         target_devices: all_branches
-        field_path: "bgp.networks_advertised[0].prefix"
+        field_path: bgp.networks_advertised[0].prefix
         severity: critical
 
     violation:

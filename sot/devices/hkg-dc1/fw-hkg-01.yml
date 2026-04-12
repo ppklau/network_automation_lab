@@ -4,7 +4,7 @@ fqdn: fw-hkg-01.hkg-dc1.acme-investments.internal
 role: firewall
 platform: frr
 image: frrouting/frr:9.1.0
-hardware_model: "Virtual Appliance (Linux KVM)"
+hardware_model: Virtual Appliance (Linux KVM)
 device_serial: FWHKG2421030
 eol_date: "2028-12-31"
 lab_state: sot_only
@@ -22,22 +22,22 @@ loopback:
   ip: 10.21.255.30/32
 interfaces:
   - name: eth0
-    description: "OOB management"
+    description: OOB management
     ip: 10.21.0.30/25
   - name: eth1
-    description: "-> border-hkg-01 Ethernet6 [DMZ external]"
+    description: -> border-hkg-01 Ethernet6 [DMZ external]
     ip: 10.21.6.254/24
     zone: DMZ
     mtu: 9000
   - name: eth2
-    description: "-> leaf-hkg-01 Ethernet5 [TRADING/CORPORATE]"
+    description: -> leaf-hkg-01 Ethernet5 [TRADING/CORPORATE]
     ip: 10.21.1.254/24
     peer_device: leaf-hkg-01
     peer_interface: Ethernet5
     zone: TRADING
     mtu: 9000
   - name: eth3
-    description: "-> leaf-hkg-02 Ethernet5 [MGMT]"
+    description: -> leaf-hkg-02 Ethernet5 [MGMT]
     ip: 10.21.0.254/25
     peer_device: leaf-hkg-02
     peer_interface: Ethernet5
@@ -56,5 +56,5 @@ bgp:
   neighbors:
     - peer_ip: 10.21.6.253
       remote_as: 65021
-      description: "iBGP to border-hkg-01 for DMZ routing"
+      description: iBGP to border-hkg-01 for DMZ routing
       md5_password_ref: bgp_md5_hkg_dc1_fabric

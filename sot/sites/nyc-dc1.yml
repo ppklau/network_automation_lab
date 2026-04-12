@@ -4,13 +4,13 @@
 # Last reviewed: 2026-03-01
 
 site:
-  name: "New York Data Centre 1"
+  name: New York Data Centre 1
   code: nyc-dc1
   short_code: nyc1
   region: americas-nyc
-  address: "111 8th Avenue, New York, NY 10011, USA"
+  address: 111 8th Avenue, New York, NY 10011, USA
   country: US
-  tier: "Tier IV"
+  tier: Tier IV
   lab_instantiated: false   # border-nyc-01 stub only
 
   network_os_primary: arista_eos
@@ -48,29 +48,29 @@ site:
       active: true
 
   zone_permissions:
-    TRADING:    true
-    CORPORATE:  true
-    DMZ:        true
-    MGMT_ZONE:  true
+    TRADING: true
+    CORPORATE: true
+    DMZ: true
+    MGMT_ZONE: true
 
   subnets:
-    management:     10.10.0.0/25
-    loopbacks:      10.10.255.0/24
-    fabric_p2p:     10.10.100.0/24
-    trading_svi:    10.10.1.0/24
-    corporate_svi:  10.10.2.0/22
-    dmz_svi:        10.10.6.0/24
-    mgmt_svi:       10.10.0.0/25
+    management: 10.10.0.0/25
+    loopbacks: 10.10.255.0/24
+    fabric_p2p: 10.10.100.0/24
+    trading_svi: 10.10.1.0/24
+    corporate_svi: 10.10.2.0/22
+    dmz_svi: 10.10.6.0/24
+    mgmt_svi: 10.10.0.0/25
 
   management_ips:
-    spine-nyc-01:   10.10.0.1
-    spine-nyc-02:   10.10.0.2
-    leaf-nyc-01:    10.10.0.11
-    leaf-nyc-02:    10.10.0.12
-    leaf-nyc-03:    10.10.0.13
-    leaf-nyc-04:    10.10.0.14
-    border-nyc-01:  10.10.0.20
-    fw-nyc-01:      10.10.0.30
+    spine-nyc-01: 10.10.0.1
+    spine-nyc-02: 10.10.0.2
+    leaf-nyc-01: 10.10.0.11
+    leaf-nyc-02: 10.10.0.12
+    leaf-nyc-03: 10.10.0.13
+    leaf-nyc-04: 10.10.0.14
+    border-nyc-01: 10.10.0.20
+    fw-nyc-01: 10.10.0.30
 
   devices:
     - hostname: spine-nyc-01

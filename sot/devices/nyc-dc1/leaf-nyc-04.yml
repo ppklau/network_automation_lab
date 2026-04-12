@@ -54,31 +54,31 @@ vlans:
 
 interfaces:
   - name: Ethernet1
-    description: "P2P -> spine-nyc-01 Ethernet4"
+    description: P2P -> spine-nyc-01 Ethernet4
     ip: 10.10.100.7/31
     peer_device: spine-nyc-01
     peer_interface: Ethernet4
     mtu: 9214
   - name: Ethernet2
-    description: "P2P -> spine-nyc-02 Ethernet4"
+    description: P2P -> spine-nyc-02 Ethernet4
     ip: 10.10.100.15/31
     peer_device: spine-nyc-02
     peer_interface: Ethernet4
     mtu: 9214
   - name: Ethernet3
-    description: "Server access — DMZ VLAN 300"
+    description: Server access — DMZ VLAN 300
     mode: access
     access_vlan: 300
     mtu: 9214
   - name: Ethernet4
-    description: "fw-nyc-01 eth3 (MGMT internal)"
+    description: fw-nyc-01 eth3 (MGMT internal)
     peer_device: fw-nyc-01
     peer_interface: eth3
     mode: access
     access_vlan: 300
     mtu: 9214
   - name: Ethernet5
-    description: "Management server — MGMT VLAN 400"
+    description: Management server — MGMT VLAN 400
     mode: access
     access_vlan: 400
     mtu: 9214
@@ -116,11 +116,11 @@ bgp:
   neighbors:
     - peer_ip: 10.10.255.1
       remote_as: 65010
-      description: "iBGP RR -> spine-nyc-01"
+      description: iBGP RR -> spine-nyc-01
       update_source: Loopback0
       md5_password_ref: bgp_md5_nyc_dc1_fabric
     - peer_ip: 10.10.255.2
       remote_as: 65010
-      description: "iBGP RR -> spine-nyc-02"
+      description: iBGP RR -> spine-nyc-02
       update_source: Loopback0
       md5_password_ref: bgp_md5_nyc_dc1_fabric

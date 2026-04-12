@@ -11,7 +11,7 @@ uplink_dc: fra-dc1
 uplink_border: border-fra-01
 platform: frr
 image: frrouting/frr:9.1.0
-hardware_model: "FRR Virtual Router (branch CPE)"
+hardware_model: FRR Virtual Router (branch CPE)
 eol_date: "2028-06-30"
 compliance_tags: [bafin, eu_gdpr, no_trading_zone]
 # TRADING zone is PROHIBITED — EU branches inherit Frankfurt restriction
@@ -30,7 +30,7 @@ branches:
     office_type: corporate
     location:
       city: Frankfurt
-      address: "Bockenheimer Landstrasse 24, 60323 Frankfurt am Main"
+      address: Bockenheimer Landstrasse 24, 60323 Frankfurt am Main
       country: Germany
     management_ip: 10.103.0.1/29
     wan_prefix: 10.103.0.0/29
@@ -43,12 +43,12 @@ branches:
       neighbors:
         - peer_ip: 10.103.0.2
           remote_as: 65030
-          description: "eBGP -> border-fra-01 [EU Regulatory DC]"
+          description: eBGP -> border-fra-01 [EU Regulatory DC]
           md5_password_ref: bgp_md5_branch_fra_01
-      compliance_note: "No TRADING routes permitted — CORPORATE and MGMT only"
+      compliance_note: No TRADING routes permitted — CORPORATE and MGMT only
     networks_advertised:
       - prefix: 10.103.0.0/29
-        description: "Branch LAN — CORPORATE only"
+        description: Branch LAN — CORPORATE only
 
   - hostname: branch-fra-02
     fqdn: branch-fra-02.eu.acme-investments.internal
@@ -59,7 +59,7 @@ branches:
     office_type: corporate
     location:
       city: Paris
-      address: "1 Boulevard Haussmann, 75009 Paris"
+      address: 1 Boulevard Haussmann, 75009 Paris
       country: France
     management_ip: 10.103.0.9/29
     wan_prefix: 10.103.0.8/29
@@ -72,7 +72,7 @@ branches:
       neighbors:
         - peer_ip: 10.103.0.10
           remote_as: 65030
-          description: "eBGP -> border-fra-01"
+          description: eBGP -> border-fra-01
           md5_password_ref: bgp_md5_branch_fra_02
 
   - hostname: branch-fra-03
@@ -84,7 +84,7 @@ branches:
     office_type: regional
     location:
       city: Amsterdam
-      address: "Rokin 55, 1012 KK Amsterdam"
+      address: Rokin 55, 1012 KK Amsterdam
       country: Netherlands
     management_ip: 10.103.0.17/29
     wan_prefix: 10.103.0.16/29
@@ -97,7 +97,7 @@ branches:
       neighbors:
         - peer_ip: 10.103.0.18
           remote_as: 65030
-          description: "eBGP -> border-fra-01"
+          description: eBGP -> border-fra-01
           md5_password_ref: bgp_md5_branch_fra_03
 
   - hostname: branch-fra-04
@@ -109,7 +109,7 @@ branches:
     office_type: corporate
     location:
       city: Zurich
-      address: "Bahnhofstrasse 45, 8001 Zürich"
+      address: Bahnhofstrasse 45, 8001 Zürich
       country: Switzerland
     management_ip: 10.103.0.25/29
     wan_prefix: 10.103.0.24/29
@@ -122,5 +122,5 @@ branches:
       neighbors:
         - peer_ip: 10.103.0.26
           remote_as: 65030
-          description: "eBGP -> border-fra-01"
+          description: eBGP -> border-fra-01
           md5_password_ref: bgp_md5_branch_fra_04

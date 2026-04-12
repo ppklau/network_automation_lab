@@ -26,7 +26,7 @@ global_ntp:
       stratum: 2
       preferred: false
       auth_key_ref: null                 # public server — no auth
-      description: "Backup internet NTP pool — use only if internal servers unreachable"
+      description: Backup internet NTP pool — use only if internal servers unreachable
 
   authentication:
     enabled: true
@@ -39,11 +39,11 @@ global_ntp:
 
   # Source interface used for NTP packets — loopback for stability
   source_interface_by_role:
-    spine:   Loopback0
-    leaf:    Loopback0
-    border:  Loopback0
-    fw:      lo            # Linux/FRR devices use lo
-    branch:  lo
+    spine: Loopback0
+    leaf: Loopback0
+    border: Loopback0
+    fw: lo            # Linux/FRR devices use lo
+    branch: lo
 
 # Per-region overrides (if a region needs a closer server)
 regional_ntp:
@@ -65,11 +65,11 @@ regional_ntp:
     primary_server: ntp.acme-investments.internal
     secondary_server: ntp2.acme-investments.internal
     backup_server: pool.ntp.org
-    note: "No local stratum-1 in APAC; cross-region WAN adds ~150ms jitter (acceptable)"
+    note: No local stratum-1 in APAC; cross-region WAN adds ~150ms jitter (acceptable)
 
   eu-fra:
     timezone: Europe/Berlin
     primary_server: ntp.acme-investments.internal
     secondary_server: ntp2.acme-investments.internal
     backup_server: pool.ntp.org
-    note: "Frankfurt follows EU timezone (CET/CEST)"
+    note: Frankfurt follows EU timezone (CET/CEST)

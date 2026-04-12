@@ -15,7 +15,7 @@ fqdn: fw-lon-01.lon-dc1.acme-investments.internal
 role: firewall
 platform: frr
 image: frrouting/frr:9.1.0
-hardware_model: "Virtual Appliance (Linux KVM)"
+hardware_model: Virtual Appliance (Linux KVM)
 device_serial: FWLON2401030
 eol_date: "2028-12-31"
 
@@ -35,7 +35,7 @@ management:
 loopback:
   interface: lo
   ip: 10.1.255.30/32
-  description: "Firewall loopback — used as BGP router-id if needed"
+  description: Firewall loopback — used as BGP router-id if needed
 
 ntp_source_interface: lo
 logging_source_interface: lo
@@ -47,14 +47,14 @@ snmp_source_interface: lo
 # ──────────────────────────────────────────
 interfaces:
   - name: eth0
-    description: "OOB management — MGMT network 10.1.0.0/25"
+    description: OOB management — MGMT network 10.1.0.0/25
     ip: 10.1.0.30/25
     gateway: 10.1.0.126
     mtu: 1500
     vrf: default              # Linux default namespace
 
   - name: eth1
-    description: "-> border-lon-01 Ethernet6 [DMZ external boundary]"
+    description: -> border-lon-01 Ethernet6 [DMZ external boundary]
     ip: 10.1.6.254/24         # FW's DMZ-facing IP; VIP for DMZ is 10.1.6.1 on leaves
     peer_device: border-lon-01
     peer_interface: Ethernet6
@@ -62,7 +62,7 @@ interfaces:
     speed: 10G
     vrf: DMZ_VRF
     zone: DMZ
-    security_policy: "DENY_ALL_DEFAULT; permit by explicit ruleset"
+    security_policy: DENY_ALL_DEFAULT; permit by explicit ruleset
 
   - name: eth2
     description: "-> leaf-lon-03 Ethernet5 [internal-facing: TRADING+CORPORATE]"
@@ -73,7 +73,7 @@ interfaces:
     speed: 10G
     vrf: TRADING_VRF
     zone: TRADING
-    security_policy: "Trading zone — strict east/west enforcement"
+    security_policy: Trading zone — strict east/west enforcement
 
   - name: eth3
     description: "-> leaf-lon-04 Ethernet5 [internal-facing: DMZ+MGMT]"
@@ -86,7 +86,7 @@ interfaces:
     zone: MGMT_ZONE
 
   - name: lo
-    description: "Loopback"
+    description: Loopback
     ip: 10.1.255.30/32
 
 # ──────────────────────────────────────────
@@ -155,7 +155,7 @@ firewall_policy:
       dst_zone: CORPORATE
       action: deny
       log: true
-      comment: "Regulatory requirement — trading isolation"
+      comment: Regulatory requirement — trading isolation
 
     - id: 901
       name: DENY_CORPORATE_TRADING
@@ -163,7 +163,7 @@ firewall_policy:
       dst_zone: TRADING
       action: deny
       log: true
-      comment: "Regulatory requirement — trading isolation"
+      comment: Regulatory requirement — trading isolation
 
 # ──────────────────────────────────────────
 # BGP (FRR)
@@ -179,7 +179,7 @@ bgp:
   neighbors:
     - peer_ip: 10.1.6.253          # border-lon-01 DMZ-facing address
       remote_as: 65001
-      description: "iBGP to border-lon-01 for DMZ route exchange"
+      description: iBGP to border-lon-01 for DMZ route exchange
       update_source: lo
       md5_password_ref: bgp_md5_lon_dc1_fabric
       address_families:
@@ -189,7 +189,7 @@ bgp:
 
   networks_advertised:
     - prefix: 10.1.6.0/24
-      description: "DMZ network — advertised to fabric"
+      description: DMZ network — advertised to fabric
 
   timers:
     keepalive: 30

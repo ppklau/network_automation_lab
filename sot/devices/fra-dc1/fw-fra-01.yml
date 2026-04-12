@@ -10,7 +10,7 @@ fqdn: fw-fra-01.fra-dc1.acme-investments.internal
 role: firewall
 platform: frr
 image: frrouting/frr:9.1.0
-hardware_model: "Virtual Appliance (Linux KVM)"
+hardware_model: Virtual Appliance (Linux KVM)
 device_serial: FWFRA2430030
 eol_date: "2028-12-31"
 lab_state: sot_only
@@ -33,22 +33,22 @@ loopback:
 
 interfaces:
   - name: eth0
-    description: "OOB management"
+    description: OOB management
     ip: 10.30.0.30/25
   - name: eth1
-    description: "-> border-fra-01 eth4 [DMZ external — BaFin portal connectivity]"
+    description: -> border-fra-01 eth4 [DMZ external — BaFin portal connectivity]
     ip: 10.30.6.254/24
     zone: DMZ
     mtu: 9000
   - name: eth2
-    description: "-> leaf-fra-02 Ethernet4 [internal CORPORATE — no TRADING]"
+    description: -> leaf-fra-02 Ethernet4 [internal CORPORATE — no TRADING]
     ip: 10.30.2.254/22
     peer_device: leaf-fra-02
     peer_interface: Ethernet4
     zone: CORPORATE
     mtu: 9000
   - name: eth3
-    description: "-> leaf-fra-01 Ethernet5 [MGMT]"
+    description: -> leaf-fra-01 Ethernet5 [MGMT]
     ip: 10.30.0.254/25
     peer_device: leaf-fra-01
     peer_interface: Ethernet5
@@ -62,8 +62,8 @@ firewall_policy:
   stateful: true
   policy_set: acme_fra_firewall_policy_v2   # FRA-specific policy — no TRADING rules
   additional_policies:
-    - "GDPR egress filtering — block personal data exfiltration"
-    - "BaFin audit log forwarding — all traffic logged"
+    - GDPR egress filtering — block personal data exfiltration
+    - BaFin audit log forwarding — all traffic logged
   audit_logging: enabled
   log_retention_years: 10
 
@@ -74,5 +74,5 @@ bgp:
   neighbors:
     - peer_ip: 10.30.6.253
       remote_as: 65030
-      description: "iBGP to border-fra-01 for DMZ routing"
+      description: iBGP to border-fra-01 for DMZ routing
       md5_password_ref: bgp_md5_fra_dc1_fabric

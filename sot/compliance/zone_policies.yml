@@ -11,7 +11,7 @@ zones:
   TRADING:
     vlan_id: 100
     vrf: TRADING_VRF
-    description: "Equities and FX trading systems — low-latency, strict isolation"
+    description: Equities and FX trading systems — low-latency, strict isolation
     classification: restricted
     regulatory_tags: [mifid2, fca, sec]
     data_types: [market_data, order_flow, trade_records]
@@ -19,7 +19,7 @@ zones:
   CORPORATE:
     vlan_id: 200
     vrf: CORPORATE_VRF
-    description: "Corporate workstations, internal applications, file shares"
+    description: Corporate workstations, internal applications, file shares
     classification: internal
     regulatory_tags: [gdpr]
     data_types: [employee_data, internal_apps]
@@ -27,7 +27,7 @@ zones:
   DMZ:
     vlan_id: 300
     vrf: DMZ_VRF
-    description: "Internet-facing systems, partner connectivity, reverse proxies"
+    description: Internet-facing systems, partner connectivity, reverse proxies
     classification: semi_trusted
     regulatory_tags: [gdpr]
     data_types: [public_facing, partner_data]
@@ -35,7 +35,7 @@ zones:
   MGMT_ZONE:
     vlan_id: 400
     vrf: MGMT_VRF
-    description: "Network device management plane"
+    description: Network device management plane
     classification: restricted
     regulatory_tags: [sox, mifid2]
     data_types: [network_config, credentials, audit_logs]
@@ -49,23 +49,23 @@ zone_presence:
   dc_full:
     applies_to_sites: [lon-dc1, lon-dc2, nyc-dc1, nyc-dc2, sin-dc1, hkg-dc1]
     allowed_zones:
-      TRADING:    true
-      CORPORATE:  true
-      DMZ:        true
-      MGMT_ZONE:  true
+      TRADING: true
+      CORPORATE: true
+      DMZ: true
+      MGMT_ZONE: true
 
   # Frankfurt DC — EU regulatory site
   # TRADING zone is EXPLICITLY PROHIBITED
   dc_frankfurt:
     applies_to_sites: [fra-dc1]
     allowed_zones:
-      TRADING:    false   # PROHIBITED — MiFID II / BaFin regulatory ring-fencing
-      CORPORATE:  true
-      DMZ:        true
-      MGMT_ZONE:  true
+      TRADING: false   # PROHIBITED — MiFID II / BaFin regulatory ring-fencing
+      CORPORATE: true
+      DMZ: true
+      MGMT_ZONE: true
     enforcement:
       method: vlan_policy
-      audit_check: "Ensure VLAN 100 is absent from all FRA device configs"
+      audit_check: Ensure VLAN 100 is absent from all FRA device configs
       violation_severity: critical
       notify: [compliance@acme-investments.com, netops@acme-investments.com]
 
@@ -73,20 +73,20 @@ zone_presence:
   branch_standard:
     applies_to_branch_types: [uk, us, apac]
     allowed_zones:
-      TRADING:    false   # branches never carry trading traffic — dedicated trading floor lines only
-      CORPORATE:  true
-      DMZ:        false   # no DMZ at standard branches
-      MGMT_ZONE:  true
+      TRADING: false   # branches never carry trading traffic — dedicated trading floor lines only
+      CORPORATE: true
+      DMZ: false   # no DMZ at standard branches
+      MGMT_ZONE: true
 
   # EU branches
   branch_eu:
     applies_to_branch_types: [eu]
     allowed_zones:
-      TRADING:    false   # prohibited as per Frankfurt parent DC
-      CORPORATE:  true
-      DMZ:        false
-      MGMT_ZONE:  true
-    compliance_note: "EU branches inherit Frankfurt regulatory restriction"
+      TRADING: false   # prohibited as per Frankfurt parent DC
+      CORPORATE: true
+      DMZ: false
+      MGMT_ZONE: true
+    compliance_note: EU branches inherit Frankfurt regulatory restriction
 
 # ──────────────────────────────────────────────────────────────
 # Inter-Zone Access Matrix
@@ -95,19 +95,19 @@ zone_presence:
 inter_zone_access:
 
   TRADING:
-    to_TRADING:    permitted       # intra-zone always permitted
-    to_CORPORATE:  denied          # strict isolation — trading cannot reach corporate
-    to_DMZ:        denied          # trading has dedicated internet breakout (not via shared DMZ)
-    to_MGMT_ZONE:  denied          # management initiated only (no device initiates from MGMT to TRADING)
+    to_TRADING: permitted       # intra-zone always permitted
+    to_CORPORATE: denied          # strict isolation — trading cannot reach corporate
+    to_DMZ: denied          # trading has dedicated internet breakout (not via shared DMZ)
+    to_MGMT_ZONE: denied          # management initiated only (no device initiates from MGMT to TRADING)
     notes:
-      - "Trading-to-internet traverses dedicated firewall separate from DMZ firewall"
-      - "Market data feeds enter via dedicated cross-connect — not via DMZ"
+      - Trading-to-internet traverses dedicated firewall separate from DMZ firewall
+      - Market data feeds enter via dedicated cross-connect — not via DMZ
 
   CORPORATE:
-    to_TRADING:    denied          # corporate workstations MUST NOT reach trading systems
-    to_CORPORATE:  permitted
-    to_DMZ:        conditional     # outbound internet via proxy in DMZ — HTTP/HTTPS only
-    to_MGMT_ZONE:  denied          # no corporate-initiated management access
+    to_TRADING: denied          # corporate workstations MUST NOT reach trading systems
+    to_CORPORATE: permitted
+    to_DMZ: conditional     # outbound internet via proxy in DMZ — HTTP/HTTPS only
+    to_MGMT_ZONE: denied          # no corporate-initiated management access
     conditional_rules:
       corporate_to_dmz:
         permitted_ports: [80, 443, 8080]
@@ -115,10 +115,10 @@ inter_zone_access:
         requires_proxy: true
 
   DMZ:
-    to_TRADING:    denied
-    to_CORPORATE:  conditional     # inbound from DMZ to CORPORATE only via reverse proxy
-    to_DMZ:        permitted
-    to_MGMT_ZONE:  denied
+    to_TRADING: denied
+    to_CORPORATE: conditional     # inbound from DMZ to CORPORATE only via reverse proxy
+    to_DMZ: permitted
+    to_MGMT_ZONE: denied
     conditional_rules:
       dmz_to_corporate:
         permitted_ports: [443]
@@ -126,14 +126,14 @@ inter_zone_access:
         reverse_proxy_only: true
 
   MGMT_ZONE:
-    to_TRADING:    conditional     # management access for monitoring/config only
-    to_CORPORATE:  conditional     # management access for servers
-    to_DMZ:        conditional     # management access for DMZ devices
-    to_MGMT_ZONE:  permitted
+    to_TRADING: conditional     # management access for monitoring/config only
+    to_CORPORATE: conditional     # management access for servers
+    to_DMZ: conditional     # management access for DMZ devices
+    to_MGMT_ZONE: permitted
     conditional_rules:
       mgmt_to_any:
         permitted_ports: [22, 443, 161, 162, 514]  # SSH, HTTPS, SNMP, Syslog
-        source_requirement: "jump host in MGMT_ZONE only"
+        source_requirement: jump host in MGMT_ZONE only
         mfa_required: true
 
 # ──────────────────────────────────────────────────────────────
@@ -167,25 +167,25 @@ firewall_policy:
     policy_set: acme_fra_firewall_policy_v2
     audit_logging: enabled
     additional_policy_notes:
-      - "Additional egress filtering for GDPR personal data"
-      - "BaFin audit trail requirements enforced at firewall level"
+      - Additional egress filtering for GDPR personal data
+      - BaFin audit trail requirements enforced at firewall level
 
 # ──────────────────────────────────────────────────────────────
 # Compliance Audit Checks
 # ──────────────────────────────────────────────────────────────
 audit_checks:
   - id: ZONE-001
-    description: "Frankfurt site must not have VLAN 100 (TRADING) configured"
+    description: Frankfurt site must not have VLAN 100 (TRADING) configured
     requirement_refs: [REQ-007, REQ-009]   # zone isolation + EU data residency (GDPR Article 44, BaFin)
     intent_refs: [INTENT-001, INTENT-003]
     target_sites: [fra-dc1]
     check_type: vlan_absent
     vlan_id: 100
     severity: critical
-    remediation: "Remove VLAN 100 from all device configs and IPAM for fra-dc1"
+    remediation: Remove VLAN 100 from all device configs and IPAM for fra-dc1
 
   - id: ZONE-002
-    description: "All branch sites must not have VLAN 100 (TRADING)"
+    description: All branch sites must not have VLAN 100 (TRADING)
     requirement_refs: [REQ-007]            # zone isolation — branches never carry trading traffic
     intent_refs: [INTENT-001, INTENT-010]
     target_sites: all_branches
@@ -194,7 +194,7 @@ audit_checks:
     severity: critical
 
   - id: ZONE-003
-    description: "TRADING VRF must be isolated — no route leaking to CORPORATE or DMZ VRFs"
+    description: TRADING VRF must be isolated — no route leaking to CORPORATE or DMZ VRFs
     requirement_refs: [REQ-007, REQ-008]   # trading isolation + no inbound reachability from corporate/DMZ
     intent_refs: [INTENT-001, INTENT-002]
     check_type: vrf_route_leak
@@ -203,7 +203,7 @@ audit_checks:
     severity: critical
 
   - id: ZONE-004
-    description: "MGMT_ZONE access must originate from jump hosts only"
+    description: MGMT_ZONE access must originate from jump hosts only
     requirement_refs: [REQ-015, REQ-019]   # audit logging / compliance controls — management plane access
     intent_refs: [INTENT-011]
     check_type: acl_source_restriction
@@ -212,7 +212,7 @@ audit_checks:
     severity: high
 
   - id: ZONE-005
-    description: "All inter-zone traffic must traverse the site firewall"
+    description: All inter-zone traffic must traverse the site firewall
     requirement_refs: [REQ-007, REQ-008]   # zone isolation enforced at firewall boundary
     intent_refs: [INTENT-001, INTENT-002]
     check_type: traffic_path

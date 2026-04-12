@@ -45,7 +45,7 @@ intents:
   # ──────────────────────────────────────────────────────────────────
 
   - id: INTENT-010
-    title: "New branch SoT records must satisfy all provisioning standards before deployment"
+    title: New branch SoT records must satisfy all provisioning standards before deployment
     requirement_refs: [REQ-003, REQ-011]
     regulatory_refs: [FCA-003, GDPR-003, BAFIN-001]
     related_intents: [INTENT-001, INTENT-002, INTENT-005, INTENT-006, INTENT-007]
@@ -96,19 +96,19 @@ intents:
 
       regional_pools:
         emea-lon:
-          range: "65100–65111"
+          range: 65100–65111
           uplink_dc: lon-dc1
           uplink_border: border-lon-01
         americas-nyc:
-          range: "65120–65127"
+          range: 65120–65127
           uplink_dc: nyc-dc1
           uplink_border: border-nyc-01
         apac:
-          range: "65130–65135"
+          range: 65130–65135
           uplink_dc: sin-dc1
           uplink_border: border-sin-01
         eu-fra:
-          range: "65140–65143"
+          range: 65140–65143
           uplink_dc: fra-dc1
           uplink_border: border-fra-01
 
@@ -134,21 +134,21 @@ intents:
         sot/global/ipam.yml under branches.{region}.branches.
 
       regional_supernets:
-        emea-lon:    "10.100.0.0/16"
-        americas-nyc: "10.101.0.0/16"
-        apac:        "10.102.0.0/16"
-        eu-fra:      "10.103.0.0/16"
+        emea-lon: 10.100.0.0/16
+        americas-nyc: 10.101.0.0/16
+        apac: 10.102.0.0/16
+        eu-fra: 10.103.0.0/16
 
       slash29_address_layout:
         # For each /29 allocated to a branch:
-        offset_0: "Network address (not usable)"
-        offset_1: "Branch WAN IP — also branch BGP router-id and management IP"
-        offset_2: "DC border peer IP — configured on the border sub-interface"
-        offset_3: "Available for future use (spare)"
-        offset_4: "Available for future use (spare)"
-        offset_5: "Available for future use (spare)"
-        offset_6: "Available for future use (spare)"
-        offset_7: "Broadcast address (not usable)"
+        offset_0: Network address (not usable)
+        offset_1: Branch WAN IP — also branch BGP router-id and management IP
+        offset_2: DC border peer IP — configured on the border sub-interface
+        offset_3: Available for future use (spare)
+        offset_4: Available for future use (spare)
+        offset_5: Available for future use (spare)
+        offset_6: Available for future use (spare)
+        offset_7: Broadcast address (not usable)
 
       consecutive_allocation: >
         /29s are allocated consecutively within the regional supernet,
@@ -222,19 +222,19 @@ intents:
       required_tags_by_region:
         emea-lon:
           required: [fca, uk_gdpr]
-          rationale: "UK branches are FCA-supervised entities; UK GDPR applies to employee/client data"
+          rationale: UK branches are FCA-supervised entities; UK GDPR applies to employee/client data
 
         americas-nyc:
           required: [sox, sec]
-          rationale: "US branches fall within SOX IT general controls scope and SEC supervision"
+          rationale: US branches fall within SOX IT general controls scope and SEC supervision
 
         apac:
           required: [mas_trm]
-          rationale: "Singapore-jurisdiction branches subject to MAS TRM guidelines"
+          rationale: Singapore-jurisdiction branches subject to MAS TRM guidelines
 
         eu-fra:
           required: [bafin, eu_gdpr, no_trading_zone]
-          rationale: "EU branches subject to BaFin oversight and EU GDPR; inherit Frankfurt TRADING prohibition"
+          rationale: EU branches subject to BaFin oversight and EU GDPR; inherit Frankfurt TRADING prohibition
 
       additional_tags_permitted: true
       notes: >
@@ -254,33 +254,33 @@ intents:
         but are checked as SoT constraints before the config is rendered.
 
       required_fields:
-        - field: "bgp.local_as"
-          constraint: "Must match the ASN allocated in asn_pools.yml"
+        - field: bgp.local_as
+          constraint: Must match the ASN allocated in asn_pools.yml
 
-        - field: "bgp.router_id"
-          constraint: "Must equal the wan_ip (branch WAN IP, offset +1 from /29 network)"
+        - field: bgp.router_id
+          constraint: Must equal the wan_ip (branch WAN IP, offset +1 from /29 network)
 
-        - field: "bgp.neighbors[0].peer_ip"
-          constraint: "Must equal uplink_peer_ip (DC border peer, offset +2 from /29)"
+        - field: bgp.neighbors[0].peer_ip
+          constraint: Must equal uplink_peer_ip (DC border peer, offset +2 from /29)
 
-        - field: "bgp.neighbors[0].remote_as"
-          constraint: "Must equal the ASN of the uplink DC (e.g., 65001 for LON)"
+        - field: bgp.neighbors[0].remote_as
+          constraint: Must equal the ASN of the uplink DC (e.g., 65001 for LON)
 
-        - field: "bgp.neighbors[0].md5_password_ref"
-          constraint: "Non-null; must follow naming convention bgp_md5_branch_{hostname}"
+        - field: bgp.neighbors[0].md5_password_ref
+          constraint: Non-null; must follow naming convention bgp_md5_branch_{hostname}
 
-        - field: "bgp.neighbors[0].route_map_in"
-          constraint: "Must be RM_INTERDC_{REGION}_IN or RM_BRANCH_IN (see route_policies.yml)"
+        - field: bgp.neighbors[0].route_map_in
+          constraint: Must be RM_INTERDC_{REGION}_IN or RM_BRANCH_IN (see route_policies.yml)
           note: >
             Branch inbound map must accept DC aggregate routes and set
             appropriate local-preference. It must not accept TRADING
             community routes at branches in eu-fra region.
 
-        - field: "bgp.neighbors[0].route_map_out"
-          constraint: "Must be RM_BRANCH_OUT"
+        - field: bgp.neighbors[0].route_map_out
+          constraint: Must be RM_BRANCH_OUT
 
-        - field: "bgp.networks_advertised"
-          constraint: "Exactly one entry; prefix must be the branch's assigned /29"
+        - field: bgp.networks_advertised
+          constraint: Exactly one entry; prefix must be the branch's assigned /29
 
     # ──────────────────────────────────────────────────────
     # Constraint Group F: Lab State Gate
@@ -296,8 +296,8 @@ intents:
         constraints on active devices and raises an error if any fail.
 
       allowed_states:
-        - sot_only: "Record exists; no config generated; partial SoT data permitted"
-        - active: "Full validation required; config generated and pushed by pipeline"
+        - sot_only: Record exists; no config generated; partial SoT data permitted
+        - active: Full validation required; config generated and pushed by pipeline
 
       promotion_procedure: >
         1. Complete the branch SoT record with all required fields.
@@ -317,246 +317,246 @@ intents:
       # ── Group A: ASN Allocation ──────────────────────────────────
 
       - id: SC-201
-        description: "Branch ASN must be within the regional pool range"
+        description: Branch ASN must be within the regional pool range
         check_type: value_in_range
         target_devices: all_branches
-        field_path: "asn"
+        field_path: asn
         range_map:
-          emea-lon:    { min: 65100, max: 65111 }
+          emea-lon: { min: 65100, max: 65111 }
           americas-nyc: { min: 65120, max: 65127 }
-          apac:        { min: 65130, max: 65135 }
-          eu-fra:      { min: 65140, max: 65143 }
-        key_field: "region"
+          apac: { min: 65130, max: 65135 }
+          eu-fra: { min: 65140, max: 65143 }
+        key_field: region
         severity: critical
 
       - id: SC-202
-        description: "Branch ASN must be registered in sot/global/asn_pools.yml"
+        description: Branch ASN must be registered in sot/global/asn_pools.yml
         check_type: cross_reference
         target_devices: all_branches
-        source_field: "asn"
-        reference_file: "sot/global/asn_pools.yml"
-        reference_path: "asn_pools.branches.*.allocations[*].asn"
+        source_field: asn
+        reference_file: sot/global/asn_pools.yml
+        reference_path: asn_pools.branches.*.allocations[*].asn
         severity: critical
 
       - id: SC-203
-        description: "No two branch devices may share the same ASN"
+        description: No two branch devices may share the same ASN
         check_type: global_uniqueness
         target_devices: all_branches
-        field_path: "asn"
+        field_path: asn
         severity: critical
 
       # ── Group B: IP Prefix Allocation ───────────────────────────
 
       - id: SC-204
-        description: "Branch wan_prefix must be a /29"
+        description: Branch wan_prefix must be a /29
         check_type: prefix_length_exact
         target_devices: all_branches
-        field_path: "wan_prefix"
+        field_path: wan_prefix
         expected_prefix_length: 29
         severity: critical
 
       - id: SC-205
-        description: "Branch wan_prefix must fall within the correct regional supernet"
+        description: Branch wan_prefix must fall within the correct regional supernet
         check_type: prefix_within_supernet
         target_devices: all_branches
-        field_path: "wan_prefix"
+        field_path: wan_prefix
         supernet_map:
-          emea-lon:    "10.100.0.0/16"
-          americas-nyc: "10.101.0.0/16"
-          apac:        "10.102.0.0/16"
-          eu-fra:      "10.103.0.0/16"
-        key_field: "region"
+          emea-lon: 10.100.0.0/16
+          americas-nyc: 10.101.0.0/16
+          apac: 10.102.0.0/16
+          eu-fra: 10.103.0.0/16
+        key_field: region
         severity: critical
 
       - id: SC-206
-        description: "Branch wan_ip must be offset +1 from the /29 network address"
+        description: Branch wan_ip must be offset +1 from the /29 network address
         check_type: ip_offset_from_prefix
         target_devices: all_branches
-        prefix_field: "wan_prefix"
-        ip_field: "wan_ip"
+        prefix_field: wan_prefix
+        ip_field: wan_ip
         expected_offset: 1
         severity: critical
 
       - id: SC-207
-        description: "Branch uplink_peer_ip must be offset +2 from the /29 network address"
+        description: Branch uplink_peer_ip must be offset +2 from the /29 network address
         check_type: ip_offset_from_prefix
         target_devices: all_branches
-        prefix_field: "wan_prefix"
-        ip_field: "uplink_peer_ip"
+        prefix_field: wan_prefix
+        ip_field: uplink_peer_ip
         expected_offset: 2
         severity: critical
 
       - id: SC-208
-        description: "No two branches may share the same wan_prefix"
+        description: No two branches may share the same wan_prefix
         check_type: global_uniqueness
         target_devices: all_branches
-        field_path: "wan_prefix"
+        field_path: wan_prefix
         severity: critical
 
       - id: SC-209
-        description: "Branch wan_prefix and lan_prefix must be identical"
+        description: Branch wan_prefix and lan_prefix must be identical
         check_type: fields_equal
         target_devices: all_branches
-        field_a: "wan_prefix"
-        field_b: "lan_prefix"
+        field_a: wan_prefix
+        field_b: lan_prefix
         severity: high
-        rationale: "Branch LAN is the same /29 as the WAN link — no separate LAN allocation"
+        rationale: Branch LAN is the same /29 as the WAN link — no separate LAN allocation
 
       - id: SC-210
-        description: "Branch wan_prefix must be registered in sot/global/ipam.yml"
+        description: Branch wan_prefix must be registered in sot/global/ipam.yml
         check_type: cross_reference
         target_devices: all_branches
-        source_field: "wan_prefix"
-        reference_file: "sot/global/ipam.yml"
-        reference_path: "branches.*.branches.*.wan_prefix"
+        source_field: wan_prefix
+        reference_file: sot/global/ipam.yml
+        reference_path: branches.*.branches.*.wan_prefix
         severity: critical
 
       # ── Group C: Zone Restriction ────────────────────────────────
 
       - id: SC-211
-        description: "Branch security_zones must not include TRADING or TRADING_VRF"
+        description: Branch security_zones must not include TRADING or TRADING_VRF
         check_type: field_absence
         target_devices: all_branches
-        field_path: "security_zones"
-        must_not_contain: ["TRADING", "TRADING_VRF"]
+        field_path: security_zones
+        must_not_contain: [TRADING, TRADING_VRF]
         severity: critical
 
       - id: SC-212
-        description: "Branch security_zones must not include DMZ or DMZ_VRF"
+        description: Branch security_zones must not include DMZ or DMZ_VRF
         check_type: field_absence
         target_devices: all_branches
-        field_path: "security_zones"
-        must_not_contain: ["DMZ", "DMZ_VRF"]
+        field_path: security_zones
+        must_not_contain: [DMZ, DMZ_VRF]
         severity: high
 
       - id: SC-213
-        description: "Frankfurt DC device security_zones must not include TRADING"
+        description: Frankfurt DC device security_zones must not include TRADING
         check_type: field_absence
         target_sites: [fra-dc1]
-        field_path: "security_zones"
-        must_not_contain: ["TRADING", "TRADING_VRF"]
+        field_path: security_zones
+        must_not_contain: [TRADING, TRADING_VRF]
         severity: critical
-        regulatory_ref: "BAFIN-001 — Frankfurt entity not authorised for trading activity"
+        regulatory_ref: BAFIN-001 — Frankfurt entity not authorised for trading activity
 
       - id: SC-214
-        description: "Frankfurt DC device vlans list must not contain id=100"
+        description: Frankfurt DC device vlans list must not contain id=100
         check_type: list_value_absent
         target_sites: [fra-dc1]
-        field_path: "vlans[*].id"
+        field_path: vlans[*].id
         must_not_contain: [100]
         severity: critical
-        regulatory_ref: "BAFIN-001, ZONE-001 audit check"
+        regulatory_ref: BAFIN-001, ZONE-001 audit check
 
       - id: SC-215
-        description: "Frankfurt DC device vrfs must not contain TRADING_VRF"
+        description: Frankfurt DC device vrfs must not contain TRADING_VRF
         check_type: list_value_absent
         target_sites: [fra-dc1]
-        field_path: "vrfs[*].name"
-        must_not_contain: ["TRADING_VRF"]
+        field_path: vrfs[*].name
+        must_not_contain: [TRADING_VRF]
         severity: critical
 
       - id: SC-216
         description: "Frankfurt site record must have trading_zone_prohibited: true and vlans_prohibited containing 100"
         check_type: field_value
-        target_files: ["sot/sites/fra-dc1.yml"]
+        target_files: [sot/sites/fra-dc1.yml]
         checks:
-          - field: "site.trading_zone_prohibited"
+          - field: site.trading_zone_prohibited
             expected: true
-          - field: "site.vlans_prohibited"
+          - field: site.vlans_prohibited
             must_contain: [100]
-          - field: "site.zone_permissions.TRADING"
+          - field: site.zone_permissions.TRADING
             expected: false
         severity: critical
 
       # ── Group D: Compliance Tags ──────────────────────────────────
 
       - id: SC-217
-        description: "UK branches must carry compliance tags [fca, uk_gdpr]"
+        description: UK branches must carry compliance tags [fca, uk_gdpr]
         check_type: field_contains_all
-        target_devices: "branches where region == emea-lon"
-        field_path: "compliance_tags"
+        target_devices: branches where region == emea-lon
+        field_path: compliance_tags
         must_contain: [fca, uk_gdpr]
         severity: critical
 
       - id: SC-218
-        description: "US branches must carry compliance tags [sox, sec]"
+        description: US branches must carry compliance tags [sox, sec]
         check_type: field_contains_all
-        target_devices: "branches where region == americas-nyc"
-        field_path: "compliance_tags"
+        target_devices: branches where region == americas-nyc
+        field_path: compliance_tags
         must_contain: [sox, sec]
         severity: critical
 
       - id: SC-219
-        description: "APAC branches must carry compliance tag [mas_trm]"
+        description: APAC branches must carry compliance tag [mas_trm]
         check_type: field_contains_all
-        target_devices: "branches where region == apac"
-        field_path: "compliance_tags"
+        target_devices: branches where region == apac
+        field_path: compliance_tags
         must_contain: [mas_trm]
         severity: critical
 
       - id: SC-220
-        description: "EU branches must carry compliance tags [bafin, eu_gdpr, no_trading_zone]"
+        description: EU branches must carry compliance tags [bafin, eu_gdpr, no_trading_zone]
         check_type: field_contains_all
-        target_devices: "branches where region == eu-fra"
-        field_path: "compliance_tags"
+        target_devices: branches where region == eu-fra
+        field_path: compliance_tags
         must_contain: [bafin, eu_gdpr, no_trading_zone]
         severity: critical
 
       # ── Group E: BGP Configuration ───────────────────────────────
 
       - id: SC-221
-        description: "Branch bgp.local_as must match asn field"
+        description: Branch bgp.local_as must match asn field
         check_type: fields_equal
         target_devices: all_branches
-        field_a: "bgp.local_as"
-        field_b: "asn"
+        field_a: bgp.local_as
+        field_b: asn
         severity: critical
 
       - id: SC-222
-        description: "Branch bgp.router_id must equal wan_ip"
+        description: Branch bgp.router_id must equal wan_ip
         check_type: fields_equal
         target_devices: all_branches
-        field_a: "bgp.router_id"
-        field_b: "wan_ip"
+        field_a: bgp.router_id
+        field_b: wan_ip
         severity: high
 
       - id: SC-223
-        description: "Branch BGP neighbor peer_ip must equal uplink_peer_ip"
+        description: Branch BGP neighbor peer_ip must equal uplink_peer_ip
         check_type: fields_equal
         target_devices: all_branches
-        field_a: "bgp.neighbors[0].peer_ip"
-        field_b: "uplink_peer_ip"
+        field_a: bgp.neighbors[0].peer_ip
+        field_b: uplink_peer_ip
         severity: critical
 
       - id: SC-224
-        description: "Branch BGP neighbor md5_password_ref must be non-null"
+        description: Branch BGP neighbor md5_password_ref must be non-null
         check_type: field_non_null
         target_devices: all_branches
-        field_path: "bgp.neighbors[*].md5_password_ref"
+        field_path: bgp.neighbors[*].md5_password_ref
         severity: critical
 
       - id: SC-225
-        description: "Branch BGP neighbor route_map_out must be RM_BRANCH_OUT"
+        description: Branch BGP neighbor route_map_out must be RM_BRANCH_OUT
         check_type: field_value
         target_devices: all_branches
-        field_path: "bgp.neighbors[0].route_map_out"
-        expected: "RM_BRANCH_OUT"
+        field_path: bgp.neighbors[0].route_map_out
+        expected: RM_BRANCH_OUT
         severity: critical
 
       - id: SC-226
-        description: "Branch networks_advertised must contain exactly one /29 matching wan_prefix"
+        description: Branch networks_advertised must contain exactly one /29 matching wan_prefix
         check_type: list_length_exact
         target_devices: all_branches
-        field_path: "bgp.networks_advertised"
+        field_path: bgp.networks_advertised
         expected_length: 1
         severity: critical
 
       - id: SC-227
-        description: "Branch advertised prefix must match wan_prefix"
+        description: Branch advertised prefix must match wan_prefix
         check_type: fields_equal
         target_devices: all_branches
-        field_a: "bgp.networks_advertised[0].prefix"
-        field_b: "wan_prefix"
+        field_a: bgp.networks_advertised[0].prefix
+        field_b: wan_prefix
         severity: critical
 
       # ── Group F: Lab State Gate ──────────────────────────────────
@@ -564,7 +564,7 @@ intents:
       - id: SC-228
         description: "A device may only have lab_state: active if all other SoT checks pass"
         check_type: conditional
-        condition: "lab_state == active"
+        condition: lab_state == active
         required_checks: [SC-201, SC-202, SC-203, SC-204, SC-205, SC-206, SC-207, SC-208,
                           SC-209, SC-210, SC-211, SC-212, SC-217, SC-218, SC-219, SC-220,
                           SC-221, SC-222, SC-223, SC-224, SC-225, SC-226, SC-227]
@@ -581,36 +581,36 @@ intents:
       # These run after validate_sot.py and provide a second verification
       # layer that catches rendering errors (e.g., template bug that adds
       # VLAN 100 to a Frankfurt device despite the SoT being correct).
-      test_file: "batfish/tests/test_zone_isolation.py"
+      test_file: batfish/tests/test_zone_isolation.py
 
       assertions:
 
         - id: BA-201
-          function: "test_branch_has_no_trading_vrf"
+          function: test_branch_has_no_trading_vrf
           description: >
             Assert that no branch node in the network model has an
             interface in TRADING_VRF or a route in the TRADING_VRF
             routing table. This catches template rendering errors
             that might add TRADING config despite the SoT being correct.
-          pybatfish_api: "interfaceProperties"
+          pybatfish_api: interfaceProperties
           parameters:
-            nodes: "branch-.*"
-            properties: ["VRF"]
-          expected_result: "No branch interface is in TRADING_VRF"
-          failure_action: "BLOCK pipeline"
+            nodes: branch-.*
+            properties: [VRF]
+          expected_result: No branch interface is in TRADING_VRF
+          failure_action: BLOCK pipeline
 
         - id: BA-202
-          function: "test_frankfurt_devices_have_no_vlan100"
+          function: test_frankfurt_devices_have_no_vlan100
           description: >
             Assert that no device at fra-dc1 has VLAN 100 in its
             switched VLAN properties in the Batfish network model.
             Duplicates BA-004 from zone_isolation.yml but applied
             in the provisioning test suite for exercise coverage.
-          pybatfish_api: "switchedVlanProperties"
+          pybatfish_api: switchedVlanProperties
           parameters:
-            nodes: ".*-fra-.*"
-          expected_result: "VLAN 100 absent from all Frankfurt nodes"
-          failure_action: "BLOCK pipeline — critical regulatory violation"
+            nodes: .*-fra-.*
+          expected_result: VLAN 100 absent from all Frankfurt nodes
+          failure_action: BLOCK pipeline — critical regulatory violation
 
     violation:
       severity: critical

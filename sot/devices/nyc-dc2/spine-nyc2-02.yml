@@ -32,19 +32,19 @@ loopback:
 
 interfaces:
   - name: Ethernet1
-    description: "P2P -> leaf-nyc2-01 Ethernet2"
+    description: P2P -> leaf-nyc2-01 Ethernet2
     ip: 10.11.100.8/31
     peer_device: leaf-nyc2-01
     peer_interface: Ethernet2
     mtu: 9214
   - name: Ethernet2
-    description: "P2P -> leaf-nyc2-02 Ethernet2"
+    description: P2P -> leaf-nyc2-02 Ethernet2
     ip: 10.11.100.10/31
     peer_device: leaf-nyc2-02
     peer_interface: Ethernet2
     mtu: 9214
   - name: Ethernet5
-    description: "P2P -> border-nyc2-01 Ethernet2"
+    description: P2P -> border-nyc2-01 Ethernet2
     ip: 10.11.100.18/31
     peer_device: border-nyc2-01
     peer_interface: Ethernet2
@@ -57,25 +57,25 @@ bgp:
   neighbors:
     - peer_ip: 10.11.255.1
       remote_as: 65011
-      description: "iBGP peer -> spine-nyc2-01"
+      description: iBGP peer -> spine-nyc2-01
       update_source: Loopback0
       route_reflector_client: false
       md5_password_ref: bgp_md5_nyc_dc2_fabric
     - peer_ip: 10.11.255.11
       remote_as: 65011
-      description: "iBGP RR client -> leaf-nyc2-01"
+      description: iBGP RR client -> leaf-nyc2-01
       update_source: Loopback0
       route_reflector_client: true
       md5_password_ref: bgp_md5_nyc_dc2_fabric
     - peer_ip: 10.11.255.12
       remote_as: 65011
-      description: "iBGP RR client -> leaf-nyc2-02"
+      description: iBGP RR client -> leaf-nyc2-02
       update_source: Loopback0
       route_reflector_client: true
       md5_password_ref: bgp_md5_nyc_dc2_fabric
     - peer_ip: 10.11.255.20
       remote_as: 65011
-      description: "iBGP RR client -> border-nyc2-01"
+      description: iBGP RR client -> border-nyc2-01
       update_source: Loopback0
       route_reflector_client: true
       md5_password_ref: bgp_md5_nyc_dc2_fabric

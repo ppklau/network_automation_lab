@@ -54,31 +54,31 @@ vlans:
 
 interfaces:
   - name: Ethernet1
-    description: "P2P -> spine-lon2-01 Ethernet3"
+    description: P2P -> spine-lon2-01 Ethernet3
     ip: 10.2.100.5/31
     peer_device: spine-lon2-01
     peer_interface: Ethernet3
     mtu: 9214
   - name: Ethernet2
-    description: "P2P -> spine-lon2-02 Ethernet3"
+    description: P2P -> spine-lon2-02 Ethernet3
     ip: 10.2.100.13/31
     peer_device: spine-lon2-02
     peer_interface: Ethernet3
     mtu: 9214
   - name: Ethernet3
-    description: "Server access — DMZ VLAN 300"
+    description: Server access — DMZ VLAN 300
     mode: access
     access_vlan: 300
     mtu: 9214
   - name: Ethernet4
-    description: "fw-lon2-01 eth2 (internal-facing)"
+    description: fw-lon2-01 eth2 (internal-facing)
     peer_device: fw-lon2-01
     peer_interface: eth2
     mode: access
     access_vlan: 300
     mtu: 9214
   - name: Ethernet5
-    description: "Server trunk — CORPORATE VLAN 200"
+    description: Server trunk — CORPORATE VLAN 200
     mode: access
     access_vlan: 200
     mtu: 9214
@@ -116,11 +116,11 @@ bgp:
   neighbors:
     - peer_ip: 10.2.255.1
       remote_as: 65002
-      description: "iBGP RR -> spine-lon2-01"
+      description: iBGP RR -> spine-lon2-01
       update_source: Loopback0
       md5_password_ref: bgp_md5_lon_dc2_fabric
     - peer_ip: 10.2.255.2
       remote_as: 65002
-      description: "iBGP RR -> spine-lon2-02"
+      description: iBGP RR -> spine-lon2-02
       update_source: Loopback0
       md5_password_ref: bgp_md5_lon_dc2_fabric

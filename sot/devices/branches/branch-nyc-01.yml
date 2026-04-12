@@ -10,7 +10,7 @@ fqdn: branch-nyc-01.americas.acme-investments.internal
 role: branch
 platform: frr
 image: quay.io/frrouting/frr:9.1.3
-hardware_model: "FRR Virtual Router (branch CPE)"
+hardware_model: FRR Virtual Router (branch CPE)
 device_serial: BRNNYC2401001
 eol_date: "2028-06-30"
 
@@ -31,19 +31,19 @@ management:
 
 interfaces:
   - name: eth0
-    description: "OOB management"
+    description: OOB management
     ip: 10.101.0.1/29
     mtu: 1500
 
   - name: eth1
-    description: "WAN uplink -> border-nyc-01 [eBGP AS65120<->AS65010]"
+    description: WAN uplink -> border-nyc-01 [eBGP AS65120<->AS65010]
     ip: 10.101.0.1/29
     peer_device: border-nyc-01
     peer_ip: 10.101.0.2
     mtu: 9000
 
   - name: eth2
-    description: "LAN — branch office network"
+    description: LAN — branch office network
     ip: 10.101.0.1/29
     mtu: 1500
 
@@ -53,10 +53,10 @@ bgp:
   neighbors:
     - peer_ip: 10.101.0.2
       remote_as: 65010
-      description: "eBGP -> border-nyc-01"
+      description: eBGP -> border-nyc-01
       md5_password_ref: bgp_md5_branch_nyc_01
       route_map_out: RM_BRANCH_OUT
   networks_advertised:
     - prefix: 10.101.0.0/29
-      description: "Branch LAN"
+      description: Branch LAN
   log_neighbor_changes: true

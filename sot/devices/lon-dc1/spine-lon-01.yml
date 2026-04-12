@@ -37,7 +37,7 @@ management:
 loopback:
   interface: Loopback0
   ip: 10.1.255.1/32
-  description: "Router-ID and BGP next-hop"
+  description: Router-ID and BGP next-hop
 
 ntp_source_interface: Loopback0
 logging_source_interface: Loopback0
@@ -48,15 +48,15 @@ snmp_source_interface: Loopback0
 # ──────────────────────────────────────────
 vrfs:
   - name: MGMT
-    description: "Out-of-band management VRF"
-    rd: "65001:999"
+    description: Out-of-band management VRF
+    rd: 65001:999
 
 # ──────────────────────────────────────────
 # Interfaces
 # ──────────────────────────────────────────
 interfaces:
   - name: Ethernet1
-    description: "P2P -> leaf-lon-01 Ethernet1 [fabric]"
+    description: P2P -> leaf-lon-01 Ethernet1 [fabric]
     ip: 10.1.100.0/31       # spine=.0, leaf=.1
     peer_device: leaf-lon-01
     peer_interface: Ethernet1
@@ -65,7 +65,7 @@ interfaces:
     vrf: default
 
   - name: Ethernet2
-    description: "P2P -> leaf-lon-02 Ethernet1 [fabric]"
+    description: P2P -> leaf-lon-02 Ethernet1 [fabric]
     ip: 10.1.100.2/31       # spine=.2, leaf=.3
     peer_device: leaf-lon-02
     peer_interface: Ethernet1
@@ -74,7 +74,7 @@ interfaces:
     vrf: default
 
   - name: Ethernet3
-    description: "P2P -> leaf-lon-03 Ethernet1 [fabric]"
+    description: P2P -> leaf-lon-03 Ethernet1 [fabric]
     ip: 10.1.100.4/31       # spine=.4, leaf=.5
     peer_device: leaf-lon-03
     peer_interface: Ethernet1
@@ -83,7 +83,7 @@ interfaces:
     vrf: default
 
   - name: Ethernet4
-    description: "P2P -> leaf-lon-04 Ethernet1 [fabric]"
+    description: P2P -> leaf-lon-04 Ethernet1 [fabric]
     ip: 10.1.100.6/31       # spine=.6, leaf=.7
     peer_device: leaf-lon-04
     peer_interface: Ethernet1
@@ -92,7 +92,7 @@ interfaces:
     vrf: default
 
   - name: Ethernet5
-    description: "P2P -> border-lon-01 Ethernet1 [fabric]"
+    description: P2P -> border-lon-01 Ethernet1 [fabric]
     ip: 10.1.100.16/31      # spine=.16, border=.17
     peer_device: border-lon-01
     peer_interface: Ethernet1
@@ -101,12 +101,12 @@ interfaces:
     vrf: default
 
   - name: Loopback0
-    description: "Router-ID / BGP next-hop"
+    description: Router-ID / BGP next-hop
     ip: 10.1.255.1/32
     vrf: default
 
   - name: Management0
-    description: "OOB management"
+    description: OOB management
     ip: 10.1.0.1/25
     vrf: MGMT
 
@@ -123,7 +123,7 @@ bgp:
   neighbors:
     - peer_ip: 10.1.255.2
       remote_as: 65001
-      description: "iBGP peer -> spine-lon-02 (non-RR-client peer between RRs)"
+      description: iBGP peer -> spine-lon-02 (non-RR-client peer between RRs)
       update_source: Loopback0
       route_reflector_client: false   # peer between RRs — not a client
       md5_password_ref: bgp_md5_lon_dc1_fabric
@@ -134,7 +134,7 @@ bgp:
 
     - peer_ip: 10.1.255.11
       remote_as: 65001
-      description: "iBGP RR client -> leaf-lon-01"
+      description: iBGP RR client -> leaf-lon-01
       update_source: Loopback0
       route_reflector_client: true
       md5_password_ref: bgp_md5_lon_dc1_fabric
@@ -145,7 +145,7 @@ bgp:
 
     - peer_ip: 10.1.255.12
       remote_as: 65001
-      description: "iBGP RR client -> leaf-lon-02"
+      description: iBGP RR client -> leaf-lon-02
       update_source: Loopback0
       route_reflector_client: true
       md5_password_ref: bgp_md5_lon_dc1_fabric
@@ -156,7 +156,7 @@ bgp:
 
     - peer_ip: 10.1.255.13
       remote_as: 65001
-      description: "iBGP RR client -> leaf-lon-03"
+      description: iBGP RR client -> leaf-lon-03
       update_source: Loopback0
       route_reflector_client: true
       md5_password_ref: bgp_md5_lon_dc1_fabric
@@ -167,7 +167,7 @@ bgp:
 
     - peer_ip: 10.1.255.14
       remote_as: 65001
-      description: "iBGP RR client -> leaf-lon-04"
+      description: iBGP RR client -> leaf-lon-04
       update_source: Loopback0
       route_reflector_client: true
       md5_password_ref: bgp_md5_lon_dc1_fabric
@@ -178,7 +178,7 @@ bgp:
 
     - peer_ip: 10.1.255.20
       remote_as: 65001
-      description: "iBGP RR client -> border-lon-01"
+      description: iBGP RR client -> border-lon-01
       update_source: Loopback0
       route_reflector_client: true
       md5_password_ref: bgp_md5_lon_dc1_fabric
@@ -194,7 +194,7 @@ bgp:
 
   networks_advertised:
     - prefix: 10.1.255.1/32
-      description: "Loopback — always advertise for reachability"
+      description: Loopback — always advertise for reachability
 
   timers:
     keepalive: 30

@@ -34,7 +34,7 @@ management:
 loopback:
   interface: Loopback0
   ip: 10.1.255.13/32
-  description: "Router-ID and BGP next-hop"
+  description: Router-ID and BGP next-hop
 
 ntp_source_interface: Loopback0
 logging_source_interface: Loopback0
@@ -42,28 +42,28 @@ snmp_source_interface: Loopback0
 
 vrfs:
   - name: MGMT
-    description: "Out-of-band management"
-    rd: "65001:999"
+    description: Out-of-band management
+    rd: 65001:999
   - name: TRADING_VRF
-    description: "Equities/FX trading systems"
-    rd: "65001:100"
-    route_target_import: "65001:100"
-    route_target_export: "65001:100"
+    description: Equities/FX trading systems
+    rd: 65001:100
+    route_target_import: 65001:100
+    route_target_export: 65001:100
   - name: CORPORATE_VRF
-    description: "Corporate workstations and servers"
-    rd: "65001:200"
-    route_target_import: "65001:200"
-    route_target_export: "65001:200"
+    description: Corporate workstations and servers
+    rd: 65001:200
+    route_target_import: 65001:200
+    route_target_export: 65001:200
   - name: DMZ_VRF
-    description: "DMZ — internet-facing and partner connectivity"
-    rd: "65001:300"
-    route_target_import: "65001:300"
-    route_target_export: "65001:300"
+    description: DMZ — internet-facing and partner connectivity
+    rd: 65001:300
+    route_target_import: 65001:300
+    route_target_export: 65001:300
   - name: MGMT_VRF
-    description: "Network device management data plane"
-    rd: "65001:400"
-    route_target_import: "65001:400"
-    route_target_export: "65001:400"
+    description: Network device management data plane
+    rd: 65001:400
+    route_target_import: 65001:400
+    route_target_export: 65001:400
 
 vlans:
   - vlan_id: 100
@@ -92,7 +92,7 @@ vlans:
 
 interfaces:
   - name: Ethernet1
-    description: "P2P -> spine-lon-01 Ethernet3 [fabric]"
+    description: P2P -> spine-lon-01 Ethernet3 [fabric]
     ip: 10.1.100.5/31         # leaf=.5, spine=.4
     peer_device: spine-lon-01
     peer_interface: Ethernet3
@@ -101,7 +101,7 @@ interfaces:
     vrf: default
 
   - name: Ethernet2
-    description: "P2P -> spine-lon-02 Ethernet3 [fabric]"
+    description: P2P -> spine-lon-02 Ethernet3 [fabric]
     ip: 10.1.100.13/31        # leaf=.13, spine=.12
     peer_device: spine-lon-02
     peer_interface: Ethernet3
@@ -110,7 +110,7 @@ interfaces:
     vrf: default
 
   - name: Ethernet3
-    description: "Server access port — DMZ VLAN 300"
+    description: Server access port — DMZ VLAN 300
     mode: access
     access_vlan: 300
     peer_device: srv-dmz-01
@@ -119,7 +119,7 @@ interfaces:
     speed: 10G
 
   - name: Ethernet4
-    description: "Server access port — DMZ VLAN 300"
+    description: Server access port — DMZ VLAN 300
     mode: access
     access_vlan: 300
     peer_device: srv-dmz-02
@@ -128,7 +128,7 @@ interfaces:
     speed: 10G
 
   - name: Ethernet5
-    description: "fw-lon-01 internal facing eth2 (leaf-lon-03 -> FW)"
+    description: fw-lon-01 internal facing eth2 (leaf-lon-03 -> FW)
     mode: access
     access_vlan: 300           # DMZ traffic towards firewall internal interface
     peer_device: fw-lon-01
@@ -137,7 +137,7 @@ interfaces:
     speed: 10G
 
   - name: Ethernet6
-    description: "Server trunk — CORPORATE VLAN 200"
+    description: Server trunk — CORPORATE VLAN 200
     mode: access
     access_vlan: 200
     peer_device: srv-corp-05
@@ -146,36 +146,36 @@ interfaces:
     speed: 10G
 
   - name: Vlan100
-    description: "SVI TRADING — leaf-lon-03 standby"
+    description: SVI TRADING — leaf-lon-03 standby
     ip: 10.1.1.4/24
     vrf: TRADING_VRF
     vrrp_group: 10
 
   - name: Vlan200
-    description: "SVI CORPORATE — leaf-lon-03 standby"
+    description: SVI CORPORATE — leaf-lon-03 standby
     ip: 10.1.2.5/22
     vrf: CORPORATE_VRF
     vrrp_group: 20
 
   - name: Vlan300
-    description: "SVI DMZ — leaf-lon-03 ACTIVE gateway"
+    description: SVI DMZ — leaf-lon-03 ACTIVE gateway
     ip: 10.1.6.2/24
     vrf: DMZ_VRF
     vrrp_group: 30
 
   - name: Vlan400
-    description: "SVI MGMT — leaf-lon-03 standby"
+    description: SVI MGMT — leaf-lon-03 standby
     ip: 10.1.0.5/25
     vrf: MGMT_VRF
     vrrp_group: 40
 
   - name: Loopback0
-    description: "Router-ID / BGP next-hop"
+    description: Router-ID / BGP next-hop
     ip: 10.1.255.13/32
     vrf: default
 
   - name: Management0
-    description: "OOB management"
+    description: OOB management
     ip: 10.1.0.13/25
     vrf: MGMT
 
@@ -226,7 +226,7 @@ bgp:
   neighbors:
     - peer_ip: 10.1.255.1
       remote_as: 65001
-      description: "iBGP RR -> spine-lon-01"
+      description: iBGP RR -> spine-lon-01
       update_source: Loopback0
       route_reflector_client: false
       md5_password_ref: bgp_md5_lon_dc1_fabric
@@ -237,7 +237,7 @@ bgp:
 
     - peer_ip: 10.1.255.2
       remote_as: 65001
-      description: "iBGP RR -> spine-lon-02"
+      description: iBGP RR -> spine-lon-02
       update_source: Loopback0
       route_reflector_client: false
       md5_password_ref: bgp_md5_lon_dc1_fabric
@@ -248,18 +248,18 @@ bgp:
 
   networks_advertised:
     - prefix: 10.1.255.13/32
-      description: "Loopback"
+      description: Loopback
     - prefix: 10.1.1.0/24
-      description: "TRADING SVI"
+      description: TRADING SVI
       vrf: TRADING_VRF
     - prefix: 10.1.2.0/22
-      description: "CORPORATE SVI"
+      description: CORPORATE SVI
       vrf: CORPORATE_VRF
     - prefix: 10.1.6.0/24
-      description: "DMZ SVI"
+      description: DMZ SVI
       vrf: DMZ_VRF
     - prefix: 10.1.0.0/25
-      description: "MGMT SVI"
+      description: MGMT SVI
       vrf: MGMT_VRF
 
   timers:

@@ -5,13 +5,13 @@
 # Last reviewed: 2026-03-01
 
 site:
-  name: "Frankfurt Data Centre 1"
+  name: Frankfurt Data Centre 1
   code: fra-dc1
   short_code: fra1
   region: eu-fra
-  address: "Kaiserleistrasse 10, Offenbach am Main, 63067, Germany"
+  address: Kaiserleistrasse 10, Offenbach am Main, 63067, Germany
   country: Germany
-  tier: "Tier III+"
+  tier: Tier III+
   lab_instantiated: false   # border-fra-01 stub only
 
   network_os_primary: arista_eos
@@ -30,7 +30,7 @@ site:
       vrf: CORPORATE_VRF
       prefix: 10.30.2.0/22
       gateway_vip: 10.30.2.1
-      description: "Corporate workstations and regulatory reporting servers"
+      description: Corporate workstations and regulatory reporting servers
       active: true
 
     - vlan_id: 300
@@ -38,7 +38,7 @@ site:
       vrf: DMZ_VRF
       prefix: 10.30.6.0/24
       gateway_vip: 10.30.6.1
-      description: "DMZ — BaFin/regulatory portal connectivity"
+      description: DMZ — BaFin/regulatory portal connectivity
       active: true
 
     - vlan_id: 400
@@ -49,25 +49,25 @@ site:
       active: true
 
   zone_permissions:
-    TRADING:    false   # PROHIBITED — See compliance/zone_policies.yml ZONE-001
-    CORPORATE:  true
-    DMZ:        true
-    MGMT_ZONE:  true
+    TRADING: false   # PROHIBITED — See compliance/zone_policies.yml ZONE-001
+    CORPORATE: true
+    DMZ: true
+    MGMT_ZONE: true
 
   subnets:
-    management:     10.30.0.0/25
-    loopbacks:      10.30.255.0/24
-    fabric_p2p:     10.30.100.0/24
-    corporate_svi:  10.30.2.0/22
-    dmz_svi:        10.30.6.0/24
+    management: 10.30.0.0/25
+    loopbacks: 10.30.255.0/24
+    fabric_p2p: 10.30.100.0/24
+    corporate_svi: 10.30.2.0/22
+    dmz_svi: 10.30.6.0/24
 
   management_ips:
-    spine-fra-01:   10.30.0.1
-    spine-fra-02:   10.30.0.2
-    leaf-fra-01:    10.30.0.11
-    leaf-fra-02:    10.30.0.12
-    border-fra-01:  10.30.0.20
-    fw-fra-01:      10.30.0.30
+    spine-fra-01: 10.30.0.1
+    spine-fra-02: 10.30.0.2
+    leaf-fra-01: 10.30.0.11
+    leaf-fra-02: 10.30.0.12
+    border-fra-01: 10.30.0.20
+    fw-fra-01: 10.30.0.30
 
   devices:
     - hostname: spine-fra-01

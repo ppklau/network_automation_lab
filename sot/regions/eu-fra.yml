@@ -5,10 +5,10 @@
 # Last reviewed: 2026-03-01
 
 region:
-  name: "EU Regulatory Frankfurt"
+  name: EU Regulatory Frankfurt
   code: eu-fra
   timezone: Europe/Berlin
-  utc_offset: "+01:00"    # CET; CEST (+02:00) during summer
+  utc_offset: +01:00    # CET; CEST (+02:00) during summer
   country: Germany
   city: Frankfurt am Main
 
@@ -32,9 +32,9 @@ region:
 
   data_centres:
     - site_code: fra-dc1
-      name: "Frankfurt Data Centre 1"
-      address: "Kaiserleistrasse 10, Offenbach am Main, 63067"
-      tier: "Tier III+"
+      name: Frankfurt Data Centre 1
+      address: Kaiserleistrasse 10, Offenbach am Main, 63067
+      tier: Tier III+
       primary: true
       lab_instantiated: false   # border-fra-01 stub active in lab
       asn: 65030
@@ -42,36 +42,36 @@ region:
 
   branch_count: 4
   branch_prefix_pool: 10.103.0.0/16
-  branch_asn_range: "65140–65143"
+  branch_asn_range: 65140–65143
   branch_uplink_dc: fra-dc1
   branch_uplink_border: border-fra-01
   branch_trading_zone_prohibited: true   # EU branches inherit the restriction
 
   contacts:
-    network_lead: "fra-neteng@acme-investments.com"
-    on_call: "+49-69-0000-0000"
-    noc: "noc@acme-investments.com"
-    compliance: "compliance-eu@acme-investments.com"
-    data_protection_officer: "dpo@acme-investments.com"
+    network_lead: fra-neteng@acme-investments.com
+    on_call: +49-69-0000-0000
+    noc: noc@acme-investments.com
+    compliance: compliance-eu@acme-investments.com
+    data_protection_officer: dpo@acme-investments.com
 
   inter_region_links:
     - peer_region: emea-lon
       wan_prefix: 10.0.3.0/31
       local_border: border-fra-01
       remote_border: border-lon-01
-      circuit_id: "LON-FRA-WAN-001"
-      provider: "Deutsche Telekom"
+      circuit_id: LON-FRA-WAN-001
+      provider: Deutsche Telekom
       bandwidth_gbps: 10
-      policy_note: "TRADING prefixes must be filtered on both directions of this link"
+      policy_note: TRADING prefixes must be filtered on both directions of this link
 
   change_management:
     change_freeze_windows:
-      - name: "EU quarter-end"
+      - name: EU quarter-end
         recurring: quarterly
-      - name: "German banking holidays"
-        description: "Good Friday, Christmas Eve"
-      - name: "MiFID II reporting deadline"
-        description: "T+1 transaction report submission — no changes on reporting days"
-    change_window: "Saturday 23:00–Sunday 05:00 CET"
-    approver_group: "fra-netops-approvers"
-    additional_approver: "data-protection-officer"  # DPO sign-off required for data-plane changes
+      - name: German banking holidays
+        description: Good Friday, Christmas Eve
+      - name: MiFID II reporting deadline
+        description: T+1 transaction report submission — no changes on reporting days
+    change_window: Saturday 23:00–Sunday 05:00 CET
+    approver_group: fra-netops-approvers
+    additional_approver: data-protection-officer  # DPO sign-off required for data-plane changes

@@ -41,15 +41,15 @@
 # ──────────────────────────────────────────────────────────────────────
 
 mifid2:
-  full_name: "Markets in Financial Instruments Directive II"
+  full_name: Markets in Financial Instruments Directive II
   regulator: [ESMA, FCA]
   regions_in_scope: [emea-lon, eu-fra]
-  acme_entity: "ACME Investments (UK) Ltd / ACME Investments GmbH (Frankfurt)"
+  acme_entity: ACME Investments (UK) Ltd / ACME Investments GmbH (Frankfurt)
 
   obligations:
 
     - id: MIFID2-001
-      article: "Article 17(1) — Algorithmic trading controls"
+      article: Article 17(1) — Algorithmic trading controls
       obligation: >
         Investment firms that engage in algorithmic trading must have
         effective systems and risk controls suited to the business they
@@ -67,14 +67,14 @@ mifid2:
       verification:
         type: automated
         checks:
-          - "batfish/tests/test_zone_isolation.py — test_trading_to_corporate_denied"
-          - "batfish/tests/test_zone_isolation.py — test_trading_to_dmz_denied"
-          - "batfish/tests/test_resilience.py — test_ecmp_paths_exist"
-          - "batfish/tests/test_resilience.py — test_wan_redundancy"
+          - batfish/tests/test_zone_isolation.py — test_trading_to_corporate_denied
+          - batfish/tests/test_zone_isolation.py — test_trading_to_dmz_denied
+          - batfish/tests/test_resilience.py — test_ecmp_paths_exist
+          - batfish/tests/test_resilience.py — test_wan_redundancy
       gap: null
 
     - id: MIFID2-002
-      article: "Article 17(1) — Segregation of trading systems"
+      article: Article 17(1) — Segregation of trading systems
       obligation: >
         Systems used for algorithmic trading must be operationally
         segregated from non-trading systems. Physical or logical
@@ -88,13 +88,13 @@ mifid2:
       verification:
         type: automated
         checks:
-          - "batfish/tests/test_zone_isolation.py — test_vrf_route_leak"
-          - "batfish/tests/test_frankfurt_isolation.py — test_no_trading_vlan_fra"
-          - "scripts/validate_sot.py — confirms Frankfurt devices have no TRADING zone"
+          - batfish/tests/test_zone_isolation.py — test_vrf_route_leak
+          - batfish/tests/test_frankfurt_isolation.py — test_no_trading_vlan_fra
+          - scripts/validate_sot.py — confirms Frankfurt devices have no TRADING zone
       gap: null
 
     - id: MIFID2-003
-      article: "Article 25(2) — Transaction record keeping"
+      article: Article 25(2) — Transaction record keeping
       obligation: >
         Investment firms must keep records of all services, activities,
         and transactions undertaken. Records must be kept for at least
@@ -110,12 +110,12 @@ mifid2:
       verification:
         type: automated
         checks:
-          - "playbooks/audit_artefact.yml — generates signed diff per pipeline run"
+          - playbooks/audit_artefact.yml — generates signed diff per pipeline run
           - "sot/global/platform_defaults.yml — logging.trap_level: informational"
       gap: null
 
     - id: MIFID2-004
-      article: "RTS 25 — Clock synchronisation"
+      article: RTS 25 — Clock synchronisation
       obligation: >
         Trading venues and their members must synchronise their business
         clocks to UTC. Gateway-to-gateway latency must be recorded to
@@ -132,7 +132,7 @@ mifid2:
       verification:
         type: automated
         checks:
-          - "playbooks/daily_health_check.yml — NTP sync state check"
+          - playbooks/daily_health_check.yml — NTP sync state check
           - "sot/global/platform_defaults.yml — ntp.authenticate: true"
       gap: >
         PTP (IEEE 1588) for sub-microsecond trading system clock sync
@@ -141,7 +141,7 @@ mifid2:
         device clock sync only.
 
     - id: MIFID2-005
-      article: "RTS 7 — Organisational requirements — IT systems"
+      article: RTS 7 — Organisational requirements — IT systems
       obligation: >
         Investment firms must maintain adequate and orderly records of
         their IT infrastructure. Systems must be documented and their
@@ -156,8 +156,8 @@ mifid2:
       verification:
         type: automated
         checks:
-          - "scripts/validate_sot.py — verifies all required SoT fields present"
-          - "schema/device.schema.json — enforces required fields on every device record"
+          - scripts/validate_sot.py — verifies all required SoT fields present
+          - schema/device.schema.json — enforces required fields on every device record
       gap: null
 
 # ──────────────────────────────────────────────────────────────────────
@@ -168,15 +168,15 @@ mifid2:
 # ──────────────────────────────────────────────────────────────────────
 
 fca:
-  full_name: "Financial Conduct Authority"
+  full_name: Financial Conduct Authority
   regulator: FCA
   regions_in_scope: [emea-lon]
-  acme_entity: "ACME Investments (UK) Ltd — FCA reference 123456"
+  acme_entity: ACME Investments (UK) Ltd — FCA reference 123456
 
   obligations:
 
     - id: FCA-001
-      article: "SYSC 9.1 — Record-keeping requirements"
+      article: SYSC 9.1 — Record-keeping requirements
       obligation: >
         A firm must arrange for orderly records to be kept of its
         business and internal organisation. Records relevant to
@@ -192,12 +192,12 @@ fca:
       verification:
         type: mixed
         checks:
-          - "playbooks/audit_artefact.yml — CI/CD artefact retention"
+          - playbooks/audit_artefact.yml — CI/CD artefact retention
           - "Syslog retention policy: manual verification with Graylog admin"
       gap: null
 
     - id: FCA-002
-      article: "SYSC 13.9 — Information security — network controls"
+      article: SYSC 13.9 — Information security — network controls
       obligation: >
         Firms must have effective information security arrangements,
         including controls on network access, encryption of management
@@ -214,13 +214,13 @@ fca:
       verification:
         type: automated
         checks:
-          - "batfish/tests/test_bgp_standards.py — test_md5_on_all_sessions"
-          - "scripts/validate_sot.py — no Telnet, SSHv2 compliance"
-          - "playbooks/compliance_report.yml — SSH and SNMP version checks"
+          - batfish/tests/test_bgp_standards.py — test_md5_on_all_sessions
+          - scripts/validate_sot.py — no Telnet, SSHv2 compliance
+          - playbooks/compliance_report.yml — SSH and SNMP version checks
       gap: null
 
     - id: FCA-003
-      article: "SYSC 6.1 — Compliance function"
+      article: SYSC 6.1 — Compliance function
       obligation: >
         A firm must establish, implement, and maintain adequate policies
         and procedures designed to detect any risk of failure to comply
@@ -236,12 +236,12 @@ fca:
       verification:
         type: automated
         checks:
-          - "playbooks/compliance_report.yml"
-          - ".gitlab-ci.yml — validate stage runs on every MR"
+          - playbooks/compliance_report.yml
+          - .gitlab-ci.yml — validate stage runs on every MR
       gap: null
 
     - id: FCA-004
-      article: "PS21/3 — Operational resilience"
+      article: PS21/3 — Operational resilience
       obligation: >
         Firms must identify important business services (IBS), set
         impact tolerances for each, and ensure they can remain within
@@ -258,13 +258,13 @@ fca:
       verification:
         type: automated
         checks:
-          - "batfish/tests/test_resilience.py — test_ecmp_paths_exist"
-          - "batfish/tests/test_resilience.py — test_two_spines_per_dc"
-          - "batfish/tests/test_resilience.py — test_wan_redundancy"
+          - batfish/tests/test_resilience.py — test_ecmp_paths_exist
+          - batfish/tests/test_resilience.py — test_two_spines_per_dc
+          - batfish/tests/test_resilience.py — test_wan_redundancy
       gap: null
 
     - id: FCA-005
-      article: "MAR 7A — Algorithmic trading — organisational requirements"
+      article: MAR 7A — Algorithmic trading — organisational requirements
       obligation: >
         Firms engaged in algorithmic trading must have systems and
         controls that are separate from those used by other business
@@ -279,11 +279,11 @@ fca:
       verification:
         type: automated
         checks:
-          - "batfish/tests/test_zone_isolation.py"
+          - batfish/tests/test_zone_isolation.py
       gap: null
 
     - id: FCA-006
-      article: "COBS 11.2 — Best execution — order routing controls"
+      article: COBS 11.2 — Best execution — order routing controls
       obligation: >
         Firms must take all sufficient steps to obtain the best possible
         result for their clients when executing orders. Network paths
@@ -297,7 +297,7 @@ fca:
       verification:
         type: mixed
         checks:
-          - "batfish/tests/test_zone_isolation.py — trading zone integrity"
+          - batfish/tests/test_zone_isolation.py — trading zone integrity
           - "Latency monitoring: monitoring/grafana/dashboards/trading_zone.json"
       gap: null
 
@@ -310,15 +310,15 @@ fca:
 # ──────────────────────────────────────────────────────────────────────
 
 gdpr:
-  full_name: "General Data Protection Regulation (EU) / UK GDPR"
+  full_name: General Data Protection Regulation (EU) / UK GDPR
   regulator: [ICO, BaFin_as_DPA, CNIL]
   regions_in_scope: [emea-lon, eu-fra]
-  acme_entity: "ACME Investments (UK) Ltd / ACME Investments GmbH"
+  acme_entity: ACME Investments (UK) Ltd / ACME Investments GmbH
 
   obligations:
 
     - id: GDPR-001
-      article: "Article 32 — Security of processing"
+      article: Article 32 — Security of processing
       obligation: >
         The controller and processor shall implement appropriate
         technical and organisational measures to ensure a level of
@@ -335,12 +335,12 @@ gdpr:
       verification:
         type: automated
         checks:
-          - "batfish/tests/test_bgp_standards.py — MD5 enforcement"
-          - "playbooks/compliance_report.yml — SSH/SNMP version checks"
+          - batfish/tests/test_bgp_standards.py — MD5 enforcement
+          - playbooks/compliance_report.yml — SSH/SNMP version checks
       gap: null
 
     - id: GDPR-002
-      article: "Article 44 — Transfers to third countries"
+      article: Article 44 — Transfers to third countries
       obligation: >
         Any transfer of personal data to a third country or an
         international organisation may only take place if the conditions
@@ -357,12 +357,12 @@ gdpr:
       verification:
         type: automated
         checks:
-          - "batfish/tests/test_frankfurt_isolation.py — test_no_fra_apac_direct_path"
-          - "scripts/validate_sot.py — Frankfurt device BGP neighbor validation"
+          - batfish/tests/test_frankfurt_isolation.py — test_no_fra_apac_direct_path
+          - scripts/validate_sot.py — Frankfurt device BGP neighbor validation
       gap: null
 
     - id: GDPR-003
-      article: "Article 5(1)(f) — Integrity and confidentiality"
+      article: Article 5(1)(f) — Integrity and confidentiality
       obligation: >
         Personal data shall be processed in a manner that ensures
         appropriate security, including protection against unauthorised
@@ -378,8 +378,8 @@ gdpr:
       verification:
         type: automated
         checks:
-          - "scripts/validate_sot.py — compliance_tags and zone validation"
-          - "batfish/tests/test_zone_isolation.py"
+          - scripts/validate_sot.py — compliance_tags and zone validation
+          - batfish/tests/test_zone_isolation.py
       gap: null
 
 # ──────────────────────────────────────────────────────────────────────
@@ -390,16 +390,16 @@ gdpr:
 # ──────────────────────────────────────────────────────────────────────
 
 bafin:
-  full_name: "BaFin — Bundesanstalt für Finanzdienstleistungsaufsicht"
+  full_name: BaFin — Bundesanstalt für Finanzdienstleistungsaufsicht
   instruments: [BAIT, MaRisk]
   regulator: BaFin
   regions_in_scope: [eu-fra]
-  acme_entity: "ACME Investments GmbH (Frankfurt) — BaFin registration DE-12345"
+  acme_entity: ACME Investments GmbH (Frankfurt) — BaFin registration DE-12345
 
   obligations:
 
     - id: BAFIN-001
-      article: "BAIT Section 2 — Scope of regulated activities"
+      article: BAIT Section 2 — Scope of regulated activities
       obligation: >
         IT systems may only support the activities for which the
         institution holds regulatory authorisation. Frankfurt entity
@@ -415,13 +415,13 @@ bafin:
       verification:
         type: automated
         checks:
-          - "batfish/tests/test_frankfurt_isolation.py — test_no_trading_vlan_fra"
-          - "sot/compliance/zone_policies.yml — ZONE-001 audit_check"
-          - "scripts/validate_sot.py — Frankfurt TRADING prohibition"
+          - batfish/tests/test_frankfurt_isolation.py — test_no_trading_vlan_fra
+          - sot/compliance/zone_policies.yml — ZONE-001 audit_check
+          - scripts/validate_sot.py — Frankfurt TRADING prohibition
       gap: null
 
     - id: BAFIN-002
-      article: "BAIT Section 8 — IT operations and change management"
+      article: BAIT Section 8 — IT operations and change management
       obligation: >
         Changes to IT systems must follow a documented, tested, and
         approved process. Emergency changes must be documented
@@ -438,13 +438,13 @@ bafin:
       verification:
         type: automated
         checks:
-          - ".gitlab-ci.yml — approve stage (manual gate)"
-          - "playbooks/audit_artefact.yml — signed diff per change"
-          - "gitlab/change_freeze.yml — freeze window enforcement"
+          - .gitlab-ci.yml — approve stage (manual gate)
+          - playbooks/audit_artefact.yml — signed diff per change
+          - gitlab/change_freeze.yml — freeze window enforcement
       gap: null
 
     - id: BAFIN-003
-      article: "BAIT Section 8.3 — Access controls and privileged access"
+      article: BAIT Section 8.3 — Access controls and privileged access
       obligation: >
         Access to IT systems must be controlled. Privileged access
         (administrative access to network devices) must use encrypted
@@ -460,12 +460,12 @@ bafin:
       verification:
         type: automated
         checks:
-          - "playbooks/compliance_report.yml — SSH/SNMP/Telnet checks"
-          - "sot/global/platform_defaults.yml — aaa configuration"
+          - playbooks/compliance_report.yml — SSH/SNMP/Telnet checks
+          - sot/global/platform_defaults.yml — aaa configuration
       gap: null
 
     - id: BAFIN-004
-      article: "BAIT Section 9 — Data governance"
+      article: BAIT Section 9 — Data governance
       obligation: >
         Regulated data must remain within Germany or EU with explicit
         regulatory approval for cross-border flows. Data flows must
@@ -480,12 +480,12 @@ bafin:
       verification:
         type: automated
         checks:
-          - "batfish/tests/test_frankfurt_isolation.py"
+          - batfish/tests/test_frankfurt_isolation.py
           - "sot/compliance/regulatory.yml — eu-fra german_data_sovereignty: required"
       gap: null
 
     - id: BAFIN-005
-      article: "MaRisk AT 7.2 — Logging and monitoring"
+      article: MaRisk AT 7.2 — Logging and monitoring
       obligation: >
         All relevant system activities must be logged. Logs must be
         protected from manipulation and retained for the required
@@ -499,7 +499,7 @@ bafin:
       verification:
         type: mixed
         checks:
-          - "sot/global/platform_defaults.yml — logging configuration"
+          - sot/global/platform_defaults.yml — logging configuration
           - "Graylog retention policy: manual verification — 10yr for eu-fra"
       gap: >
         Log retention period differentiation by region (10yr for FRA
@@ -515,15 +515,15 @@ bafin:
 # ──────────────────────────────────────────────────────────────────────
 
 sox:
-  full_name: "Sarbanes-Oxley Act"
+  full_name: Sarbanes-Oxley Act
   regulator: [SEC, PCAOB]
   regions_in_scope: [americas-nyc]
-  acme_entity: "ACME Investments Inc. (New York) — SEC registered"
+  acme_entity: ACME Investments Inc. (New York) — SEC registered
 
   obligations:
 
     - id: SOX-001
-      article: "Section 404 — IT general controls (ITGC)"
+      article: Section 404 — IT general controls (ITGC)
       obligation: >
         Management must assess the effectiveness of internal controls
         over financial reporting. IT general controls — including
@@ -539,13 +539,13 @@ sox:
       verification:
         type: mixed
         checks:
-          - ".gitlab-ci.yml — pipeline evidence for ITGC testing"
-          - "playbooks/audit_artefact.yml — change records for PCAOB"
-          - "batfish/tests/test_resilience.py — availability controls"
+          - .gitlab-ci.yml — pipeline evidence for ITGC testing
+          - playbooks/audit_artefact.yml — change records for PCAOB
+          - batfish/tests/test_resilience.py — availability controls
       gap: null
 
     - id: SOX-002
-      article: "Section 802 — Record retention"
+      article: Section 802 — Record retention
       obligation: >
         Records relevant to an audit must be retained for seven years.
         Destruction, alteration, or concealment of such records is
@@ -571,15 +571,15 @@ sox:
 # ──────────────────────────────────────────────────────────────────────
 
 sec_reg_sci:
-  full_name: "SEC Regulation SCI — System Compliance and Integrity"
+  full_name: SEC Regulation SCI — System Compliance and Integrity
   regulator: SEC
   regions_in_scope: [americas-nyc]
-  acme_entity: "ACME Investments Inc. — SCI entity"
+  acme_entity: ACME Investments Inc. — SCI entity
 
   obligations:
 
     - id: REGSCI-001
-      article: "Rule 1001(a)(1) — Capacity, integrity, resiliency, availability"
+      article: Rule 1001(a)(1) — Capacity, integrity, resiliency, availability
       obligation: >
         SCI entities must establish, maintain, and enforce written
         policies and procedures reasonably designed to ensure that
@@ -597,12 +597,12 @@ sec_reg_sci:
       verification:
         type: automated
         checks:
-          - "batfish/tests/test_resilience.py"
-          - "monitoring/grafana/alerts/bgp_session_loss.yml — SLA monitoring"
+          - batfish/tests/test_resilience.py
+          - monitoring/grafana/alerts/bgp_session_loss.yml — SLA monitoring
       gap: null
 
     - id: REGSCI-002
-      article: "Rule 1001(a)(2)(v) — Business continuity and DR"
+      article: Rule 1001(a)(2)(v) — Business continuity and DR
       obligation: >
         SCI entities must have business continuity and disaster
         recovery plans that include maintaining backup and recovery
@@ -620,12 +620,12 @@ sec_reg_sci:
       verification:
         type: mixed
         checks:
-          - "capstone/dr_runbook.md — DR procedures"
+          - capstone/dr_runbook.md — DR procedures
           - "Annual DR test: manual exercise per REGSCI-002"
       gap: null
 
     - id: REGSCI-003
-      article: "Rule 1001(a)(2)(ii) — Physical and logical separation"
+      article: Rule 1001(a)(2)(ii) — Physical and logical separation
       obligation: >
         SCI systems must be physically or logically separated from
         non-SCI systems to prevent interference. Trading systems
@@ -639,7 +639,7 @@ sec_reg_sci:
       verification:
         type: automated
         checks:
-          - "batfish/tests/test_zone_isolation.py"
+          - batfish/tests/test_zone_isolation.py
       gap: null
 
 # ──────────────────────────────────────────────────────────────────────
@@ -650,15 +650,15 @@ sec_reg_sci:
 # ──────────────────────────────────────────────────────────────────────
 
 mas_trm:
-  full_name: "MAS Technology Risk Management Guidelines"
+  full_name: MAS Technology Risk Management Guidelines
   regulator: MAS
   regions_in_scope: [apac]
-  acme_entity: "ACME Investments (Singapore) Pte Ltd — MAS CMS licence"
+  acme_entity: ACME Investments (Singapore) Pte Ltd — MAS CMS licence
 
   obligations:
 
     - id: MAS-001
-      article: "TRM 9.1 — IT asset management"
+      article: TRM 9.1 — IT asset management
       obligation: >
         Financial institutions must maintain a complete and accurate
         inventory of all IT assets, including network infrastructure.
@@ -675,12 +675,12 @@ mas_trm:
       verification:
         type: automated
         checks:
-          - "scripts/validate_sot.py — required field validation"
-          - "schema/device.schema.json — enforces mandatory fields"
+          - scripts/validate_sot.py — required field validation
+          - schema/device.schema.json — enforces mandatory fields
       gap: null
 
     - id: MAS-002
-      article: "TRM 11.2 — Network security controls"
+      article: TRM 11.2 — Network security controls
       obligation: >
         Financial institutions must implement appropriate controls to
         secure their network infrastructure, including authentication
@@ -695,13 +695,13 @@ mas_trm:
       verification:
         type: automated
         checks:
-          - "batfish/tests/test_bgp_standards.py"
-          - "batfish/tests/test_zone_isolation.py"
-          - "playbooks/compliance_report.yml"
+          - batfish/tests/test_bgp_standards.py
+          - batfish/tests/test_zone_isolation.py
+          - playbooks/compliance_report.yml
       gap: null
 
     - id: MAS-003
-      article: "TRM 6.2 — System availability and resilience"
+      article: TRM 6.2 — System availability and resilience
       obligation: >
         Financial institutions must ensure that critical systems meet
         their availability targets. Single points of failure must be
@@ -715,11 +715,11 @@ mas_trm:
       verification:
         type: automated
         checks:
-          - "batfish/tests/test_resilience.py"
+          - batfish/tests/test_resilience.py
       gap: null
 
     - id: MAS-004
-      article: "MAS Cyber Hygiene Notice — Secure remote access"
+      article: MAS Cyber Hygiene Notice — Secure remote access
       obligation: >
         Financial institutions must implement secure remote access
         controls. Only approved and encrypted protocols may be
@@ -734,8 +734,8 @@ mas_trm:
       verification:
         type: automated
         checks:
-          - "playbooks/compliance_report.yml — SSH/Telnet checks"
-          - "scripts/validate_sot.py — platform baseline validation"
+          - playbooks/compliance_report.yml — SSH/Telnet checks
+          - scripts/validate_sot.py — platform baseline validation
       gap: null
 
 # ──────────────────────────────────────────────────────────────────────
@@ -746,16 +746,16 @@ mas_trm:
 # ──────────────────────────────────────────────────────────────────────
 
 hkma:
-  full_name: "Hong Kong Monetary Authority"
+  full_name: Hong Kong Monetary Authority
   instruments: [SPM_TM_G_1, CFI]
   regulator: HKMA
   regions_in_scope: [apac]
-  acme_entity: "ACME Investments (HK) Ltd — SFC Type 1 and 4 licences"
+  acme_entity: ACME Investments (HK) Ltd — SFC Type 1 and 4 licences
 
   obligations:
 
     - id: HKMA-001
-      article: "SPM TM-G-1 — General principles for technology risk management"
+      article: SPM TM-G-1 — General principles for technology risk management
       obligation: >
         Authorised institutions must establish a sound and robust
         framework for managing technology risks. This includes
@@ -771,12 +771,12 @@ hkma:
       verification:
         type: automated
         checks:
-          - ".gitlab-ci.yml — pipeline evidence"
-          - "batfish/tests/ — automated assertion suite"
+          - .gitlab-ci.yml — pipeline evidence
+          - batfish/tests/ — automated assertion suite
       gap: null
 
     - id: HKMA-002
-      article: "CFI — Cyber Fortification Initiative — iCAST red team"
+      article: CFI — Cyber Fortification Initiative — iCAST red team
       obligation: >
         Institutions classified under CFI must conduct independent
         Cyber Resilience Assessment (iCAST) red team exercises.
@@ -791,7 +791,7 @@ hkma:
       verification:
         type: mixed
         checks:
-          - "batfish/tests/test_zone_isolation.py — pre/post red team validation"
+          - batfish/tests/test_zone_isolation.py — pre/post red team validation
           - "Annual iCAST engagement: coordinated with CISO"
       gap: >
         iCAST scoping and engagement is handled by the CISO team.
@@ -805,41 +805,41 @@ hkma:
 
 coverage_summary:
   # For each REQ-ID, the list of regulatory obligation IDs it satisfies
-  REQ-001:  [BAFIN-002, SOX-001, FCA-003]
-  REQ-002:  []
-  REQ-003:  [GDPR-003, FCA-003]
-  REQ-004:  [MIFID2-005, MAS-001]
-  REQ-005:  [MIFID2-005, MAS-001, GDPR-003]
-  REQ-006:  [MIFID2-003, FCA-001, SOX-001, SOX-002, BAFIN-002]
-  REQ-007:  [MIFID2-001, MIFID2-002, FCA-005, REGSCI-003, MAS-002, HKMA-001, GDPR-001, FCA-006]
-  REQ-008:  [MIFID2-001, MIFID2-002, FCA-005, REGSCI-003, MAS-002, HKMA-002]
-  REQ-009:  [GDPR-002, BAFIN-004]
-  REQ-010:  [BAFIN-001, BAFIN-004, MIFID2-002]
-  REQ-011:  [FCA-006, GDPR-003]
-  REQ-012:  [FCA-002, MAS-002, GDPR-001, HKMA-001]
-  REQ-013:  []
-  REQ-014:  []
-  REQ-015:  [MIFID2-003, FCA-001, SOX-002, BAFIN-005]
-  REQ-016:  [MIFID2-004, MAS-003]
-  REQ-017:  [FCA-002, BAFIN-003, MAS-004, GDPR-001]
-  REQ-018:  [FCA-002, BAFIN-003, MAS-004, SOX-001, GDPR-001]
-  REQ-019:  [FCA-002, BAFIN-003, MAS-002, GDPR-001]
-  REQ-020:  [MIFID2-001, FCA-004, REGSCI-001, REGSCI-002, MAS-003, SOX-001, HKMA-001]
-  REQ-021:  [FCA-004, REGSCI-001, REGSCI-002, MAS-003, SOX-001]
+  REQ-001: [BAFIN-002, SOX-001, FCA-003]
+  REQ-002: []
+  REQ-003: [GDPR-003, FCA-003]
+  REQ-004: [MIFID2-005, MAS-001]
+  REQ-005: [MIFID2-005, MAS-001, GDPR-003]
+  REQ-006: [MIFID2-003, FCA-001, SOX-001, SOX-002, BAFIN-002]
+  REQ-007: [MIFID2-001, MIFID2-002, FCA-005, REGSCI-003, MAS-002, HKMA-001, GDPR-001, FCA-006]
+  REQ-008: [MIFID2-001, MIFID2-002, FCA-005, REGSCI-003, MAS-002, HKMA-002]
+  REQ-009: [GDPR-002, BAFIN-004]
+  REQ-010: [BAFIN-001, BAFIN-004, MIFID2-002]
+  REQ-011: [FCA-006, GDPR-003]
+  REQ-012: [FCA-002, MAS-002, GDPR-001, HKMA-001]
+  REQ-013: []
+  REQ-014: []
+  REQ-015: [MIFID2-003, FCA-001, SOX-002, BAFIN-005]
+  REQ-016: [MIFID2-004, MAS-003]
+  REQ-017: [FCA-002, BAFIN-003, MAS-004, GDPR-001]
+  REQ-018: [FCA-002, BAFIN-003, MAS-004, SOX-001, GDPR-001]
+  REQ-019: [FCA-002, BAFIN-003, MAS-002, GDPR-001]
+  REQ-020: [MIFID2-001, FCA-004, REGSCI-001, REGSCI-002, MAS-003, SOX-001, HKMA-001]
+  REQ-021: [FCA-004, REGSCI-001, REGSCI-002, MAS-003, SOX-001]
 
 # Obligations with no automated verification (manual only or mixed)
 # These represent residual compliance risk and should be reviewed each audit cycle
 manual_verification_obligations:
   - id: MIFID2-004
-    note: "PTP sync for trading systems is outside network SoT scope"
+    note: PTP sync for trading systems is outside network SoT scope
   - id: SOX-002
-    note: "Log retention periods verified manually with Graylog team"
+    note: Log retention periods verified manually with Graylog team
   - id: BAFIN-005
-    note: "FRA 10-year retention period not yet differentiated in Graylog config"
+    note: FRA 10-year retention period not yet differentiated in Graylog config
   - id: REGSCI-002
-    note: "Annual DR test is a manual exercise"
+    note: Annual DR test is a manual exercise
   - id: HKMA-002
-    note: "iCAST engagement coordinated by CISO — out of pipeline scope"
+    note: iCAST engagement coordinated by CISO — out of pipeline scope
 
 # Known gaps requiring remediation
 open_gaps:
@@ -851,5 +851,5 @@ open_gaps:
       Graylog stream filter and retention policy for eu-fra tagged
       sources must be updated by the logging team.
     owner: Head-Infra
-    target_resolution: "Q2 2026"
+    target_resolution: Q2 2026
     risk: medium

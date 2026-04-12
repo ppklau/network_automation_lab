@@ -32,19 +32,19 @@ loopback:
 
 interfaces:
   - name: Ethernet1
-    description: "P2P -> spine-nyc2-01 Ethernet5"
+    description: P2P -> spine-nyc2-01 Ethernet5
     ip: 10.11.100.17/31
     peer_device: spine-nyc2-01
     peer_interface: Ethernet5
     mtu: 9214
   - name: Ethernet2
-    description: "P2P -> spine-nyc2-02 Ethernet5"
+    description: P2P -> spine-nyc2-02 Ethernet5
     ip: 10.11.100.19/31
     peer_device: spine-nyc2-02
     peer_interface: Ethernet5
     mtu: 9214
   - name: Ethernet3
-    description: "Inter-DC -> border-nyc-01 [NYC1<->NYC2 eBGP AS65010<->AS65011]"
+    description: Inter-DC -> border-nyc-01 [NYC1<->NYC2 eBGP AS65010<->AS65011]
     ip: 10.0.5.1/31            # nyc-dc2=.1, nyc-dc1=.0
     peer_device: border-nyc-01
     peer_interface: eth5
@@ -58,17 +58,17 @@ bgp:
   neighbors:
     - peer_ip: 10.11.255.1
       remote_as: 65011
-      description: "iBGP RR -> spine-nyc2-01"
+      description: iBGP RR -> spine-nyc2-01
       update_source: Loopback0
       md5_password_ref: bgp_md5_nyc_dc2_fabric
     - peer_ip: 10.11.255.2
       remote_as: 65011
-      description: "iBGP RR -> spine-nyc2-02"
+      description: iBGP RR -> spine-nyc2-02
       update_source: Loopback0
       md5_password_ref: bgp_md5_nyc_dc2_fabric
     - peer_ip: 10.0.5.0
       remote_as: 65010
-      description: "eBGP inter-DC -> border-nyc-01 [nyc-dc1]"
+      description: eBGP inter-DC -> border-nyc-01 [nyc-dc1]
       md5_password_ref: bgp_md5_interdc_nyc1_nyc2
   aggregate_addresses:
     - prefix: 10.11.0.0/16

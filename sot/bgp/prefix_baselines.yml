@@ -17,28 +17,28 @@ prefix_baselines:
   - node: border-lon-01
     peer: 10.0.1.1       # border-nyc-01
     peer_asn: 65010
-    peer_description: "NYC DC1 eBGP"
+    peer_description: NYC DC1 eBGP
     expected_prefixes: 2  # 10.10.0.0/16 (NYC DC) + 10.101.0.0/16 (US branches)
     tolerance: 0          # any drop is significant — only 2 prefixes expected
 
   - node: border-lon-01
     peer: 10.0.2.1       # border-sin-01
     peer_asn: 65020
-    peer_description: "SIN DC1 eBGP"
+    peer_description: SIN DC1 eBGP
     expected_prefixes: 1  # 10.20.0.0/16 (SIN DC)
     tolerance: 0
 
   - node: border-lon-01
     peer: 10.0.3.1       # border-fra-01
     peer_asn: 65030
-    peer_description: "FRA DC1 eBGP (EU regulatory)"
+    peer_description: FRA DC1 eBGP (EU regulatory)
     expected_prefixes: 1  # 10.30.0.0/16 (FRA DC) — TRADING prefix must never appear
     tolerance: 0
 
   - node: border-lon-01
     peer: 10.100.0.1     # branch-lon-01
     peer_asn: 65100
-    peer_description: "UK branch LON-01 eBGP"
+    peer_description: UK branch LON-01 eBGP
     expected_prefixes: 1  # 10.100.0.0/29 assigned prefix only
     tolerance: 0
 
@@ -46,14 +46,14 @@ prefix_baselines:
   - node: border-nyc-01
     peer: 10.0.1.0       # border-lon-01
     peer_asn: 65001
-    peer_description: "LON DC1 eBGP"
+    peer_description: LON DC1 eBGP
     expected_prefixes: 2  # 10.1.0.0/16 (LON DC) + 10.100.0.0/16 (UK branches)
     tolerance: 0
 
   - node: border-nyc-01
     peer: 10.101.0.1     # branch-nyc-01
     peer_asn: 65120
-    peer_description: "US branch NYC-01 eBGP"
+    peer_description: US branch NYC-01 eBGP
     expected_prefixes: 1  # 10.101.0.0/29 assigned prefix only
     tolerance: 0
 
@@ -61,7 +61,7 @@ prefix_baselines:
   - node: border-sin-01
     peer: 10.0.2.0       # border-lon-01
     peer_asn: 65001
-    peer_description: "LON DC1 eBGP"
+    peer_description: LON DC1 eBGP
     expected_prefixes: 2  # 10.1.0.0/16 (LON DC) + 10.100.0.0/16 (UK branches)
     tolerance: 0
 
@@ -69,7 +69,7 @@ prefix_baselines:
   - node: border-fra-01
     peer: 10.0.3.0       # border-lon-01
     peer_asn: 65001
-    peer_description: "LON DC1 eBGP (ring-fenced)"
+    peer_description: LON DC1 eBGP (ring-fenced)
     expected_prefixes: 1  # 10.1.0.0/16 only (LON DC supernet); TRADING /24 must be suppressed
     tolerance: 0
     compliance_note: >

@@ -32,31 +32,31 @@ loopback:
 
 interfaces:
   - name: Ethernet1
-    description: "P2P -> leaf-sin-01 Ethernet1"
+    description: P2P -> leaf-sin-01 Ethernet1
     ip: 10.20.100.0/31
     peer_device: leaf-sin-01
     peer_interface: Ethernet1
     mtu: 9214
   - name: Ethernet2
-    description: "P2P -> leaf-sin-02 Ethernet1"
+    description: P2P -> leaf-sin-02 Ethernet1
     ip: 10.20.100.2/31
     peer_device: leaf-sin-02
     peer_interface: Ethernet1
     mtu: 9214
   - name: Ethernet3
-    description: "P2P -> leaf-sin-03 Ethernet1"
+    description: P2P -> leaf-sin-03 Ethernet1
     ip: 10.20.100.4/31
     peer_device: leaf-sin-03
     peer_interface: Ethernet1
     mtu: 9214
   - name: Ethernet4
-    description: "P2P -> leaf-sin-04 Ethernet1"
+    description: P2P -> leaf-sin-04 Ethernet1
     ip: 10.20.100.6/31
     peer_device: leaf-sin-04
     peer_interface: Ethernet1
     mtu: 9214
   - name: Ethernet5
-    description: "P2P -> border-sin-01 eth1"
+    description: P2P -> border-sin-01 eth1
     ip: 10.20.100.16/31
     peer_device: border-sin-01
     peer_interface: eth1
@@ -69,37 +69,37 @@ bgp:
   neighbors:
     - peer_ip: 10.20.255.2
       remote_as: 65020
-      description: "iBGP peer -> spine-sin-02"
+      description: iBGP peer -> spine-sin-02
       update_source: Loopback0
       route_reflector_client: false
       md5_password_ref: bgp_md5_sin_dc1_fabric
     - peer_ip: 10.20.255.11
       remote_as: 65020
-      description: "iBGP RR client -> leaf-sin-01"
+      description: iBGP RR client -> leaf-sin-01
       update_source: Loopback0
       route_reflector_client: true
       md5_password_ref: bgp_md5_sin_dc1_fabric
     - peer_ip: 10.20.255.12
       remote_as: 65020
-      description: "iBGP RR client -> leaf-sin-02"
+      description: iBGP RR client -> leaf-sin-02
       update_source: Loopback0
       route_reflector_client: true
       md5_password_ref: bgp_md5_sin_dc1_fabric
     - peer_ip: 10.20.255.13
       remote_as: 65020
-      description: "iBGP RR client -> leaf-sin-03"
+      description: iBGP RR client -> leaf-sin-03
       update_source: Loopback0
       route_reflector_client: true
       md5_password_ref: bgp_md5_sin_dc1_fabric
     - peer_ip: 10.20.255.14
       remote_as: 65020
-      description: "iBGP RR client -> leaf-sin-04"
+      description: iBGP RR client -> leaf-sin-04
       update_source: Loopback0
       route_reflector_client: true
       md5_password_ref: bgp_md5_sin_dc1_fabric
     - peer_ip: 10.20.255.20
       remote_as: 65020
-      description: "iBGP RR client -> border-sin-01"
+      description: iBGP RR client -> border-sin-01
       update_source: Loopback0
       route_reflector_client: true
       md5_password_ref: bgp_md5_sin_dc1_fabric

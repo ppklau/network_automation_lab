@@ -11,7 +11,7 @@ fqdn: border-nyc-01.nyc-dc1.acme-investments.internal
 role: border
 platform: frr
 image: frrouting/frr:9.1.0
-hardware_model: "FRR Virtual Router (containerlab stub)"
+hardware_model: FRR Virtual Router (containerlab stub)
 device_serial: FRRNYC2410020
 eol_date: "2028-12-31"
 
@@ -37,12 +37,12 @@ logging_source_interface: lo
 
 interfaces:
   - name: eth0
-    description: "OOB management"
+    description: OOB management
     ip: 10.10.0.20/25
     mtu: 1500
 
   - name: eth1
-    description: "WAN -> border-lon-01 Ethernet3 [eBGP AS65010<->AS65001]"
+    description: WAN -> border-lon-01 Ethernet3 [eBGP AS65010<->AS65001]
     ip: 10.0.1.1/31            # nyc=.1, london=.0
     peer_device: border-lon-01
     peer_interface: Ethernet3
@@ -50,21 +50,21 @@ interfaces:
     circuit_id: LON-NYC-WAN-001
 
   - name: eth2
-    description: "Fabric -> spine-nyc-01 Ethernet5 (sot_only spine)"
+    description: Fabric -> spine-nyc-01 Ethernet5 (sot_only spine)
     ip: 10.10.100.17/31        # border=.17, spine=.16
     peer_device: spine-nyc-01
     peer_interface: Ethernet5
     mtu: 9214
 
   - name: eth3
-    description: "Fabric -> spine-nyc-02 Ethernet5 (sot_only spine)"
+    description: Fabric -> spine-nyc-02 Ethernet5 (sot_only spine)
     ip: 10.10.100.19/31        # border=.19, spine=.18
     peer_device: spine-nyc-02
     peer_interface: Ethernet5
     mtu: 9214
 
   - name: lo
-    description: "Loopback / router-id"
+    description: Loopback / router-id
     ip: 10.10.255.20/32
 
 bgp:
@@ -76,20 +76,20 @@ bgp:
     # ── iBGP to NYC spines (sot_only; these sessions would exist in production) ──
     - peer_ip: 10.10.255.1
       remote_as: 65010
-      description: "iBGP RR -> spine-nyc-01 (sot_only spine)"
+      description: iBGP RR -> spine-nyc-01 (sot_only spine)
       update_source: lo
       md5_password_ref: bgp_md5_nyc_dc1_fabric
 
     - peer_ip: 10.10.255.2
       remote_as: 65010
-      description: "iBGP RR -> spine-nyc-02 (sot_only spine)"
+      description: iBGP RR -> spine-nyc-02 (sot_only spine)
       update_source: lo
       md5_password_ref: bgp_md5_nyc_dc1_fabric
 
     # ── eBGP WAN to London ──
     - peer_ip: 10.0.1.0
       remote_as: 65001
-      description: "eBGP WAN -> border-lon-01 [EMEA HQ]"
+      description: eBGP WAN -> border-lon-01 [EMEA HQ]
       md5_password_ref: bgp_md5_wan_lon_nyc
       route_map_in: RM_INTERDC_LON_NYC_IN
       route_map_out: RM_INTERDC_LON_NYC_OUT
@@ -100,67 +100,67 @@ bgp:
     # ── eBGP US Branches ──
     - peer_ip: 10.101.0.1
       remote_as: 65120
-      description: "eBGP branch -> branch-nyc-01 (LAB ACTIVE)"
+      description: eBGP branch -> branch-nyc-01 (LAB ACTIVE)
       md5_password_ref: bgp_md5_branch_nyc_01
       route_map_in: RM_BRANCH_IN
       route_map_out: RM_BRANCH_OUT
 
     - peer_ip: 10.101.0.9
       remote_as: 65121
-      description: "eBGP branch -> branch-nyc-02"
+      description: eBGP branch -> branch-nyc-02
       md5_password_ref: bgp_md5_branch_nyc_02
       route_map_in: RM_BRANCH_IN
       route_map_out: RM_BRANCH_OUT
 
     - peer_ip: 10.101.0.17
       remote_as: 65122
-      description: "eBGP branch -> branch-nyc-03"
+      description: eBGP branch -> branch-nyc-03
       md5_password_ref: bgp_md5_branch_nyc_03
       route_map_in: RM_BRANCH_IN
       route_map_out: RM_BRANCH_OUT
 
     - peer_ip: 10.101.0.25
       remote_as: 65123
-      description: "eBGP branch -> branch-nyc-04"
+      description: eBGP branch -> branch-nyc-04
       md5_password_ref: bgp_md5_branch_nyc_04
       route_map_in: RM_BRANCH_IN
       route_map_out: RM_BRANCH_OUT
 
     - peer_ip: 10.101.0.33
       remote_as: 65124
-      description: "eBGP branch -> branch-nyc-05"
+      description: eBGP branch -> branch-nyc-05
       md5_password_ref: bgp_md5_branch_nyc_05
       route_map_in: RM_BRANCH_IN
       route_map_out: RM_BRANCH_OUT
 
     - peer_ip: 10.101.0.41
       remote_as: 65125
-      description: "eBGP branch -> branch-nyc-06"
+      description: eBGP branch -> branch-nyc-06
       md5_password_ref: bgp_md5_branch_nyc_06
       route_map_in: RM_BRANCH_IN
       route_map_out: RM_BRANCH_OUT
 
     - peer_ip: 10.101.0.49
       remote_as: 65126
-      description: "eBGP branch -> branch-nyc-07"
+      description: eBGP branch -> branch-nyc-07
       md5_password_ref: bgp_md5_branch_nyc_07
       route_map_in: RM_BRANCH_IN
       route_map_out: RM_BRANCH_OUT
 
     - peer_ip: 10.101.0.57
       remote_as: 65127
-      description: "eBGP branch -> branch-nyc-08"
+      description: eBGP branch -> branch-nyc-08
       md5_password_ref: bgp_md5_branch_nyc_08
       route_map_in: RM_BRANCH_IN
       route_map_out: RM_BRANCH_OUT
 
   networks_advertised:
     - prefix: 10.10.255.20/32
-      description: "Loopback"
+      description: Loopback
     - prefix: 10.10.0.0/16
-      description: "NYC DC1 aggregate"
+      description: NYC DC1 aggregate
     - prefix: 10.101.0.0/16
-      description: "US branches aggregate"
+      description: US branches aggregate
 
   aggregate_addresses:
     - prefix: 10.10.0.0/16

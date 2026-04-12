@@ -52,7 +52,7 @@ regional_dns:
       - acme-investments.internal
       - sin.acme-investments.internal
       - apac.acme-investments.internal
-    note: "DNS queries traverse WAN; cached locally by resolver on border router"
+    note: DNS queries traverse WAN; cached locally by resolver on border router
 
   eu-fra:
     resolvers:

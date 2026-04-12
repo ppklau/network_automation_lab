@@ -4,13 +4,13 @@
 # Last reviewed: 2026-03-01
 
 site:
-  name: "New York Data Centre 2"
+  name: New York Data Centre 2
   code: nyc-dc2
   short_code: nyc2
   region: americas-nyc
-  address: "Secaucus, NJ 07094, USA"
+  address: Secaucus, NJ 07094, USA
   country: US
-  tier: "Tier III+"
+  tier: Tier III+
   lab_instantiated: false
 
   network_os_primary: arista_eos
@@ -48,26 +48,26 @@ site:
       active: true
 
   zone_permissions:
-    TRADING:    true
-    CORPORATE:  true
-    DMZ:        true
-    MGMT_ZONE:  true
+    TRADING: true
+    CORPORATE: true
+    DMZ: true
+    MGMT_ZONE: true
 
   subnets:
-    management:     10.11.0.0/25
-    loopbacks:      10.11.255.0/24
-    fabric_p2p:     10.11.100.0/24
-    trading_svi:    10.11.1.0/24
-    corporate_svi:  10.11.2.0/22
-    dmz_svi:        10.11.6.0/24
+    management: 10.11.0.0/25
+    loopbacks: 10.11.255.0/24
+    fabric_p2p: 10.11.100.0/24
+    trading_svi: 10.11.1.0/24
+    corporate_svi: 10.11.2.0/22
+    dmz_svi: 10.11.6.0/24
 
   management_ips:
-    spine-nyc2-01:   10.11.0.1
-    spine-nyc2-02:   10.11.0.2
-    leaf-nyc2-01:    10.11.0.11
-    leaf-nyc2-02:    10.11.0.12
-    border-nyc2-01:  10.11.0.20
-    fw-nyc2-01:      10.11.0.30
+    spine-nyc2-01: 10.11.0.1
+    spine-nyc2-02: 10.11.0.2
+    leaf-nyc2-01: 10.11.0.11
+    leaf-nyc2-02: 10.11.0.12
+    border-nyc2-01: 10.11.0.20
+    fw-nyc2-01: 10.11.0.30
 
   devices:
     - hostname: spine-nyc2-01

@@ -4,13 +4,13 @@
 # Last reviewed: 2026-03-01
 
 site:
-  name: "London Data Centre 2"
+  name: London Data Centre 2
   code: lon-dc2
   short_code: lon2
   region: emea-lon
-  address: "Docklands, London E16, United Kingdom"
+  address: Docklands, London E16, United Kingdom
   country: UK
-  tier: "Tier III+"
+  tier: Tier III+
   lab_instantiated: false
 
   network_os_primary: arista_eos
@@ -48,29 +48,29 @@ site:
       active: true
 
   zone_permissions:
-    TRADING:    true
-    CORPORATE:  true
-    DMZ:        true
-    MGMT_ZONE:  true
+    TRADING: true
+    CORPORATE: true
+    DMZ: true
+    MGMT_ZONE: true
 
   subnets:
-    management:     10.2.0.0/25
-    loopbacks:      10.2.255.0/24
-    fabric_p2p:     10.2.100.0/24
-    trading_svi:    10.2.1.0/24
-    corporate_svi:  10.2.2.0/22
-    dmz_svi:        10.2.6.0/24
-    mgmt_svi:       10.2.0.0/25
+    management: 10.2.0.0/25
+    loopbacks: 10.2.255.0/24
+    fabric_p2p: 10.2.100.0/24
+    trading_svi: 10.2.1.0/24
+    corporate_svi: 10.2.2.0/22
+    dmz_svi: 10.2.6.0/24
+    mgmt_svi: 10.2.0.0/25
 
   management_ips:
-    spine-lon2-01:   10.2.0.1
-    spine-lon2-02:   10.2.0.2
-    leaf-lon2-01:    10.2.0.11
-    leaf-lon2-02:    10.2.0.12
-    leaf-lon2-03:    10.2.0.13
-    leaf-lon2-04:    10.2.0.14
-    border-lon2-01:  10.2.0.20
-    fw-lon2-01:      10.2.0.30
+    spine-lon2-01: 10.2.0.1
+    spine-lon2-02: 10.2.0.2
+    leaf-lon2-01: 10.2.0.11
+    leaf-lon2-02: 10.2.0.12
+    leaf-lon2-03: 10.2.0.13
+    leaf-lon2-04: 10.2.0.14
+    border-lon2-01: 10.2.0.20
+    fw-lon2-01: 10.2.0.30
 
   devices:
     - hostname: spine-lon2-01

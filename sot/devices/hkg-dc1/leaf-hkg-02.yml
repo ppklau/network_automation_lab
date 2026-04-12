@@ -44,24 +44,24 @@ vlans:
     active: true
 interfaces:
   - name: Ethernet1
-    description: "P2P -> spine-hkg-01 Ethernet2"
+    description: P2P -> spine-hkg-01 Ethernet2
     ip: 10.21.100.3/31
     peer_device: spine-hkg-01
     peer_interface: Ethernet2
     mtu: 9214
   - name: Ethernet2
-    description: "P2P -> spine-hkg-02 Ethernet2"
+    description: P2P -> spine-hkg-02 Ethernet2
     ip: 10.21.100.11/31
     peer_device: spine-hkg-02
     peer_interface: Ethernet2
     mtu: 9214
   - name: Ethernet3
-    description: "Server access — TRADING VLAN 100"
+    description: Server access — TRADING VLAN 100
     mode: access
     access_vlan: 100
     mtu: 9214
   - name: Ethernet4
-    description: "Server trunk — CORPORATE+MGMT"
+    description: Server trunk — CORPORATE+MGMT
     mode: trunk
     trunk_vlans: [200, 400]
     mtu: 9214
@@ -97,11 +97,11 @@ bgp:
   neighbors:
     - peer_ip: 10.21.255.1
       remote_as: 65021
-      description: "iBGP RR -> spine-hkg-01"
+      description: iBGP RR -> spine-hkg-01
       update_source: Loopback0
       md5_password_ref: bgp_md5_hkg_dc1_fabric
     - peer_ip: 10.21.255.2
       remote_as: 65021
-      description: "iBGP RR -> spine-hkg-02"
+      description: iBGP RR -> spine-hkg-02
       update_source: Loopback0
       md5_password_ref: bgp_md5_hkg_dc1_fabric

@@ -16,7 +16,7 @@ users:
     priv_protocol: AES128
     priv_key_ref: snmp_priv_key_monitoring      # Vault: secret/network/snmp/monitoring_priv
     access_level: read_only
-    description: "Primary monitoring user — used by Prometheus SNMP exporter and SolarWinds"
+    description: Primary monitoring user — used by Prometheus SNMP exporter and SolarWinds
 
   - username: acme_ops
     auth_protocol: SHA
@@ -24,7 +24,7 @@ users:
     priv_protocol: AES128
     priv_key_ref: snmp_priv_key_ops
     access_level: read_write
-    description: "Operations user — change control required for write access"
+    description: Operations user — change control required for write access
 
   - username: acme_audit
     auth_protocol: SHA
@@ -32,7 +32,7 @@ users:
     priv_protocol: AES128
     priv_key_ref: snmp_priv_key_audit
     access_level: read_only
-    description: "Audit/compliance user — used by compliance tooling for config audits"
+    description: Audit/compliance user — used by compliance tooling for config audits
 
 # ──────────────────────────────────────────
 # SNMP Trap Targets
@@ -91,19 +91,19 @@ views:
 # Source interface for SNMP traps/informs
 # ──────────────────────────────────────────
 source_interface_by_role:
-  spine:   Loopback0
-  leaf:    Loopback0
-  border:  Loopback0
-  fw:      lo
-  branch:  lo
+  spine: Loopback0
+  leaf: Loopback0
+  border: Loopback0
+  fw: lo
+  branch: lo
 
 # ──────────────────────────────────────────
 # Global SNMP settings
 # ──────────────────────────────────────────
 settings:
   location_format: "{site_code}-{role}-{hostname}"
-  contact: "netops@acme-investments.com"
-  engine_id_format: "auto"        # platform generates from MAC/chassis serial
+  contact: netops@acme-investments.com
+  engine_id_format: auto        # platform generates from MAC/chassis serial
   trap_link_up_down: true
   trap_bgp_state_change: true
   trap_ospf_state_change: false   # not running OSPF

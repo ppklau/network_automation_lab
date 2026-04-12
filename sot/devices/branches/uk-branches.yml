@@ -11,7 +11,7 @@ uplink_dc: lon-dc1
 uplink_border: border-lon-01
 platform: frr
 image: frrouting/frr:9.1.0
-hardware_model: "FRR Virtual Router (branch CPE)"
+hardware_model: FRR Virtual Router (branch CPE)
 eol_date: "2028-06-30"
 compliance_tags: [fca, uk_gdpr]
 security_zones: [CORPORATE, MGMT_ZONE]   # branches never carry TRADING or DMZ
@@ -28,7 +28,7 @@ branches:
     office_type: trading
     location:
       city: London
-      address: "1 Canada Square, Canary Wharf, London E14 5AB"
+      address: 1 Canada Square, Canary Wharf, London E14 5AB
       country: UK
     management_ip: 10.100.0.1/29
     wan_prefix: 10.100.0.0/29
@@ -37,15 +37,15 @@ branches:
     lan_prefix: 10.100.0.0/29
     interfaces:
       eth0:
-        description: "OOB management"
+        description: OOB management
         ip: 10.100.0.1/29
       eth1:
-        description: "WAN uplink -> border-lon-01 [eBGP AS65100<->AS65001]"
+        description: WAN uplink -> border-lon-01 [eBGP AS65100<->AS65001]
         ip: 10.100.0.1/29
         peer_device: border-lon-01
         peer_ip: 10.100.0.2
       eth2:
-        description: "LAN — branch office network"
+        description: LAN — branch office network
         ip: 10.100.0.1/29
     bgp:
       local_as: 65100
@@ -53,13 +53,13 @@ branches:
       neighbors:
         - peer_ip: 10.100.0.2
           remote_as: 65001
-          description: "eBGP -> border-lon-01"
+          description: eBGP -> border-lon-01
           md5_password_ref: bgp_md5_branch_lon_01
           route_map_in: RM_INTERDC_LON_NYC_IN
           route_map_out: RM_BRANCH_OUT
       networks_advertised:
         - prefix: 10.100.0.0/29
-          description: "Branch LAN"
+          description: Branch LAN
 
   - hostname: branch-lon-02
     fqdn: branch-lon-02.emea.acme-investments.internal
@@ -70,7 +70,7 @@ branches:
     office_type: corporate
     location:
       city: Birmingham
-      address: "Colmore Row, Birmingham B3 2BH"
+      address: Colmore Row, Birmingham B3 2BH
       country: UK
     management_ip: 10.100.0.9/29
     wan_prefix: 10.100.0.8/29
@@ -83,7 +83,7 @@ branches:
       neighbors:
         - peer_ip: 10.100.0.10
           remote_as: 65001
-          description: "eBGP -> border-lon-01"
+          description: eBGP -> border-lon-01
           md5_password_ref: bgp_md5_branch_lon_02
 
   - hostname: branch-lon-03
@@ -95,7 +95,7 @@ branches:
     office_type: corporate
     location:
       city: Manchester
-      address: "Spinningfields, Manchester M3 3JE"
+      address: Spinningfields, Manchester M3 3JE
       country: UK
     management_ip: 10.100.0.17/29
     wan_prefix: 10.100.0.16/29
@@ -108,7 +108,7 @@ branches:
       neighbors:
         - peer_ip: 10.100.0.18
           remote_as: 65001
-          description: "eBGP -> border-lon-01"
+          description: eBGP -> border-lon-01
           md5_password_ref: bgp_md5_branch_lon_03
 
   - hostname: branch-lon-04
@@ -120,7 +120,7 @@ branches:
     office_type: regional
     location:
       city: Edinburgh
-      address: "St Andrew Square, Edinburgh EH2 2BD"
+      address: St Andrew Square, Edinburgh EH2 2BD
       country: UK
     management_ip: 10.100.0.25/29
     wan_prefix: 10.100.0.24/29
@@ -133,7 +133,7 @@ branches:
       neighbors:
         - peer_ip: 10.100.0.26
           remote_as: 65001
-          description: "eBGP -> border-lon-01"
+          description: eBGP -> border-lon-01
           md5_password_ref: bgp_md5_branch_lon_04
 
   - hostname: branch-lon-05
@@ -145,7 +145,7 @@ branches:
     office_type: corporate
     location:
       city: Leeds
-      address: "Park Row, Leeds LS1 5HD"
+      address: Park Row, Leeds LS1 5HD
       country: UK
     management_ip: 10.100.0.33/29
     wan_prefix: 10.100.0.32/29
@@ -158,7 +158,7 @@ branches:
       neighbors:
         - peer_ip: 10.100.0.34
           remote_as: 65001
-          description: "eBGP -> border-lon-01"
+          description: eBGP -> border-lon-01
           md5_password_ref: bgp_md5_branch_lon_05
 
   - hostname: branch-lon-06
@@ -170,7 +170,7 @@ branches:
     office_type: corporate
     location:
       city: Bristol
-      address: "Queen Square, Bristol BS1 4LR"
+      address: Queen Square, Bristol BS1 4LR
       country: UK
     management_ip: 10.100.0.41/29
     wan_prefix: 10.100.0.40/29
@@ -183,7 +183,7 @@ branches:
       neighbors:
         - peer_ip: 10.100.0.42
           remote_as: 65001
-          description: "eBGP -> border-lon-01"
+          description: eBGP -> border-lon-01
           md5_password_ref: bgp_md5_branch_lon_06
 
   - hostname: branch-lon-07
@@ -195,7 +195,7 @@ branches:
     office_type: corporate
     location:
       city: Cardiff
-      address: "Greyfriars Road, Cardiff CF10 3AG"
+      address: Greyfriars Road, Cardiff CF10 3AG
       country: UK
     management_ip: 10.100.0.49/29
     wan_prefix: 10.100.0.48/29
@@ -208,7 +208,7 @@ branches:
       neighbors:
         - peer_ip: 10.100.0.50
           remote_as: 65001
-          description: "eBGP -> border-lon-01"
+          description: eBGP -> border-lon-01
           md5_password_ref: bgp_md5_branch_lon_07
 
   - hostname: branch-lon-08
@@ -220,7 +220,7 @@ branches:
     office_type: corporate
     location:
       city: Glasgow
-      address: "St Vincent Street, Glasgow G2 5TQ"
+      address: St Vincent Street, Glasgow G2 5TQ
       country: UK
     management_ip: 10.100.0.57/29
     wan_prefix: 10.100.0.56/29
@@ -233,7 +233,7 @@ branches:
       neighbors:
         - peer_ip: 10.100.0.58
           remote_as: 65001
-          description: "eBGP -> border-lon-01"
+          description: eBGP -> border-lon-01
           md5_password_ref: bgp_md5_branch_lon_08
 
   - hostname: branch-lon-09
@@ -245,7 +245,7 @@ branches:
     office_type: regional
     location:
       city: Nottingham
-      address: "Maid Marian Way, Nottingham NG1 6GD"
+      address: Maid Marian Way, Nottingham NG1 6GD
       country: UK
     management_ip: 10.100.0.65/29
     wan_prefix: 10.100.0.64/29
@@ -258,7 +258,7 @@ branches:
       neighbors:
         - peer_ip: 10.100.0.66
           remote_as: 65001
-          description: "eBGP -> border-lon-01"
+          description: eBGP -> border-lon-01
           md5_password_ref: bgp_md5_branch_lon_09
 
   - hostname: branch-lon-10
@@ -270,7 +270,7 @@ branches:
     office_type: corporate
     location:
       city: Liverpool
-      address: "Old Hall Street, Liverpool L3 9PP"
+      address: Old Hall Street, Liverpool L3 9PP
       country: UK
     management_ip: 10.100.0.73/29
     wan_prefix: 10.100.0.72/29
@@ -283,7 +283,7 @@ branches:
       neighbors:
         - peer_ip: 10.100.0.74
           remote_as: 65001
-          description: "eBGP -> border-lon-01"
+          description: eBGP -> border-lon-01
           md5_password_ref: bgp_md5_branch_lon_10
 
   - hostname: branch-lon-11
@@ -295,7 +295,7 @@ branches:
     office_type: regional
     location:
       city: Newcastle
-      address: "Grey Street, Newcastle upon Tyne NE1 6EE"
+      address: Grey Street, Newcastle upon Tyne NE1 6EE
       country: UK
     management_ip: 10.100.0.81/29
     wan_prefix: 10.100.0.80/29
@@ -308,7 +308,7 @@ branches:
       neighbors:
         - peer_ip: 10.100.0.82
           remote_as: 65001
-          description: "eBGP -> border-lon-01"
+          description: eBGP -> border-lon-01
           md5_password_ref: bgp_md5_branch_lon_11
 
   - hostname: branch-lon-12
@@ -320,7 +320,7 @@ branches:
     office_type: corporate
     location:
       city: Sheffield
-      address: "Tudor Square, Sheffield S1 2LA"
+      address: Tudor Square, Sheffield S1 2LA
       country: UK
     management_ip: 10.100.0.89/29
     wan_prefix: 10.100.0.88/29
@@ -333,5 +333,5 @@ branches:
       neighbors:
         - peer_ip: 10.100.0.90
           remote_as: 65001
-          description: "eBGP -> border-lon-01"
+          description: eBGP -> border-lon-01
           md5_password_ref: bgp_md5_branch_lon_12

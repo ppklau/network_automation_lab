@@ -12,46 +12,46 @@ asn_pools:
   data_centres:
     - site: lon-dc1
       asn: 65001
-      description: "London Data Centre 1 — Primary HQ DC (fully active in lab)"
+      description: London Data Centre 1 — Primary HQ DC (fully active in lab)
       region: emea-lon
       lab_instantiated: true
 
     - site: lon-dc2
       asn: 65002
-      description: "London Data Centre 2 — Secondary / DR DC"
+      description: London Data Centre 2 — Secondary / DR DC
       region: emea-lon
       lab_instantiated: false
 
     - site: nyc-dc1
       asn: 65010
-      description: "New York Data Centre 1 — Americas Primary"
+      description: New York Data Centre 1 — Americas Primary
       region: americas-nyc
       lab_instantiated: false  # border-nyc-01 stub only
 
     - site: nyc-dc2
       asn: 65011
-      description: "New York Data Centre 2 — Americas Secondary"
+      description: New York Data Centre 2 — Americas Secondary
       region: americas-nyc
       lab_instantiated: false
 
     - site: sin-dc1
       asn: 65020
-      description: "Singapore Data Centre 1 — APAC Primary"
+      description: Singapore Data Centre 1 — APAC Primary
       region: apac
       lab_instantiated: false  # border-sin-01 stub only
 
     - site: hkg-dc1
       asn: 65021
-      description: "Hong Kong Data Centre 1 — APAC Secondary"
+      description: Hong Kong Data Centre 1 — APAC Secondary
       region: apac
       lab_instantiated: false
 
     - site: fra-dc1
       asn: 65030
-      description: "Frankfurt Data Centre 1 — EU Regulatory (MiFID II / GDPR ring-fenced)"
+      description: Frankfurt Data Centre 1 — EU Regulatory (MiFID II / GDPR ring-fenced)
       region: eu-fra
       lab_instantiated: false  # border-fra-01 stub only
-      compliance_note: "No TRADING_VRF permitted per regulatory isolation policy"
+      compliance_note: No TRADING_VRF permitted per regulatory isolation policy
 
   # ──────────────────────────────────────────
   # Branch ASNs
@@ -166,7 +166,7 @@ asn_pools:
       range_end: 65143
       count: 4
       uplink_peer_dc: fra-dc1
-      compliance_note: "EU branches inherit Frankfurt TRADING zone restriction"
+      compliance_note: EU branches inherit Frankfurt TRADING zone restriction
       allocations:
         - hostname: branch-fra-01
           asn: 65140
@@ -185,9 +185,9 @@ asn_pools:
   # Reserved / Future
   # ──────────────────────────────────────────
   reserved:
-    - range: "65150–65199"
-      purpose: "Future DC expansion"
-    - range: "65200–65299"
-      purpose: "Future branch expansion"
-    - range: "65500–65534"
-      purpose: "Lab/test ASNs — not to be used in production SoT"
+    - range: 65150–65199
+      purpose: Future DC expansion
+    - range: 65200–65299
+      purpose: Future branch expansion
+    - range: 65500–65534
+      purpose: Lab/test ASNs — not to be used in production SoT

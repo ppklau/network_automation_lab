@@ -10,7 +10,7 @@ uplink_dc: sin-dc1
 uplink_border: border-sin-01
 platform: frr
 image: frrouting/frr:9.1.0
-hardware_model: "FRR Virtual Router (branch CPE)"
+hardware_model: FRR Virtual Router (branch CPE)
 eol_date: "2028-06-30"
 compliance_tags: [mas_trm]
 security_zones: [CORPORATE, MGMT_ZONE]
@@ -27,7 +27,7 @@ branches:
     office_type: trading
     location:
       city: Singapore
-      address: "8 Marina View, Asia Square Tower 1, Singapore 018960"
+      address: 8 Marina View, Asia Square Tower 1, Singapore 018960
       country: Singapore
     management_ip: 10.102.0.1/29
     wan_prefix: 10.102.0.0/29
@@ -40,7 +40,7 @@ branches:
       neighbors:
         - peer_ip: 10.102.0.2
           remote_as: 65020
-          description: "eBGP -> border-sin-01"
+          description: eBGP -> border-sin-01
           md5_password_ref: bgp_md5_branch_sin_01
 
   - hostname: branch-sin-02
@@ -52,7 +52,7 @@ branches:
     office_type: corporate
     location:
       city: Sydney
-      address: "1 Macquarie Place, Sydney NSW 2000"
+      address: 1 Macquarie Place, Sydney NSW 2000
       country: Australia
     management_ip: 10.102.0.9/29
     wan_prefix: 10.102.0.8/29
@@ -65,7 +65,7 @@ branches:
       neighbors:
         - peer_ip: 10.102.0.10
           remote_as: 65020
-          description: "eBGP -> border-sin-01"
+          description: eBGP -> border-sin-01
           md5_password_ref: bgp_md5_branch_sin_02
 
   - hostname: branch-sin-03
@@ -77,7 +77,7 @@ branches:
     office_type: corporate
     location:
       city: Tokyo
-      address: "2-7-3 Marunouchi, Chiyoda-ku, Tokyo 100-0005"
+      address: 2-7-3 Marunouchi, Chiyoda-ku, Tokyo 100-0005
       country: Japan
     management_ip: 10.102.0.17/29
     wan_prefix: 10.102.0.16/29
@@ -90,7 +90,7 @@ branches:
       neighbors:
         - peer_ip: 10.102.0.18
           remote_as: 65020
-          description: "eBGP -> border-sin-01"
+          description: eBGP -> border-sin-01
           md5_password_ref: bgp_md5_branch_sin_03
 
   - hostname: branch-sin-04
@@ -102,7 +102,7 @@ branches:
     office_type: regional
     location:
       city: Mumbai
-      address: "Nariman Point, Mumbai 400 021"
+      address: Nariman Point, Mumbai 400 021
       country: India
     management_ip: 10.102.0.25/29
     wan_prefix: 10.102.0.24/29
@@ -115,7 +115,7 @@ branches:
       neighbors:
         - peer_ip: 10.102.0.26
           remote_as: 65020
-          description: "eBGP -> border-sin-01"
+          description: eBGP -> border-sin-01
           md5_password_ref: bgp_md5_branch_sin_04
 
   - hostname: branch-sin-05
@@ -127,8 +127,8 @@ branches:
     office_type: corporate
     location:
       city: Seoul
-      address: "Yeouido-dong, Yeongdeungpo-gu, Seoul 07345"
-      country: "South Korea"
+      address: Yeouido-dong, Yeongdeungpo-gu, Seoul 07345
+      country: South Korea
     management_ip: 10.102.0.33/29
     wan_prefix: 10.102.0.32/29
     wan_ip: 10.102.0.33
@@ -140,7 +140,7 @@ branches:
       neighbors:
         - peer_ip: 10.102.0.34
           remote_as: 65020
-          description: "eBGP -> border-sin-01"
+          description: eBGP -> border-sin-01
           md5_password_ref: bgp_md5_branch_sin_05
 
   - hostname: branch-sin-06
@@ -152,7 +152,7 @@ branches:
     office_type: regional
     location:
       city: Kuala Lumpur
-      address: "Kuala Lumpur City Centre, Kuala Lumpur 50088"
+      address: Kuala Lumpur City Centre, Kuala Lumpur 50088
       country: Malaysia
     management_ip: 10.102.0.41/29
     wan_prefix: 10.102.0.40/29
@@ -165,5 +165,5 @@ branches:
       neighbors:
         - peer_ip: 10.102.0.42
           remote_as: 65020
-          description: "eBGP -> border-sin-01"
+          description: eBGP -> border-sin-01
           md5_password_ref: bgp_md5_branch_sin_06

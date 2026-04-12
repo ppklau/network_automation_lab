@@ -33,7 +33,7 @@
 intents:
 
   - id: INTENT-008
-    title: "DC fabric and WAN must tolerate any single component failure without service loss"
+    title: DC fabric and WAN must tolerate any single component failure without service loss
     requirement_refs: [REQ-020, REQ-021]
     regulatory_refs: [FCA-004, REGSCI-001, REGSCI-002, MAS-003, SOX-001]
     related_intents: [INTENT-001, INTENT-002, INTENT-005, INTENT-006]
@@ -80,13 +80,13 @@ intents:
         routes to all leaves and the border router.
 
       dc_spine_inventory:
-        lon-dc1:  [spine-lon-01, spine-lon-02]    # AS 65001
-        lon-dc2:  [spine-lon2-01, spine-lon2-02]  # AS 65002
-        nyc-dc1:  [spine-nyc-01, spine-nyc-02]    # AS 65010
-        nyc-dc2:  [spine-nyc2-01, spine-nyc2-02]  # AS 65011
-        sin-dc1:  [spine-sin-01, spine-sin-02]    # AS 65020
-        hkg-dc1:  [spine-hkg-01, spine-hkg-02]    # AS 65021
-        fra-dc1:  [spine-fra-01, spine-fra-02]    # AS 65030
+        lon-dc1: [spine-lon-01, spine-lon-02]    # AS 65001
+        lon-dc2: [spine-lon2-01, spine-lon2-02]  # AS 65002
+        nyc-dc1: [spine-nyc-01, spine-nyc-02]    # AS 65010
+        nyc-dc2: [spine-nyc2-01, spine-nyc2-02]  # AS 65011
+        sin-dc1: [spine-sin-01, spine-sin-02]    # AS 65020
+        hkg-dc1: [spine-hkg-01, spine-hkg-02]    # AS 65021
+        fra-dc1: [spine-fra-01, spine-fra-02]    # AS 65030
 
       spine_rr_configuration:
         role: route_reflector
@@ -95,7 +95,7 @@ intents:
           (route_reflector_client: false). This prevents a routing
           loop where spine-01 reflects a route from leaf-A to spine-02,
           which then reflects it back to leaf-A.
-        clients: "All leaves and border router(s) in the same DC"
+        clients: All leaves and border router(s) in the same DC
         update_source: Loopback0
         md5_required: true   # see INTENT-005
 
@@ -123,17 +123,17 @@ intents:
         fabric_interfaces:
           count: 2
           layout:
-            - ethernet1: "uplink to spine-01 (e.g., spine-lon-01 Ethernet1)"
-            - ethernet2: "uplink to spine-02 (e.g., spine-lon-02 Ethernet1)"
-          ip_scheme: "/31 point-to-point from fabric_p2p range"
+            - ethernet1: uplink to spine-01 (e.g., spine-lon-01 Ethernet1)
+            - ethernet2: uplink to spine-02 (e.g., spine-lon-02 Ethernet1)
+          ip_scheme: /31 point-to-point from fabric_p2p range
           mtu: 9214
           speed: 100G
 
         bgp_sessions:
           count: 2
           peers:
-            - "spine-01 Loopback0 (e.g., 10.1.255.1 for spine-lon-01)"
-            - "spine-02 Loopback0 (e.g., 10.1.255.2 for spine-lon-02)"
+            - spine-01 Loopback0 (e.g., 10.1.255.1 for spine-lon-01)
+            - spine-02 Loopback0 (e.g., 10.1.255.2 for spine-lon-02)
           session_type: iBGP
           update_source: Loopback0
           route_reflector_client: false   # leaf is the client; spine is the RR
@@ -150,17 +150,17 @@ intents:
         # spine02_leafXX: 10.1.100.{N+8}/31 spine=.N+8, leaf=.N+9
         lon_dc1_example:
           leaf_lon_01:
-            to_spine01: "10.1.100.0/31  (leaf=.1, spine=.0)"
-            to_spine02: "10.1.100.8/31  (leaf=.9, spine=.8)"
+            to_spine01: 10.1.100.0/31  (leaf=.1, spine=.0)
+            to_spine02: 10.1.100.8/31  (leaf=.9, spine=.8)
           leaf_lon_02:
-            to_spine01: "10.1.100.2/31  (leaf=.3, spine=.2)"
-            to_spine02: "10.1.100.10/31 (leaf=.11, spine=.10)"
+            to_spine01: 10.1.100.2/31  (leaf=.3, spine=.2)
+            to_spine02: 10.1.100.10/31 (leaf=.11, spine=.10)
           leaf_lon_03:
-            to_spine01: "10.1.100.4/31  (leaf=.5, spine=.4)"
-            to_spine02: "10.1.100.12/31 (leaf=.13, spine=.12)"
+            to_spine01: 10.1.100.4/31  (leaf=.5, spine=.4)
+            to_spine02: 10.1.100.12/31 (leaf=.13, spine=.12)
           leaf_lon_04:
-            to_spine01: "10.1.100.6/31  (leaf=.7, spine=.6)"
-            to_spine02: "10.1.100.14/31 (leaf=.15, spine=.14)"
+            to_spine01: 10.1.100.6/31  (leaf=.7, spine=.6)
+            to_spine02: 10.1.100.14/31 (leaf=.15, spine=.14)
 
     # ──────────────────────────────────────────────────────────────
     # Component 3: VRRP Gateway Redundancy with Spine Uplink Tracking
@@ -243,19 +243,19 @@ intents:
             - peer: border-nyc-01
               interface: Ethernet3
               circuit: LON-NYC-WAN-001
-              carrier: "Equinix Fabric"
+              carrier: Equinix Fabric
               peer_asn: 65010
 
             - peer: border-sin-01
               interface: Ethernet4
               circuit: LON-SIN-WAN-001
-              carrier: "Tata Communications"
+              carrier: Tata Communications
               peer_asn: 65020
 
             - peer: border-fra-01
               interface: Ethernet5
               circuit: LON-FRA-WAN-001
-              carrier: "Deutsche Telekom"
+              carrier: Deutsche Telekom
               peer_asn: 65030
           minimum_active_sessions: 2
           notes: >
@@ -291,7 +291,7 @@ intents:
               circuit: SIN-HKG-001
               peer_asn: 65021
           minimum_active_sessions: 1
-          notes: "APAC intra-DC link provides secondary path"
+          notes: APAC intra-DC link provides secondary path
 
         border-fra-01:
           wan_sessions:
@@ -323,7 +323,7 @@ intents:
           interval_ms: 300
           multiplier: 3
           detection_time_ms: 900   # 3 × 300ms = 900ms
-          notes: "300ms interval is appropriate for DC fabric — low latency, reliable links"
+          notes: 300ms interval is appropriate for DC fabric — low latency, reliable links
 
         wan_ebgp:
           interval_ms: 1000
@@ -341,162 +341,162 @@ intents:
           step2: "Leaf withdraws BGP routes via failed spine path: ~100ms"
           step3: "ECMP FIB update on all fabric devices: ~500ms"
           step4: "Traffic shifts to surviving spine: already in FIB"
-          total: "< 2 seconds"
-          note: "VRRP preempt triggers separately if VRRP tracking fires (60s delay)"
+          total: < 2 seconds
+          note: VRRP preempt triggers separately if VRRP tracking fires (60s delay)
 
         wan_failure:
           step1: "BFD detects WAN link failure: ~3s"
           step2: "Border withdraws eBGP routes for failed circuit: ~100ms"
           step3: "BGP reconvergence propagates to spines and leaves: ~5-10s"
           step4: "Traffic reroutes via surviving WAN paths: already in RIB if ECMP"
-          total: "< 15 seconds end-to-end reconvergence"
+          total: < 15 seconds end-to-end reconvergence
 
         rto_target:
-          trading_systems: "< 30 seconds from any single failure"
-          corporate_systems: "< 60 seconds (VRRP preempt delay included)"
+          trading_systems: < 30 seconds from any single failure
+          corporate_systems: < 60 seconds (VRRP preempt delay included)
           regulatory_requirement: "FCA PS21/3 impact tolerance: 15 minutes"
-          margin: "30s actual vs 15min tolerance — 30× margin"
+          margin: 30s actual vs 15min tolerance — 30× margin
 
       platform_enablement:
         arista_eos: "bfd: enabled in platform_defaults (bgp_defaults section)"
-        frr: "bfdd daemon in FRR suite — enabled in platform_defaults"
+        frr: bfdd daemon in FRR suite — enabled in platform_defaults
 
     assertion_type: batfish_check
 
     batfish_check:
-      test_file: "batfish/tests/test_resilience.py"
+      test_file: batfish/tests/test_resilience.py
 
       assertions:
 
         - id: BA-301
-          function: "test_two_spines_per_dc"
+          function: test_two_spines_per_dc
           description: >
             Assert that every DC site has exactly two devices with
             role: spine. A DC with zero or one spine violates the
             dual-spine requirement.
-          pybatfish_api: "nodeProperties"
+          pybatfish_api: nodeProperties
           parameters:
-            properties: ["Role"]
-            nodeRegex: "spine-.*"
+            properties: [Role]
+            nodeRegex: spine-.*
           expected_result: >
             For each DC site (lon-dc1, lon-dc2, nyc-dc1, nyc-dc2,
             sin-dc1, hkg-dc1, fra-dc1): exactly two nodes with
             role=spine exist in the snapshot. Any DC with fewer
             than two spine nodes fails.
-          failure_action: "BLOCK pipeline"
+          failure_action: BLOCK pipeline
 
         - id: BA-302
-          function: "test_each_leaf_peers_to_both_spines"
+          function: test_each_leaf_peers_to_both_spines
           description: >
             Assert that every leaf switch has exactly two iBGP sessions
             in the network model — one to each spine in its DC.
             A leaf with only one spine iBGP session is missing its
             redundant path and violates the dual-home requirement.
-          pybatfish_api: "bgpEdges"
+          pybatfish_api: bgpEdges
           parameters:
-            type: "IBGP"
-            nodeRegex: "leaf-.*"
+            type: IBGP
+            nodeRegex: leaf-.*
           expected_result: >
             Every leaf node has exactly two iBGP edges, one to each
             spine in the same DC. No leaf has fewer than two iBGP
             sessions.
-          failure_action: "BLOCK pipeline"
+          failure_action: BLOCK pipeline
 
         - id: BA-303
-          function: "test_ecmp_paths_exist_leaf_to_border"
+          function: test_ecmp_paths_exist_leaf_to_border
           description: >
             Assert that for every leaf node, there are at least two
             equal-cost paths to the border router in the same DC.
             This verifies that ECMP is working across both spine
             uplinks, not just that two uplinks are physically present.
-          pybatfish_api: "routes"
+          pybatfish_api: routes
           parameters:
-            protocols: ["bgp"]
-            nodeRegex: "leaf-.*"
-            network: "10.1.255.20/32"   # border-lon-01 loopback (representative)
+            protocols: [bgp]
+            nodeRegex: leaf-.*
+            network: 10.1.255.20/32   # border-lon-01 loopback (representative)
           expected_result: >
             Each leaf has at least two BGP routes to the border
             loopback with equal metric (ECMP). A leaf with only one
             path to the border fails even if two spines are present
             (would indicate one spine is not properly reflecting routes).
-          failure_action: "BLOCK pipeline"
+          failure_action: BLOCK pipeline
 
         - id: BA-304
-          function: "test_spine_failure_simulation"
+          function: test_spine_failure_simulation
           description: >
             Simulate failure of each spine in turn and assert that
             all leaves retain at least one path to the border router.
             Uses Batfish single-failure analysis to verify no leaf
             is isolated when any single spine is removed.
-          pybatfish_api: "searchRoutePolicies"
+          pybatfish_api: searchRoutePolicies
           parameters:
-            type: "singleFailure"
-            failureType: "NODE"
-            nodeRegex: "spine-.*"
+            type: singleFailure
+            failureType: NODE
+            nodeRegex: spine-.*
           expected_result: >
             For every spine node failure: all leaves in the same DC
             continue to have at least one path to the border router.
             No leaf is completely isolated by any single spine failure.
-          failure_action: "BLOCK pipeline"
+          failure_action: BLOCK pipeline
 
         - id: BA-305
-          function: "test_border_has_minimum_wan_sessions"
+          function: test_border_has_minimum_wan_sessions
           description: >
             Assert that each active border router has at least the
             minimum number of WAN eBGP sessions defined in the
             wan_redundancy_standard. For LON specifically, minimum
             is 2 sessions (NYC + SIN, with FRA as third).
-          pybatfish_api: "bgpEdges"
+          pybatfish_api: bgpEdges
           parameters:
-            type: "EBGP"
-            nodeRegex: "border-.*"
+            type: EBGP
+            nodeRegex: border-.*
           expected_result: >
             border-lon-01: at least 3 eBGP WAN sessions (NYC, SIN, FRA).
             border-nyc-01: at least 1 eBGP WAN session (LON).
             border-sin-01: at least 1 eBGP WAN session (LON).
             border-fra-01: at least 1 eBGP WAN session (LON).
             Any active border router with zero eBGP WAN sessions fails.
-          failure_action: "BLOCK pipeline"
+          failure_action: BLOCK pipeline
 
         - id: BA-306
-          function: "test_wan_failure_simulation"
+          function: test_wan_failure_simulation
           description: >
             Simulate failure of each WAN circuit from border-lon-01
             in turn and assert that inter-region routing continues
             via remaining paths. Specifically: LON-NYC link failure
             must not isolate NYC (LON must still have SIN and FRA
             paths in the routing table).
-          pybatfish_api: "searchRoutePolicies"
+          pybatfish_api: searchRoutePolicies
           parameters:
-            type: "singleFailure"
-            failureType: "INTERFACE"
-            interfaceRegex: "border-lon-01\\[Ethernet[3-5]\\]"
+            type: singleFailure
+            failureType: INTERFACE
+            interfaceRegex: border-lon-01\\[Ethernet[3-5]\\]
           expected_result: >
             For each WAN interface failure on border-lon-01:
             the routing table on border-lon-01 still contains routes
             to all other DC loopbacks via surviving WAN paths.
             No DC is completely unreachable from LON after any
             single WAN interface failure.
-          failure_action: "BLOCK pipeline"
+          failure_action: BLOCK pipeline
 
         - id: BA-307
-          function: "test_vrrp_spine_tracking_configured"
+          function: test_vrrp_spine_tracking_configured
           description: >
             Assert that all VRRP groups on all leaf nodes have
             tracking entries for both spine uplink interfaces
             (Ethernet1 and Ethernet2), with a priority decrement
             of at least 20 per interface.
-          pybatfish_api: "interfaceProperties"
+          pybatfish_api: interfaceProperties
           parameters:
-            nodeRegex: "leaf-.*"
-            properties: ["VRRP_GROUPS"]
+            nodeRegex: leaf-.*
+            properties: [VRRP_GROUPS]
           expected_result: >
             Every VRRP group on every leaf has:
               - track interface Ethernet1, decrement >= 20
               - track interface Ethernet2, decrement >= 20
             Any VRRP group missing tracking entries for both spine
             uplinks fails this assertion.
-          failure_action: "WARN — does not block pipeline but raises as finding"
+          failure_action: WARN — does not block pipeline but raises as finding
           notes: >
             Downgraded to WARN rather than BLOCK because Batfish's
             VRRP tracking model may not capture all EOS-specific
@@ -515,7 +515,7 @@ intents:
         severity: critical
 
       - id: SC-302
-        description: "Each leaf must have exactly two fabric interfaces (to spine-01 and spine-02)"
+        description: Each leaf must have exactly two fabric interfaces (to spine-01 and spine-02)
         check_type: interface_count_by_peer_role
         target_devices: "all devices with role: leaf"
         peer_role: spine
@@ -523,7 +523,7 @@ intents:
         severity: critical
 
       - id: SC-303
-        description: "Each leaf must have exactly two iBGP BGP neighbors (one to each spine loopback)"
+        description: Each leaf must have exactly two iBGP BGP neighbors (one to each spine loopback)
         check_type: bgp_neighbor_count_by_remote_role
         target_devices: "all devices with role: leaf"
         remote_role: spine
@@ -532,7 +532,7 @@ intents:
         severity: critical
 
       - id: SC-304
-        description: "Border router must have at least two WAN interface entries"
+        description: Border router must have at least two WAN interface entries
         check_type: interface_count_by_type
         target_devices: "all devices with role: border and lab_state: active"
         interface_type: wan
@@ -541,22 +541,22 @@ intents:
         exceptions:
           - device: border-fra-01
             minimum_count: 1
-            rationale: "FRA has single WAN link — second WAN path is in 2027 roadmap"
+            rationale: FRA has single WAN link — second WAN path is in 2027 roadmap
 
       - id: SC-305
-        description: "BFD must be enabled in platform_defaults for all platforms"
+        description: BFD must be enabled in platform_defaults for all platforms
         check_type: field_value
         target_files:
-          - "sot/global/platform_defaults.yml"
+          - sot/global/platform_defaults.yml
         checks:
-          - field: "platforms.arista_eos.features.bfd"
-            expected: "enabled"
-          - field: "platforms.frr.features.bfd"
-            expected: "enabled"
+          - field: platforms.arista_eos.features.bfd
+            expected: enabled
+          - field: platforms.frr.features.bfd
+            expected: enabled
         severity: critical
 
       - id: SC-306
-        description: "VRRP groups on leaves must have track entries for both Ethernet1 and Ethernet2"
+        description: VRRP groups on leaves must have track entries for both Ethernet1 and Ethernet2
         check_type: vrrp_track_presence
         target_devices: "all devices with role: leaf"
         required_tracked_interfaces: [Ethernet1, Ethernet2]
@@ -564,11 +564,11 @@ intents:
         severity: high
 
       - id: SC-307
-        description: "BGP maximum_paths must be >= 2 on all devices (ECMP enablement)"
+        description: BGP maximum_paths must be >= 2 on all devices (ECMP enablement)
         check_type: field_gte
         target_devices: all
-        field_path: "bgp.address_family_defaults.ipv4_unicast.maximum_paths"
-        fallback_field: "platform_defaults.bgp_defaults.maximum_paths"
+        field_path: bgp.address_family_defaults.ipv4_unicast.maximum_paths
+        fallback_field: platform_defaults.bgp_defaults.maximum_paths
         minimum_value: 2
         severity: high
 

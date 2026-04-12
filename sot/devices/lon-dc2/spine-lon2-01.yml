@@ -35,35 +35,35 @@ logging_source_interface: Loopback0
 
 interfaces:
   - name: Ethernet1
-    description: "P2P -> leaf-lon2-01 Ethernet1"
+    description: P2P -> leaf-lon2-01 Ethernet1
     ip: 10.2.100.0/31
     peer_device: leaf-lon2-01
     peer_interface: Ethernet1
     mtu: 9214
 
   - name: Ethernet2
-    description: "P2P -> leaf-lon2-02 Ethernet1"
+    description: P2P -> leaf-lon2-02 Ethernet1
     ip: 10.2.100.2/31
     peer_device: leaf-lon2-02
     peer_interface: Ethernet1
     mtu: 9214
 
   - name: Ethernet3
-    description: "P2P -> leaf-lon2-03 Ethernet1"
+    description: P2P -> leaf-lon2-03 Ethernet1
     ip: 10.2.100.4/31
     peer_device: leaf-lon2-03
     peer_interface: Ethernet1
     mtu: 9214
 
   - name: Ethernet4
-    description: "P2P -> leaf-lon2-04 Ethernet1"
+    description: P2P -> leaf-lon2-04 Ethernet1
     ip: 10.2.100.6/31
     peer_device: leaf-lon2-04
     peer_interface: Ethernet1
     mtu: 9214
 
   - name: Ethernet5
-    description: "P2P -> border-lon2-01 Ethernet1"
+    description: P2P -> border-lon2-01 Ethernet1
     ip: 10.2.100.16/31
     peer_device: border-lon2-01
     peer_interface: Ethernet1
@@ -76,37 +76,37 @@ bgp:
   neighbors:
     - peer_ip: 10.2.255.2
       remote_as: 65002
-      description: "iBGP peer -> spine-lon2-02"
+      description: iBGP peer -> spine-lon2-02
       update_source: Loopback0
       route_reflector_client: false
       md5_password_ref: bgp_md5_lon_dc2_fabric
     - peer_ip: 10.2.255.11
       remote_as: 65002
-      description: "iBGP RR client -> leaf-lon2-01"
+      description: iBGP RR client -> leaf-lon2-01
       update_source: Loopback0
       route_reflector_client: true
       md5_password_ref: bgp_md5_lon_dc2_fabric
     - peer_ip: 10.2.255.12
       remote_as: 65002
-      description: "iBGP RR client -> leaf-lon2-02"
+      description: iBGP RR client -> leaf-lon2-02
       update_source: Loopback0
       route_reflector_client: true
       md5_password_ref: bgp_md5_lon_dc2_fabric
     - peer_ip: 10.2.255.13
       remote_as: 65002
-      description: "iBGP RR client -> leaf-lon2-03"
+      description: iBGP RR client -> leaf-lon2-03
       update_source: Loopback0
       route_reflector_client: true
       md5_password_ref: bgp_md5_lon_dc2_fabric
     - peer_ip: 10.2.255.14
       remote_as: 65002
-      description: "iBGP RR client -> leaf-lon2-04"
+      description: iBGP RR client -> leaf-lon2-04
       update_source: Loopback0
       route_reflector_client: true
       md5_password_ref: bgp_md5_lon_dc2_fabric
     - peer_ip: 10.2.255.20
       remote_as: 65002
-      description: "iBGP RR client -> border-lon2-01"
+      description: iBGP RR client -> border-lon2-01
       update_source: Loopback0
       route_reflector_client: true
       md5_password_ref: bgp_md5_lon_dc2_fabric

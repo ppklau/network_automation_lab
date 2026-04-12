@@ -10,7 +10,7 @@ fqdn: branch-lon-01.emea.acme-investments.internal
 role: branch
 platform: frr
 image: quay.io/frrouting/frr:9.1.3
-hardware_model: "FRR Virtual Router (branch CPE)"
+hardware_model: FRR Virtual Router (branch CPE)
 device_serial: BRNLON2401001
 eol_date: "2028-06-30"
 
@@ -31,19 +31,19 @@ management:
 
 interfaces:
   - name: eth0
-    description: "OOB management"
+    description: OOB management
     ip: 10.100.0.1/29
     mtu: 1500
 
   - name: eth1
-    description: "WAN uplink -> border-lon-01 [eBGP AS65100<->AS65001]"
+    description: WAN uplink -> border-lon-01 [eBGP AS65100<->AS65001]
     ip: 10.100.0.1/29
     peer_device: border-lon-01
     peer_ip: 10.100.0.2
     mtu: 9000
 
   - name: eth2
-    description: "LAN — branch office network"
+    description: LAN — branch office network
     ip: 10.100.0.1/29
     mtu: 1500
 
@@ -53,11 +53,11 @@ bgp:
   neighbors:
     - peer_ip: 10.100.0.2
       remote_as: 65001
-      description: "eBGP -> border-lon-01"
+      description: eBGP -> border-lon-01
       md5_password_ref: bgp_md5_branch_lon_01
       route_map_in: RM_INTERDC_LON_NYC_IN
       route_map_out: RM_BRANCH_OUT
   networks_advertised:
     - prefix: 10.100.0.0/29
-      description: "Branch LAN"
+      description: Branch LAN
   log_neighbor_changes: true

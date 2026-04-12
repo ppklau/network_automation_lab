@@ -33,7 +33,7 @@ requirements:
   # ────────────────────────────────────────────────────────────────────
 
   - id: REQ-001
-    title: "All configuration changes must originate from the Source of Truth"
+    title: All configuration changes must originate from the Source of Truth
     category: governance
     priority: critical
     owner: Head-NetOps
@@ -49,23 +49,23 @@ requirements:
       supports regulated activities.
     regulatory_refs:
       - framework: mifid2
-        reference: "MiFID II Article 17 — Algorithmic trading controls"
-        obligation: "Firms must have adequate controls over trading infrastructure changes"
+        reference: MiFID II Article 17 — Algorithmic trading controls
+        obligation: Firms must have adequate controls over trading infrastructure changes
       - framework: sox
-        reference: "SOX Section 404 — IT general controls"
-        obligation: "Change management controls over systems supporting financial reporting"
+        reference: SOX Section 404 — IT general controls
+        obligation: Change management controls over systems supporting financial reporting
       - framework: bafin
-        reference: "BAIT Section 8 — IT operations"
-        obligation: "Changes to IT systems must follow a documented, controlled process"
+        reference: BAIT Section 8 — IT operations
+        obligation: Changes to IT systems must follow a documented, controlled process
     regions: [emea-lon, americas-nyc, apac, eu-fra]
     applies_to: all_devices
     design_intents: [INTENT-009]
     sot_enforcement:
-      - "sot/compliance/regulatory.yml — change_freeze_windows per region"
-      - ".gitlab-ci.yml validate stage — blocks pipeline on SoT validation failure"
+      - sot/compliance/regulatory.yml — change_freeze_windows per region
+      - .gitlab-ci.yml validate stage — blocks pipeline on SoT validation failure
 
   - id: REQ-002
-    title: "Device configurations must be generated from templates — no hand-crafted configs"
+    title: Device configurations must be generated from templates — no hand-crafted configs
     category: governance
     priority: high
     owner: Head-NetOps
@@ -82,14 +82,14 @@ requirements:
       produces structurally identical output.
     regulatory_refs:
       - framework: fca
-        reference: "FCA SYSC 8.1 — Outsourcing and operational controls"
-        obligation: "Consistent, documented operational procedures"
+        reference: FCA SYSC 8.1 — Outsourcing and operational controls
+        obligation: Consistent, documented operational procedures
     regions: [emea-lon, americas-nyc, apac, eu-fra]
     applies_to: all_devices
     design_intents: [INTENT-009]
 
   - id: REQ-003
-    title: "Branch provisioning must follow the standard onboarding process"
+    title: Branch provisioning must follow the standard onboarding process
     category: provisioning
     priority: high
     owner: Head-NetOps
@@ -108,20 +108,20 @@ requirements:
       from day one.
     regulatory_refs:
       - framework: fca
-        reference: "FCA SYSC 6.1 — Compliance function"
-        obligation: "Consistent controls across all office locations"
+        reference: FCA SYSC 6.1 — Compliance function
+        obligation: Consistent controls across all office locations
       - framework: gdpr
-        reference: "GDPR Article 32 — Security of processing"
-        obligation: "Appropriate controls must apply at all locations processing personal data"
+        reference: GDPR Article 32 — Security of processing
+        obligation: Appropriate controls must apply at all locations processing personal data
     regions: [emea-lon, americas-nyc, apac, eu-fra]
     applies_to: branch_devices
     design_intents: [INTENT-010]
     sot_enforcement:
-      - "sot/devices/branches/ — ASN from regional pool, /29 prefix, compliance_tags"
+      - sot/devices/branches/ — ASN from regional pool, /29 prefix, compliance_tags
       - "sot/compliance/zone_policies.yml — branch_standard: TRADING false"
 
   - id: REQ-004
-    title: "Every network device must have a SoT record before being deployed"
+    title: Every network device must have a SoT record before being deployed
     category: governance
     priority: high
     owner: Head-NetOps
@@ -138,17 +138,17 @@ requirements:
       inventory of systems supporting regulated services.
     regulatory_refs:
       - framework: mifid2
-        reference: "MiFID II RTS 7 — Organisational requirements"
-        obligation: "Firms must maintain accurate records of systems used for trading"
+        reference: MiFID II RTS 7 — Organisational requirements
+        obligation: Firms must maintain accurate records of systems used for trading
       - framework: mas
-        reference: "MAS TRM Guidelines 9.1 — IT asset management"
-        obligation: "Complete and accurate inventory of all IT assets"
+        reference: MAS TRM Guidelines 9.1 — IT asset management
+        obligation: Complete and accurate inventory of all IT assets
     regions: [emea-lon, americas-nyc, apac, eu-fra]
     applies_to: all_devices
     design_intents: [INTENT-009]
 
   - id: REQ-005
-    title: "All devices must carry regulatory compliance tags matching their region"
+    title: All devices must carry regulatory compliance tags matching their region
     category: governance
     priority: high
     owner: Head-Compl
@@ -165,16 +165,16 @@ requirements:
       and auditors.
     regulatory_refs:
       - framework: sox
-        reference: "SOX Section 404"
-        obligation: "Controls must be scoped and documented accurately"
+        reference: SOX Section 404
+        obligation: Controls must be scoped and documented accurately
     regions: [emea-lon, americas-nyc, apac, eu-fra]
     applies_to: all_devices
     design_intents: [INTENT-009]
     sot_enforcement:
-      - "sot/compliance/regulatory.yml — device_compliance_tags per site type"
+      - sot/compliance/regulatory.yml — device_compliance_tags per site type
 
   - id: REQ-006
-    title: "Every configuration change must produce a tamper-evident audit artefact"
+    title: Every configuration change must produce a tamper-evident audit artefact
     category: governance
     priority: critical
     owner: Head-Compl
@@ -191,14 +191,14 @@ requirements:
       evidence submitted to regulators and auditors on request.
     regulatory_refs:
       - framework: mifid2
-        reference: "MiFID II Article 25 — Transaction record keeping"
-        obligation: "5-year retention of records relating to regulated activities"
+        reference: MiFID II Article 25 — Transaction record keeping
+        obligation: 5-year retention of records relating to regulated activities
       - framework: fca
-        reference: "FCA SYSC 9.1 — Record-keeping"
-        obligation: "7-year retention for FCA-regulated firms"
+        reference: FCA SYSC 9.1 — Record-keeping
+        obligation: 7-year retention for FCA-regulated firms
       - framework: sox
-        reference: "SOX Section 802 — Record retention"
-        obligation: "7-year retention of audit-relevant records"
+        reference: SOX Section 802 — Record retention
+        obligation: 7-year retention of audit-relevant records
     regions: [emea-lon, americas-nyc, apac, eu-fra]
     applies_to: all_devices
     design_intents: [INTENT-009]
@@ -212,7 +212,7 @@ requirements:
   # ────────────────────────────────────────────────────────────────────
 
   - id: REQ-007
-    title: "Trading systems must not have network reachability to corporate user systems"
+    title: Trading systems must not have network reachability to corporate user systems
     category: zone_isolation
     priority: critical
     owner: CISO
@@ -233,23 +233,23 @@ requirements:
       this boundary was inadequately enforced.
     regulatory_refs:
       - framework: mifid2
-        reference: "MiFID II Article 17(1) — Algorithmic trading safeguards"
-        obligation: "Effective systems and risk controls to prevent trading irregularities"
+        reference: MiFID II Article 17(1) — Algorithmic trading safeguards
+        obligation: Effective systems and risk controls to prevent trading irregularities
       - framework: fca
-        reference: "FCA MAR 7A — Algorithmic trading"
-        obligation: "Organisational requirements including system segregation"
+        reference: FCA MAR 7A — Algorithmic trading
+        obligation: Organisational requirements including system segregation
       - framework: sec
-        reference: "SEC Reg SCI Section 242.1001(a)"
-        obligation: "Systems compliance and integrity — physical and logical separation of trading systems"
+        reference: SEC Reg SCI Section 242.1001(a)
+        obligation: Systems compliance and integrity — physical and logical separation of trading systems
     regions: [emea-lon, americas-nyc, apac]
     applies_to: [spine, leaf, border, firewall]
     design_intents: [INTENT-001]
     sot_enforcement:
       - "sot/compliance/zone_policies.yml — inter_zone_access TRADING to_CORPORATE: denied"
-      - "sot/compliance/zone_policies.yml — ZONE-003 audit check — vrf_route_leak"
+      - sot/compliance/zone_policies.yml — ZONE-003 audit check — vrf_route_leak
 
   - id: REQ-008
-    title: "Trading systems must not have network reachability to the DMZ"
+    title: Trading systems must not have network reachability to the DMZ
     category: zone_isolation
     priority: critical
     owner: CISO
@@ -266,17 +266,17 @@ requirements:
       to TRADING→CORPORATE reachability.
     regulatory_refs:
       - framework: mifid2
-        reference: "MiFID II Article 17(1)"
-        obligation: "Trading system controls — prevent external system interference"
+        reference: MiFID II Article 17(1)
+        obligation: Trading system controls — prevent external system interference
       - framework: fca
-        reference: "FCA SYSC 13.9 — Information security"
-        obligation: "Appropriate network segregation between external-facing and sensitive systems"
+        reference: FCA SYSC 13.9 — Information security
+        obligation: Appropriate network segregation between external-facing and sensitive systems
     regions: [emea-lon, americas-nyc, apac]
     applies_to: [spine, leaf, border, firewall]
     design_intents: [INTENT-002]
     sot_enforcement:
       - "sot/compliance/zone_policies.yml — inter_zone_access TRADING to_DMZ: denied"
-      - "sot/compliance/zone_policies.yml — ZONE-003 audit check"
+      - sot/compliance/zone_policies.yml — ZONE-003 audit check
 
   # ────────────────────────────────────────────────────────────────────
   # CATEGORY: Data Residency & Regulatory Ring-fencing
@@ -286,7 +286,7 @@ requirements:
   # ────────────────────────────────────────────────────────────────────
 
   - id: REQ-009
-    title: "EU/UK-regulated data must not traverse non-EU/UK routing paths"
+    title: EU/UK-regulated data must not traverse non-EU/UK routing paths
     category: data_residency
     priority: critical
     owner: Head-Compl
@@ -307,14 +307,14 @@ requirements:
       data flows that are impossible to audit.
     regulatory_refs:
       - framework: gdpr
-        reference: "GDPR Article 44 — Transfers to third countries"
-        obligation: "Personal data must not be transferred to third countries without adequacy or SCC"
+        reference: GDPR Article 44 — Transfers to third countries
+        obligation: Personal data must not be transferred to third countries without adequacy or SCC
       - framework: bafin
-        reference: "BAIT Section 9 — Data governance"
-        obligation: "Regulated data must remain in Germany or EU with documented controls"
+        reference: BAIT Section 9 — Data governance
+        obligation: Regulated data must remain in Germany or EU with documented controls
       - framework: mifid2
-        reference: "MiFID II RTS 22 — Transaction reporting"
-        obligation: "Transaction data must be reported via EU-approved channels"
+        reference: MiFID II RTS 22 — Transaction reporting
+        obligation: Transaction data must be reported via EU-approved channels
     regions: [eu-fra]
     applies_to: [border]
     design_intents: [INTENT-003]
@@ -323,7 +323,7 @@ requirements:
       - "sot/compliance/regulatory.yml — eu-fra data_residency: data_must_stay_in [EU]"
 
   - id: REQ-010
-    title: "Frankfurt DC must not carry TRADING zone traffic or host trading systems"
+    title: Frankfurt DC must not carry TRADING zone traffic or host trading systems
     category: data_residency
     priority: critical
     owner: Head-Compl
@@ -342,22 +342,22 @@ requirements:
       would constitute an unauthorised extension of regulated activity.
     regulatory_refs:
       - framework: bafin
-        reference: "BAIT Section 2 — Scope of regulated activities"
-        obligation: "IT systems must only support activities within the firm's regulatory permissions"
+        reference: BAIT Section 2 — Scope of regulated activities
+        obligation: IT systems must only support activities within the firm's regulatory permissions
       - framework: mifid2
-        reference: "MiFID II Article 35 — Passporting"
-        obligation: "Activities must be conducted within the scope of the firm's authorisation"
+        reference: MiFID II Article 35 — Passporting
+        obligation: Activities must be conducted within the scope of the firm's authorisation
     regions: [eu-fra]
     applies_to: [spine, leaf, border, firewall]
     design_intents: [INTENT-003, INTENT-004]
     sot_enforcement:
       - "sot/compliance/zone_policies.yml — dc_frankfurt: TRADING false"
-      - "sot/compliance/zone_policies.yml — ZONE-001 audit check — vlan_absent 100 fra-dc1"
+      - sot/compliance/zone_policies.yml — ZONE-001 audit check — vlan_absent 100 fra-dc1
       - "sot/bgp/route_policies.yml — RM_INTERDC_LON_FRA_OUT: strips TRADING prefixes and community"
       - "sot/bgp/route_policies.yml — RM_INTERDC_LON_FRA_IN: denies TRADING community inbound"
 
   - id: REQ-011
-    title: "Branch offices must never carry TRADING zone traffic"
+    title: Branch offices must never carry TRADING zone traffic
     category: data_residency
     priority: high
     owner: CISO
@@ -375,14 +375,14 @@ requirements:
       making compliance attestation impossible.
     regulatory_refs:
       - framework: fca
-        reference: "FCA COBS 11.2 — Best execution"
-        obligation: "Order routing must use controlled, low-latency paths"
+        reference: FCA COBS 11.2 — Best execution
+        obligation: Order routing must use controlled, low-latency paths
     regions: [emea-lon, americas-nyc, apac, eu-fra]
     applies_to: branch_devices
     design_intents: [INTENT-010]
     sot_enforcement:
       - "sot/compliance/zone_policies.yml — branch_standard: TRADING false"
-      - "sot/compliance/zone_policies.yml — ZONE-002 audit check"
+      - sot/compliance/zone_policies.yml — ZONE-002 audit check
 
   # ────────────────────────────────────────────────────────────────────
   # CATEGORY: BGP Security
@@ -392,7 +392,7 @@ requirements:
   # ────────────────────────────────────────────────────────────────────
 
   - id: REQ-012
-    title: "All BGP sessions must use MD5 authentication"
+    title: All BGP sessions must use MD5 authentication
     category: bgp_security
     priority: critical
     owner: CISO
@@ -412,20 +412,20 @@ requirements:
       spoofing.
     regulatory_refs:
       - framework: fca
-        reference: "FCA SYSC 13.9 — Network security"
-        obligation: "Appropriate technical controls on network infrastructure"
+        reference: FCA SYSC 13.9 — Network security
+        obligation: Appropriate technical controls on network infrastructure
       - framework: mas
-        reference: "MAS TRM 11.2 — Network security"
-        obligation: "Authentication controls on all critical network sessions"
+        reference: MAS TRM 11.2 — Network security
+        obligation: Authentication controls on all critical network sessions
     regions: [emea-lon, americas-nyc, apac, eu-fra]
     applies_to: [spine, leaf, border]
     design_intents: [INTENT-005]
     sot_enforcement:
-      - "Every bgp.neighbors[*].md5_password_ref must be non-null in device files"
-      - "sot/devices/lon-dc1/border-lon-01.yml — md5_password_ref on all 14 neighbors"
+      - Every bgp.neighbors[*].md5_password_ref must be non-null in device files
+      - sot/devices/lon-dc1/border-lon-01.yml — md5_password_ref on all 14 neighbors
 
   - id: REQ-013
-    title: "All eBGP sessions must have explicit route-maps applied inbound and outbound"
+    title: All eBGP sessions must have explicit route-maps applied inbound and outbound
     category: bgp_security
     priority: high
     owner: Head-NetOps
@@ -445,17 +445,17 @@ requirements:
       routing policy.
     regulatory_refs:
       - framework: sec
-        reference: "SEC Reg SCI 242.1001 — System integrity"
-        obligation: "Controls to prevent unintended traffic routing"
+        reference: SEC Reg SCI 242.1001 — System integrity
+        obligation: Controls to prevent unintended traffic routing
     regions: [emea-lon, americas-nyc, apac, eu-fra]
     applies_to: [border]
     design_intents: [INTENT-006]
     sot_enforcement:
-      - "sot/bgp/route_policies.yml — all RM_ entries"
+      - sot/bgp/route_policies.yml — all RM_ entries
       - "Device files: route_map_in and route_map_out set on every eBGP neighbor"
 
   - id: REQ-014
-    title: "Branch routers must only advertise their assigned /29 prefix"
+    title: Branch routers must only advertise their assigned /29 prefix
     category: bgp_security
     priority: high
     owner: Head-NetOps
@@ -474,14 +474,14 @@ requirements:
       connectivity or expose sensitive traffic to an uncontrolled path.
     regulatory_refs:
       - framework: fca
-        reference: "FCA SYSC 13.9"
-        obligation: "Controls on network paths used by regulated services"
+        reference: FCA SYSC 13.9
+        obligation: Controls on network paths used by regulated services
     regions: [emea-lon, americas-nyc, apac, eu-fra]
     applies_to: [border, branch]
     design_intents: [INTENT-007]
     sot_enforcement:
       - "sot/bgp/route_policies.yml — RM_BRANCH_IN seq 20: deny all non-branch prefixes"
-      - "sot/devices/branches/ — each branch has exactly one /29 prefix"
+      - sot/devices/branches/ — each branch has exactly one /29 prefix
 
   # ────────────────────────────────────────────────────────────────────
   # CATEGORY: Compliance Controls
@@ -490,7 +490,7 @@ requirements:
   # ────────────────────────────────────────────────────────────────────
 
   - id: REQ-015
-    title: "All devices must send audit logs to the central syslog infrastructure"
+    title: All devices must send audit logs to the central syslog infrastructure
     category: compliance_controls
     priority: critical
     owner: Head-Compl
@@ -509,25 +509,25 @@ requirements:
       FCA SYSC requires 7 years of log retention for UK entities.
     regulatory_refs:
       - framework: mifid2
-        reference: "MiFID II Article 25(2) — Record keeping"
-        obligation: "Records of transactions and related communications retained for 5 years"
+        reference: MiFID II Article 25(2) — Record keeping
+        obligation: Records of transactions and related communications retained for 5 years
       - framework: fca
-        reference: "FCA SYSC 9.1 — Record-keeping requirements"
-        obligation: "7-year retention for FCA-regulated activities"
+        reference: FCA SYSC 9.1 — Record-keeping requirements
+        obligation: 7-year retention for FCA-regulated activities
       - framework: sox
-        reference: "SOX Section 802 — Audit record retention"
-        obligation: "7-year retention of records related to financial reporting controls"
+        reference: SOX Section 802 — Audit record retention
+        obligation: 7-year retention of records related to financial reporting controls
       - framework: bafin
-        reference: "MaRisk AT 7.2 — Logging and monitoring"
-        obligation: "Comprehensive logging of all system activities"
+        reference: MaRisk AT 7.2 — Logging and monitoring
+        obligation: Comprehensive logging of all system activities
     regions: [emea-lon, americas-nyc, apac, eu-fra]
     applies_to: all_devices
     design_intents: [INTENT-011]
     sot_enforcement:
-      - "sot/global/platform_defaults.yml — logging.servers and logging.source_interface"
+      - sot/global/platform_defaults.yml — logging.servers and logging.source_interface
 
   - id: REQ-016
-    title: "All devices must synchronise time via authenticated NTP"
+    title: All devices must synchronise time via authenticated NTP
     category: compliance_controls
     priority: critical
     owner: Head-Compl
@@ -547,20 +547,20 @@ requirements:
       compliance reports.
     regulatory_refs:
       - framework: mifid2
-        reference: "MiFID II RTS 25 — Clock synchronisation"
-        obligation: "Clocks synchronised to UTC within 100μs for gated clocks; 1ms for other systems"
+        reference: MiFID II RTS 25 — Clock synchronisation
+        obligation: Clocks synchronised to UTC within 100μs for gated clocks; 1ms for other systems
       - framework: mas
-        reference: "MAS TRM 9.2 — Time synchronisation"
-        obligation: "All systems must synchronise to an authoritative time source"
+        reference: MAS TRM 9.2 — Time synchronisation
+        obligation: All systems must synchronise to an authoritative time source
     regions: [emea-lon, americas-nyc, apac, eu-fra]
     applies_to: all_devices
     design_intents: [INTENT-011]
     sot_enforcement:
       - "sot/global/platform_defaults.yml — ntp.authenticate: true"
-      - "sot/global/ntp.yml — NTP server definitions"
+      - sot/global/ntp.yml — NTP server definitions
 
   - id: REQ-017
-    title: "Telnet must be disabled on all network devices"
+    title: Telnet must be disabled on all network devices
     category: compliance_controls
     priority: critical
     owner: CISO
@@ -578,17 +578,17 @@ requirements:
       findings and regulatory inspection reports.
     regulatory_refs:
       - framework: fca
-        reference: "FCA SYSC 13.9 — Information security controls"
-        obligation: "Encrypted communications for all management access"
+        reference: FCA SYSC 13.9 — Information security controls
+        obligation: Encrypted communications for all management access
       - framework: bafin
-        reference: "BAIT Section 8.3 — Access controls"
-        obligation: "Encrypted protocols for all administrative access"
+        reference: BAIT Section 8.3 — Access controls
+        obligation: Encrypted protocols for all administrative access
     regions: [emea-lon, americas-nyc, apac, eu-fra]
     applies_to: all_devices
     design_intents: [INTENT-011]
 
   - id: REQ-018
-    title: "SSH version 2 must be the only permitted remote access protocol"
+    title: SSH version 2 must be the only permitted remote access protocol
     category: compliance_controls
     priority: critical
     owner: CISO
@@ -608,19 +608,19 @@ requirements:
       security failure by FCA and BaFin inspectors.
     regulatory_refs:
       - framework: fca
-        reference: "FCA SYSC 13.9"
-        obligation: "Appropriate encryption on management channels"
+        reference: FCA SYSC 13.9
+        obligation: Appropriate encryption on management channels
       - framework: mas
-        reference: "MAS Cyber Hygiene Notice — Secure remote access"
-        obligation: "Only approved SSH versions permitted"
+        reference: MAS Cyber Hygiene Notice — Secure remote access
+        obligation: Only approved SSH versions permitted
     regions: [emea-lon, americas-nyc, apac, eu-fra]
     applies_to: all_devices
     design_intents: [INTENT-011]
     sot_enforcement:
-      - "sot/global/platform_defaults.yml — SSH configuration in base template"
+      - sot/global/platform_defaults.yml — SSH configuration in base template
 
   - id: REQ-019
-    title: "SNMP version 3 with authentication and privacy must be used — no SNMPv1/v2c"
+    title: SNMP version 3 with authentication and privacy must be used — no SNMPv1/v2c
     category: compliance_controls
     priority: high
     owner: CISO
@@ -639,17 +639,17 @@ requirements:
       REQ-018.
     regulatory_refs:
       - framework: fca
-        reference: "FCA SYSC 13.9"
-        obligation: "Encrypted and authenticated management protocols"
+        reference: FCA SYSC 13.9
+        obligation: Encrypted and authenticated management protocols
       - framework: bafin
-        reference: "BAIT Section 8.3 — Network monitoring controls"
-        obligation: "Secure protocols for network monitoring"
+        reference: BAIT Section 8.3 — Network monitoring controls
+        obligation: Secure protocols for network monitoring
     regions: [emea-lon, americas-nyc, apac, eu-fra]
     applies_to: all_devices
     design_intents: [INTENT-011]
     sot_enforcement:
       - "sot/global/platform_defaults.yml — snmp.version: v3 (both arista_eos and frr)"
-      - "sot/global/snmp.yml — SNMPv3 user definitions"
+      - sot/global/snmp.yml — SNMPv3 user definitions
 
   # ────────────────────────────────────────────────────────────────────
   # CATEGORY: Resilience & Availability
@@ -659,7 +659,7 @@ requirements:
   # ────────────────────────────────────────────────────────────────────
 
   - id: REQ-020
-    title: "Each data centre must survive the failure of a single spine switch"
+    title: Each data centre must survive the failure of a single spine switch
     category: resilience
     priority: critical
     owner: Head-Infra
@@ -679,24 +679,24 @@ requirements:
       system availability SLA (99.999% — Reg SCI).
     regulatory_refs:
       - framework: fca
-        reference: "FCA PS21/3 — Operational resilience"
-        obligation: "Firms must identify IBS and remain within impact tolerances during disruptions"
+        reference: FCA PS21/3 — Operational resilience
+        obligation: Firms must identify IBS and remain within impact tolerances during disruptions
       - framework: sec
-        reference: "SEC Reg SCI 242.1001(a)(2)(v)"
-        obligation: "Business continuity and disaster recovery plans; 99.999% availability SLA"
+        reference: SEC Reg SCI 242.1001(a)(2)(v)
+        obligation: Business continuity and disaster recovery plans; 99.999% availability SLA
       - framework: mas
-        reference: "MAS TRM 6.2 — System availability"
-        obligation: "Critical systems must achieve agreed availability targets"
+        reference: MAS TRM 6.2 — System availability
+        obligation: Critical systems must achieve agreed availability targets
     regions: [emea-lon, americas-nyc, apac, eu-fra]
     applies_to: [spine, leaf, border]
     design_intents: [INTENT-008]
     sot_enforcement:
-      - "Each DC site has two spine devices (e.g., spine-lon-01 and spine-lon-02)"
-      - "Each leaf has Ethernet1→spine-01 and Ethernet2→spine-02 in device files"
+      - Each DC site has two spine devices (e.g., spine-lon-01 and spine-lon-02)
+      - Each leaf has Ethernet1→spine-01 and Ethernet2→spine-02 in device files
       - "sot/global/platform_defaults.yml — bgp_defaults.maximum_paths: 4"
 
   - id: REQ-021
-    title: "Border routers must have at least two independent WAN paths to peer regions"
+    title: Border routers must have at least two independent WAN paths to peer regions
     category: resilience
     priority: critical
     owner: Head-Infra
@@ -717,17 +717,17 @@ requirements:
       circuit failure and carrier outages.
     regulatory_refs:
       - framework: sec
-        reference: "SEC Reg SCI 242.1001 — Business continuity"
-        obligation: "Backup systems and redundant network connectivity"
+        reference: SEC Reg SCI 242.1001 — Business continuity
+        obligation: Backup systems and redundant network connectivity
       - framework: fca
-        reference: "FCA PS21/3 — Operational resilience"
-        obligation: "Resilience within impact tolerances — single points of failure not acceptable"
+        reference: FCA PS21/3 — Operational resilience
+        obligation: Resilience within impact tolerances — single points of failure not acceptable
     regions: [emea-lon, americas-nyc, apac, eu-fra]
     applies_to: [border]
     design_intents: [INTENT-008]
     sot_enforcement:
       - "border-lon-01: Ethernet3→NYC, Ethernet4→SIN, Ethernet5→FRA — three WAN interfaces"
-      - "BFD enabled on all WAN-facing BGP sessions for fast failure detection"
+      - BFD enabled on all WAN-facing BGP sessions for fast failure detection
 
 # ────────────────────────────────────────────────────────────────────
 # Requirement ID Registry
@@ -736,49 +736,49 @@ requirements:
 requirement_index:
   governance:
     - id: REQ-001
-      title: "Changes must originate from SoT pipeline"
+      title: Changes must originate from SoT pipeline
     - id: REQ-002
-      title: "Configs generated from templates only"
+      title: Configs generated from templates only
     - id: REQ-003
-      title: "Standard branch onboarding process"
+      title: Standard branch onboarding process
     - id: REQ-004
-      title: "SoT record required before deployment"
+      title: SoT record required before deployment
     - id: REQ-005
-      title: "Devices must carry regulatory compliance tags"
+      title: Devices must carry regulatory compliance tags
     - id: REQ-006
-      title: "Tamper-evident audit artefact per change"
+      title: Tamper-evident audit artefact per change
   zone_isolation:
     - id: REQ-007
-      title: "TRADING must not reach CORPORATE"
+      title: TRADING must not reach CORPORATE
     - id: REQ-008
-      title: "TRADING must not reach DMZ"
+      title: TRADING must not reach DMZ
   data_residency:
     - id: REQ-009
-      title: "EU/UK data must not traverse non-EU/UK paths"
+      title: EU/UK data must not traverse non-EU/UK paths
     - id: REQ-010
-      title: "Frankfurt must not host TRADING zone"
+      title: Frankfurt must not host TRADING zone
     - id: REQ-011
-      title: "Branches must never carry TRADING traffic"
+      title: Branches must never carry TRADING traffic
   bgp_security:
     - id: REQ-012
-      title: "MD5 authentication on all BGP sessions"
+      title: MD5 authentication on all BGP sessions
     - id: REQ-013
-      title: "Explicit route-maps on all eBGP sessions"
+      title: Explicit route-maps on all eBGP sessions
     - id: REQ-014
-      title: "Branches advertise only their assigned /29"
+      title: Branches advertise only their assigned /29
   compliance_controls:
     - id: REQ-015
-      title: "All devices send audit logs to central syslog"
+      title: All devices send audit logs to central syslog
     - id: REQ-016
-      title: "Authenticated NTP on all devices"
+      title: Authenticated NTP on all devices
     - id: REQ-017
-      title: "Telnet disabled on all devices"
+      title: Telnet disabled on all devices
     - id: REQ-018
-      title: "SSHv2 only for remote access"
+      title: SSHv2 only for remote access
     - id: REQ-019
-      title: "SNMPv3 only — no v1/v2c"
+      title: SNMPv3 only — no v1/v2c
   resilience:
     - id: REQ-020
-      title: "DC survives single spine failure"
+      title: DC survives single spine failure
     - id: REQ-021
-      title: "Border has at least two WAN paths"
+      title: Border has at least two WAN paths

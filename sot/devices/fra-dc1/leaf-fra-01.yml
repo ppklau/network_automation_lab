@@ -34,23 +34,23 @@ loopback:
 
 vrfs:
   - name: MGMT
-    rd: "65030:999"
+    rd: 65030:999
   # TRADING_VRF intentionally absent — prohibited at FRA
   - name: CORPORATE_VRF
-    description: "Corporate workstations and regulatory reporting servers"
-    rd: "65030:200"
-    route_target_import: "65030:200"
-    route_target_export: "65030:200"
+    description: Corporate workstations and regulatory reporting servers
+    rd: 65030:200
+    route_target_import: 65030:200
+    route_target_export: 65030:200
   - name: DMZ_VRF
-    description: "DMZ — BaFin portal and regulatory connectivity"
-    rd: "65030:300"
-    route_target_import: "65030:300"
-    route_target_export: "65030:300"
+    description: DMZ — BaFin portal and regulatory connectivity
+    rd: 65030:300
+    route_target_import: 65030:300
+    route_target_export: 65030:300
   - name: MGMT_VRF
-    description: "Network device management"
-    rd: "65030:400"
-    route_target_import: "65030:400"
-    route_target_export: "65030:400"
+    description: Network device management
+    rd: 65030:400
+    route_target_import: 65030:400
+    route_target_export: 65030:400
 
 vlans:
   # VLAN 100 TRADING intentionally absent — regulatory prohibition
@@ -72,24 +72,24 @@ vlans:
 
 interfaces:
   - name: Ethernet1
-    description: "P2P -> spine-fra-01 Ethernet1"
+    description: P2P -> spine-fra-01 Ethernet1
     ip: 10.30.100.1/31
     peer_device: spine-fra-01
     peer_interface: Ethernet1
     mtu: 9214
   - name: Ethernet2
-    description: "P2P -> spine-fra-02 Ethernet1"
+    description: P2P -> spine-fra-02 Ethernet1
     ip: 10.30.100.9/31
     peer_device: spine-fra-02
     peer_interface: Ethernet1
     mtu: 9214
   - name: Ethernet3
-    description: "Server access — CORPORATE VLAN 200"
+    description: Server access — CORPORATE VLAN 200
     mode: access
     access_vlan: 200
     mtu: 9214
   - name: Ethernet4
-    description: "Server trunk — CORPORATE VLAN 200"
+    description: Server trunk — CORPORATE VLAN 200
     mode: access
     access_vlan: 200
     mtu: 9214
@@ -122,11 +122,11 @@ bgp:
   neighbors:
     - peer_ip: 10.30.255.1
       remote_as: 65030
-      description: "iBGP RR -> spine-fra-01"
+      description: iBGP RR -> spine-fra-01
       update_source: Loopback0
       md5_password_ref: bgp_md5_fra_dc1_fabric
     - peer_ip: 10.30.255.2
       remote_as: 65030
-      description: "iBGP RR -> spine-fra-02"
+      description: iBGP RR -> spine-fra-02
       update_source: Loopback0
       md5_password_ref: bgp_md5_fra_dc1_fabric

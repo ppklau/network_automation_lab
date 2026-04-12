@@ -44,24 +44,24 @@ vlans:
     active: true
 interfaces:
   - name: Ethernet1
-    description: "P2P -> spine-sin-01 Ethernet4"
+    description: P2P -> spine-sin-01 Ethernet4
     ip: 10.20.100.7/31
     peer_device: spine-sin-01
     peer_interface: Ethernet4
     mtu: 9214
   - name: Ethernet2
-    description: "P2P -> spine-sin-02 Ethernet4"
+    description: P2P -> spine-sin-02 Ethernet4
     ip: 10.20.100.15/31
     peer_device: spine-sin-02
     peer_interface: Ethernet4
     mtu: 9214
   - name: Ethernet3
-    description: "Server access — DMZ VLAN 300"
+    description: Server access — DMZ VLAN 300
     mode: access
     access_vlan: 300
     mtu: 9214
   - name: Ethernet4
-    description: "fw-sin-01 eth3"
+    description: fw-sin-01 eth3
     peer_device: fw-sin-01
     peer_interface: eth3
     mode: access
@@ -99,11 +99,11 @@ bgp:
   neighbors:
     - peer_ip: 10.20.255.1
       remote_as: 65020
-      description: "iBGP RR -> spine-sin-01"
+      description: iBGP RR -> spine-sin-01
       update_source: Loopback0
       md5_password_ref: bgp_md5_sin_dc1_fabric
     - peer_ip: 10.20.255.2
       remote_as: 65020
-      description: "iBGP RR -> spine-sin-02"
+      description: iBGP RR -> spine-sin-02
       update_source: Loopback0
       md5_password_ref: bgp_md5_sin_dc1_fabric

@@ -9,7 +9,7 @@
 # ──────────────────────────────────────────────────────────────
 frameworks:
   mifid2:
-    full_name: "Markets in Financial Instruments Directive II"
+    full_name: Markets in Financial Instruments Directive II
     jurisdiction: [EU, UK_post_Brexit]
     regulator: [ESMA, FCA]
     applies_to_regions: [emea-lon, eu-fra]
@@ -21,7 +21,7 @@ frameworks:
       - Algorithmic trading controls
 
   fca:
-    full_name: "Financial Conduct Authority (UK)"
+    full_name: Financial Conduct Authority (UK)
     jurisdiction: [UK]
     regulator: FCA
     applies_to_regions: [emea-lon]
@@ -32,7 +32,7 @@ frameworks:
       - Material outsourcing notification
 
   gdpr:
-    full_name: "General Data Protection Regulation"
+    full_name: General Data Protection Regulation
     jurisdiction: [EU, UK_GDPR]
     regulator: [ICO_UK, BaFin_Germany]
     applies_to_regions: [emea-lon, eu-fra]
@@ -43,7 +43,7 @@ frameworks:
       - Breach notification within 72 hours
 
   sox:
-    full_name: "Sarbanes-Oxley Act"
+    full_name: Sarbanes-Oxley Act
     jurisdiction: [US]
     regulator: [SEC, PCAOB]
     applies_to_regions: [americas-nyc]
@@ -54,7 +54,7 @@ frameworks:
       - Access segregation
 
   sec:
-    full_name: "Securities and Exchange Commission Regulations"
+    full_name: Securities and Exchange Commission Regulations
     jurisdiction: [US]
     regulator: SEC
     applies_to_regions: [americas-nyc]
@@ -65,7 +65,7 @@ frameworks:
       - Business continuity testing annually
 
   mas:
-    full_name: "Monetary Authority of Singapore"
+    full_name: Monetary Authority of Singapore
     jurisdiction: [Singapore]
     regulator: MAS
     applies_to_regions: [apac]
@@ -76,7 +76,7 @@ frameworks:
       - Incident reporting within 1 hour for P1 incidents
 
   hkma:
-    full_name: "Hong Kong Monetary Authority"
+    full_name: Hong Kong Monetary Authority
     jurisdiction: [HongKong]
     regulator: HKMA
     applies_to_regions: [apac]
@@ -86,7 +86,7 @@ frameworks:
       - Red team exercises (iCAST)
 
   bafin:
-    full_name: "Bundesanstalt für Finanzdienstleistungsaufsicht"
+    full_name: Bundesanstalt für Finanzdienstleistungsaufsicht
     jurisdiction: [Germany]
     regulator: BaFin
     applies_to_regions: [eu-fra]
@@ -110,21 +110,21 @@ regional_profiles:
       data_must_stay_in: [UK, EU]  # adequacy decision applies post-Brexit
       cross_border_transfer_requires: adequacy_or_scc
     audit_log_retention_years: 7   # MiFID II requires 5yr; FCA SYSC requires 7yr — use max
-    clock_sync_requirement_us: 100 # MiFID II RTS 25 — UTC synchronisation within 100 microseconds for gated clocks
+    clock_sync_requirement_us: 100  # MiFID II RTS 25 — UTC synchronisation within 100 microseconds for gated clocks
     change_freeze_windows:
-      - name: "Year-end financial close"
-        start: "12-20"
-        end: "01-05"
+      - name: Year-end financial close
+        start: 12-20
+        end: 01-05
         timezone: Europe/London
         change_types_frozen: [infrastructure, major]
         emergency_only: true
-        approver: "CTO + Head of Compliance"
-      - name: "UK Budget Day"
-        description: "Annual UK budget — heightened trading activity"
-        recurring: "variable — check HMT calendar"
+        approver: CTO + Head of Compliance
+      - name: UK Budget Day
+        description: Annual UK budget — heightened trading activity
+        recurring: variable — check HMT calendar
         change_types_frozen: [infrastructure, major]
     incident_notification:
-      fca_reportable_threshold: "P1 incidents affecting FCA-regulated services"
+      fca_reportable_threshold: P1 incidents affecting FCA-regulated services
       notification_deadline_hours: 4
       contact: compliance@acme-investments.com
 
@@ -138,16 +138,16 @@ regional_profiles:
       cross_border_transfer_requires: standard_contractual_clauses
     audit_log_retention_years: 7   # SEC Rule 17a-4 requires 6yr; SOX requires 7yr
     change_freeze_windows:
-      - name: "US financial quarter-end"
-        description: "Last 3 trading days of each quarter"
+      - name: US financial quarter-end
+        description: Last 3 trading days of each quarter
         recurring: quarterly
         months: [3, 6, 9, 12]
         change_types_frozen: [infrastructure]
-      - name: "US holiday trading restrictions"
-        description: "Thanksgiving, Christmas, New Year"
+      - name: US holiday trading restrictions
+        description: Thanksgiving, Christmas, New Year
         change_types_frozen: [infrastructure, major]
     incident_notification:
-      sec_reportable_threshold: "P1 incidents affecting SEC-registered activities"
+      sec_reportable_threshold: P1 incidents affecting SEC-registered activities
       notification_deadline_hours: 24
 
   apac:
@@ -160,15 +160,15 @@ regional_profiles:
       cross_border_transfer_requires: pdpa_consent_or_scc
     audit_log_retention_years: 5   # MAS TRM requirement
     change_freeze_windows:
-      - name: "Chinese New Year"
-        description: "Heightened trading in APAC markets"
+      - name: Chinese New Year
+        description: Heightened trading in APAC markets
         recurring: annual
         change_types_frozen: [infrastructure]
-      - name: "APAC quarter-end"
+      - name: APAC quarter-end
         recurring: quarterly
         change_types_frozen: [infrastructure]
     incident_notification:
-      mas_reportable_threshold: "P1 incidents per MAS TRM — report within 1 hour"
+      mas_reportable_threshold: P1 incidents per MAS TRM — report within 1 hour
       notification_deadline_hours: 1
 
   eu-fra:
@@ -183,14 +183,14 @@ regional_profiles:
     trading_zone_prohibited: true  # CRITICAL: no TRADING VRF in Frankfurt
     audit_log_retention_years: 10  # BaFin MaRisk requires 10yr for some records
     change_freeze_windows:
-      - name: "EU quarter-end"
+      - name: EU quarter-end
         recurring: quarterly
         change_types_frozen: [infrastructure, major]
-      - name: "German banking holidays"
-        description: "Good Friday, Christmas Eve (German banking custom)"
+      - name: German banking holidays
+        description: Good Friday, Christmas Eve (German banking custom)
         change_types_frozen: [infrastructure, major]
     incident_notification:
-      bafin_reportable_threshold: "Significant operational incidents per AT 7.2"
+      bafin_reportable_threshold: Significant operational incidents per AT 7.2
       notification_deadline_hours: 2
 
 # ──────────────────────────────────────────────────────────────

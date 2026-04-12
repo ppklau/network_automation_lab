@@ -25,7 +25,7 @@ platforms:
         *  All sessions are logged and monitored.                                *
         *  If you are not an authorised user, disconnect immediately.            *
         **************************************************************************
-      login: "Authorised users only. All activity is monitored and logged."
+      login: Authorised users only. All activity is monitored and logged.
 
     aaa:
       # TACACS+ for authentication, local fallback for console break-glass
@@ -62,12 +62,12 @@ platforms:
           privilege: 15
           password_ref: local_admin_password
           role: network-admin
-          description: "Break-glass local admin — change password on first use"
+          description: Break-glass local admin — change password on first use
         - username: ansible
           privilege: 15
           password_ref: ansible_password
           role: network-admin
-          description: "Service account for Ansible automation"
+          description: Service account for Ansible automation
 
     logging:
       facility: local6
@@ -77,11 +77,11 @@ platforms:
         - ip: 10.1.0.53
           port: 514
           protocol: udp
-          description: "Graylog — LON DC1"
+          description: Graylog — LON DC1
         - ip: 10.10.0.53
           port: 514
           protocol: udp
-          description: "Graylog — NYC DC1"
+          description: Graylog — NYC DC1
       format:
         timestamp: traditional year
         hostname: fqdn
@@ -155,20 +155,20 @@ platforms:
 
     vrf_definitions:
       - name: MGMT
-        rd: "auto"
-        description: "Out-of-band management — overlaps with MGMT_VRF data plane"
+        rd: auto
+        description: Out-of-band management — overlaps with MGMT_VRF data plane
       - name: TRADING_VRF
-        description: "Equities/FX trading systems (LON/NYC/SIN/HKG only)"
-        route_distinguisher_base: "65001:100"  # site ASN + VLAN
+        description: Equities/FX trading systems (LON/NYC/SIN/HKG only)
+        route_distinguisher_base: 65001:100  # site ASN + VLAN
       - name: CORPORATE_VRF
-        description: "Corporate workstations and servers"
-        route_distinguisher_base: "65001:200"
+        description: Corporate workstations and servers
+        route_distinguisher_base: 65001:200
       - name: DMZ_VRF
-        description: "DMZ / internet-facing / partner connectivity"
-        route_distinguisher_base: "65001:300"
+        description: DMZ / internet-facing / partner connectivity
+        route_distinguisher_base: 65001:300
       - name: MGMT_VRF
-        description: "Network device management data plane"
-        route_distinguisher_base: "65001:400"
+        description: Network device management data plane
+        route_distinguisher_base: 65001:400
 
     bgp_defaults:
       graceful_restart: true
@@ -221,11 +221,11 @@ platforms:
         - username: netadmin
           sudo: true
           password_ref: local_admin_password
-          description: "Break-glass local admin"
+          description: Break-glass local admin
         - username: ansible
           sudo: true
           password_ref: ansible_password
-          description: "Ansible service account"
+          description: Ansible service account
 
     logging:
       facility: daemon

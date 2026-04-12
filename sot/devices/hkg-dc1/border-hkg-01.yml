@@ -23,19 +23,19 @@ loopback:
   ip: 10.21.255.20/32
 interfaces:
   - name: Ethernet1
-    description: "P2P -> spine-hkg-01 Ethernet5"
+    description: P2P -> spine-hkg-01 Ethernet5
     ip: 10.21.100.17/31
     peer_device: spine-hkg-01
     peer_interface: Ethernet5
     mtu: 9214
   - name: Ethernet2
-    description: "P2P -> spine-hkg-02 Ethernet5"
+    description: P2P -> spine-hkg-02 Ethernet5
     ip: 10.21.100.19/31
     peer_device: spine-hkg-02
     peer_interface: Ethernet5
     mtu: 9214
   - name: Ethernet3
-    description: "Inter-DC -> border-sin-01 [SIN<->HKG eBGP AS65021<->AS65020]"
+    description: Inter-DC -> border-sin-01 [SIN<->HKG eBGP AS65021<->AS65020]
     ip: 10.0.6.1/31
     peer_device: border-sin-01
     peer_interface: eth4
@@ -48,17 +48,17 @@ bgp:
   neighbors:
     - peer_ip: 10.21.255.1
       remote_as: 65021
-      description: "iBGP RR -> spine-hkg-01"
+      description: iBGP RR -> spine-hkg-01
       update_source: Loopback0
       md5_password_ref: bgp_md5_hkg_dc1_fabric
     - peer_ip: 10.21.255.2
       remote_as: 65021
-      description: "iBGP RR -> spine-hkg-02"
+      description: iBGP RR -> spine-hkg-02
       update_source: Loopback0
       md5_password_ref: bgp_md5_hkg_dc1_fabric
     - peer_ip: 10.0.6.0
       remote_as: 65020
-      description: "eBGP inter-DC -> border-sin-01 [SIN]"
+      description: eBGP inter-DC -> border-sin-01 [SIN]
       md5_password_ref: bgp_md5_interdc_sin_hkg
   aggregate_addresses:
     - prefix: 10.21.0.0/16
