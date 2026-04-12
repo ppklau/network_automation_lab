@@ -14,7 +14,7 @@ title: "Appendix A — Glossary"
 
 **CORPORATE zone** — General business users and services. VLAN 200–220, subnet 10.1.2.0/22. Isolated from TRADING zone by firewall policy and VRF separation.
 
-**containerlab** — A Docker-based network topology lab tool. Manages the 18-node ACME lab topology defined in `topology/containerlab.yml`.
+**containerlab** — A Docker-based network topology lab tool. Manages the 13-node ACME lab topology defined in `topology/containerlab.yml`.
 
 **Design intent** — A Layer 2 (architectural) statement of what the network must do, expressed in machine-verifiable terms. Defined in `design_intents/`. Tested by Batfish.
 

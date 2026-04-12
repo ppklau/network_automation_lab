@@ -239,7 +239,7 @@ ansible-playbook playbooks/push_configs.yml
 
 This renders the full device configs from the SoT (Jinja2 templates + device YAML) and pushes them to all active nodes.
 
-The first push takes about 3–4 minutes as it connects to all 18 nodes sequentially.
+The first push takes about 3–4 minutes as it connects to all 13 nodes sequentially.
 
 ---
 
@@ -249,7 +249,7 @@ The first push takes about 3–4 minutes as it connects to all 18 nodes sequenti
 ansible-playbook playbooks/verify_state.yml
 ```
 
-You should see all tasks passing. If any BGP sessions are not yet Established, the playbook will retry up to 6 times with a 10-second delay — BGP convergence across 18 nodes can take up to a minute.
+You should see all tasks passing. If any BGP sessions are not yet Established, the playbook will retry up to 6 times with a 10-second delay — BGP convergence across 13 nodes can take up to a minute.
 
 **To check manually on a cEOS node:**
 
