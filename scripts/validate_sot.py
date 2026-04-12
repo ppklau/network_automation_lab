@@ -317,7 +317,15 @@ def check_branch_file(
                     f"'{region}' {valid_asn_range.start}-{valid_asn_range.stop - 1} (SC-202)"
                 )
 
-        # 3b. lan_prefix and wan_prefix must be /29 (INTENT-007, SC-107)
+        # 3b. bgp.local_as must match the branch asn field
+        bgp_local_as = branch.get("bgp", {}).get("local_as")
+        if asn is not None and bgp_local_as is not None and bgp_local_as != asn:
+            v.error(
+                f"{rel} [{hostname}]: bgp.local_as {bgp_local_as} does not match "
+                f"asn {asn} — these must be identical (SC-203)"
+            )
+
+        # 3c. lan_prefix and wan_prefix must be /29 (INTENT-007, SC-107)
         for field in ("lan_prefix", "wan_prefix"):
             prefix_str = branch.get(field)
             if prefix_str:
@@ -331,7 +339,7 @@ def check_branch_file(
                 except ValueError:
                     v.error(f"{rel} [{hostname}]: {field} '{prefix_str}' is not a valid CIDR prefix")
 
-        # 3c. No inline passwords in BGP neighbors
+        # 3d. No inline passwords in BGP neighbors
         bgp = branch.get("bgp", {})
         if isinstance(bgp, dict):
             for neighbor in bgp.get("neighbors", []):
