@@ -21,7 +21,7 @@ services:
         puma['worker_processes'] = 2
         sidekiq['concurrency'] = 5
     ports:
-      - "8929:80"
+      - "8929:8929"
       - "2424:22"
     volumes:
       - gitlab-config:/etc/gitlab
