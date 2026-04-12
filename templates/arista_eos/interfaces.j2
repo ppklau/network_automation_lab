@@ -24,7 +24,7 @@ interface {{ intf.name }}
 {% if intf.name.startswith('Loopback') %}
    ip address {{ intf.ip }}
 {% elif intf.name.startswith('Management') %}
-   ip address {{ intf.ip }}
+   ip address {{ ansible_host }}/24
 {% elif intf.name.startswith('Vlan') %}
 {# SVI interface — look up VRRP group for this VLAN #}
 {% set vlan_id = intf.name | replace('Vlan', '') | int %}
@@ -37,7 +37,7 @@ interface {{ intf.name }}
 {% for vg in vrrp if vg.vlan == vlan_id %}
    vrrp {{ vg.group }} ipv4 {{ vg.virtual_ip }}
    vrrp {{ vg.group }} priority-level {{ vg.priority | default(100) }}
-   vrrp {{ vg.group }} timers advertise {{ (vg.advertisement_interval_ms | default(1000)) // 1000 }}
+   vrrp {{ vg.group }} advertisement interval {{ (vg.advertisement_interval_ms | default(1000)) // 1000 }}
 {% if vg.preempt | default(false) %}
    vrrp {{ vg.group }} preempt
 {% if vg.preempt_delay_seconds is defined %}
@@ -97,7 +97,7 @@ interface {{ intf.name }}
 {% if management.interface not in (interfaces | map(attribute='name') | list) %}
 interface {{ management.interface }}
    description OOB management
-   ip address {{ management.ip }}
+   ip address {{ ansible_host }}/24
    vrf {{ management.vrf | default('MGMT') }}
 !
 {% endif %}
