@@ -9,8 +9,10 @@
 # Default for cEOS devices — overridden per host via platform field in SoT
 ansible_network_os: arista.eos.eos
 ansible_connection: ansible.netcommon.httpapi
-ansible_httpapi_use_ssl: false
-ansible_httpapi_port: 80
+ansible_httpapi_use_ssl: true
+ansible_httpapi_port: 443
+ansible_httpapi_validate_certs: false
+ansible_httpapi_vrf: MGMT
 ansible_user: ansible
 ansible_password: "{{ vault_ansible_password }}"
 

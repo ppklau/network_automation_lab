@@ -16,22 +16,6 @@
    VRRP groups are rendered from device SoT vrrp[] list, keyed by vlan.
    ─────────────────────────────────────────────────────────────────────────
 #}
-{# Render global track objects required for VRRP interface tracking.
-   Deduplicated — multiple VRRP groups may track the same interface. #}
-{% if vrrp is defined %}
-{% set seen_tracks = [] %}
-{% for vg in vrrp %}
-{% if vg.track is defined %}
-{% for track_item in vg.track %}
-{% if track_item.interface not in seen_tracks %}
-track IF_{{ track_item.interface | replace('/', '_') }} interface {{ track_item.interface }} line-protocol
-{% if seen_tracks.append(track_item.interface) %}{% endif %}
-{% endif %}
-{% endfor %}
-{% endif %}
-{% endfor %}
-!
-{% endif %}
 ! ── Interfaces ───────────────────────────────────────────────────────────
 !
 {% for intf in interfaces %}
@@ -62,7 +46,7 @@ interface {{ intf.name }}
 {% endif %}
 {% if vg.track is defined %}
 {% for track in vg.track %}
-   vrrp {{ vg.group }} tracked-object IF_{{ track.interface | replace('/', '_') }} decrement {{ track.decrement }}
+   vrrp {{ vg.group }} track {{ track.interface }} decrement {{ track.decrement }}
 {% endfor %}
 {% endif %}
 {% endfor %}
