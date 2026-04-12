@@ -25,3 +25,6 @@ PyYAML>=6.0
 
 # jsonschema — SoT schema validation
 jsonschema>=4.0
+
+# yamllint — YAML syntax validation (used by validate_sot.py and CI pipeline)
+yamllint>=1.35
