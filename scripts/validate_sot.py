@@ -57,7 +57,7 @@ SCHEMA_DIR = REPO_ROOT / "schema"
 # Regional compliance tag requirements — each region must carry these tags
 REQUIRED_TAGS_BY_REGION = {
     "emea-lon":    {"mifid2", "fca"},
-    "americas-nyc": {"sox", "sec_reg_sci"},
+    "americas-nyc": {"sox", "reg_sci"},
     "apac":        {"mas_trm"},   # covers both SIN and HKG — validate_sot checks per-device HKMA tags via warn
     "eu-fra":      {"mifid2", "bafin"},
 }
@@ -543,6 +543,9 @@ def main() -> int:
     for branch_path in sorted(branches_dir.glob("*.yml")):
         data = load_yaml(branch_path, v)
         if data is None:
+            continue
+        if "hostname" in data:
+            # Individual active-device file — validated as a DC device, not a bulk branch file
             continue
         validate_schema(data, branch_schema, branch_path, v)
         check_branch_file(branch_path, data, known_intent_ids, branch_asn_seen, v)
