@@ -73,7 +73,7 @@ management ssh
 ! ── Management API (eAPI — required for Ansible httpapi) ─────────────────
 !
 management api http-commands
-   no protocol https
+   protocol https
    no shutdown
    vrf {{ management.vrf | default('MGMT') }}
 !
@@ -90,7 +90,7 @@ ntp local-interface {{ ntp_source_interface | default('Loopback0') }}
 {% if server.preferred | default(false) %}
 ntp server vrf MGMT {{ server.ip }} prefer key {{ server.key_id }}
 {% else %}
-ntp server vrf MGMT {{ server.ip }} key {{ server.key_id | default('') }}
+ntp server vrf MGMT {{ server.ip }}{% if server.key_id is defined and server.key_id %} key {{ server.key_id }}{% endif %}
 {% endif %}
 {% else %}
 ntp server vrf MGMT {{ server.hostname }}
@@ -130,13 +130,11 @@ snmp-server enable traps snmp link-up
 ! ── LLDP ─────────────────────────────────────────────────────────────────
 !
 lldp run
-no cdp run
 !
 ! ── Spanning Tree ────────────────────────────────────────────────────────
 !
 {% if role == 'leaf' %}
 spanning-tree mode rapid-pvst
-spanning-tree portfast default
 {% else %}
 no spanning-tree vlan-id 1-4094
 {% endif %}
