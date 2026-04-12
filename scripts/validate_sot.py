@@ -64,7 +64,7 @@ REQUIRED_TAGS_BY_REGION = {
 
 # Valid branch ASN ranges by region
 BRANCH_ASN_RANGES = {
-    "emea-lon":    range(65100, 65112),   # 65100–65111  UK
+    "emea-lon":    range(65100, 65116),   # 65100–65115  UK
     "americas-nyc": range(65120, 65128),  # 65120–65127  US
     "apac":        range(65130, 65136),   # 65130–65135  APAC (SIN + HKG shared pool)
     "eu-fra":      range(65140, 65144),   # 65140–65143  EU

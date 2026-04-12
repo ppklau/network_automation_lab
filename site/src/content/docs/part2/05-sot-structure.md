@@ -269,25 +269,120 @@ This is what the pipeline's validate stage does on every commit. Schema errors a
 cat sot/devices/branches/uk-branches.yml
 ```
 
-Answer:
-1. How many UK branches are defined?
-2. What ASN range do they use?
-3. What zone(s) are branch offices permitted to use? (Check the zone_permissions list)
-4. Why are branches CORPORATE-only? (Check `sot/compliance/regulatory.yml`)
+Answer these questions before making any changes:
 
-Add a new UK branch to the file:
+1. How many UK branches are currently defined?
+2. What ASN range does the UK pool use? (Cross-check with `sot/global/asn_pools.yml`)
+3. What zone(s) are branch offices permitted to use?
+4. What WAN prefix would the 13th branch use, following the existing `/29` allocation pattern?
+
+---
+
+ACME is opening a new office in Oxford. You have been given the following SoT entry to add to `uk-branches.yml`:
+
+> **Note:** YAML is indentation-sensitive. This file uses 2-space indentation throughout. A single misplaced space will cause a parse error — often reported as `mapping values are not allowed here` or `could not find expected ':'`. When in doubt, run `yamllint` before the full validator.
 
 ```yaml
-- hostname: branch-lon-05
-  asn: 65104
-  site_prefix: 10.100.4.0/29
-  region: emea
-  zone_permissions: [CORPORATE]
-  compliance_tags: [fca_sysc_8]
-  lab_state: sot_only
+  - hostname: branch-lon-13
+    fqdn: branch-lon-13.emea.acme-investments.internal
+    lab_state: sot_only
+    device_serial: BRNLON2401013
+    site_code: branch-lon-13
+    asn: 65200
+    office_type: corporate
+    location:
+      city: Oxford
+      address: "1 Frideswide Square, Oxford OX1 1SW"
+      country: UK
+    management_ip: 10.100.0.97/29
+    wan_prefix: 10.100.0.96/29
+    wan_ip: 10.100.0.97
+    uplink_peer_ip: 10.100.0.98
+    lan_prefix: 10.100.0.96/29
+    bgp:
+      local_as: 65200
+      router_id: 10.100.0.97
+      neighbors:
+        - peer_ip: 10.100.0.98
+          remote_as: 65001
+          description: "eBGP -> border-lon-01"
+          md5_password_ref: bgp_md5_branch_lon_13
 ```
 
-Run the validator. Fix any issues it finds. Do not push — this is a read-and-validate exercise only.
+Add this entry to the end of the `branches:` list in `uk-branches.yml`, then run the validator:
+
+```bash
+python3 scripts/validate_sot.py
+```
+
+The validator will report an error. Read the error message, identify which value is wrong, correct it, and re-run until the validator passes.
+
+Do not push — this is a read-and-validate exercise only.
+
+---
+
+## What a complete branch onboarding actually requires
+
+The entry you added above is the minimum the validator accepts. Onboarding a real branch requires touching six places in the SoT. Working through them manually once gives you a mental map of what the automation in Chapter 35 replaces.
+
+### 1. Reserve the ASN — `sot/global/asn_pools.yml`
+
+Check the correct regional range before picking an ASN. UK branches must come from `65100–65111`. The validator rejects duplicates, but it will not tell you which ASN to use — that is your responsibility.
+
+```bash
+cat sot/global/asn_pools.yml
+```
+
+### 2. Reserve the WAN prefix — `sot/global/ipam.yml`
+
+Each branch gets a `/29` from the regional branch pool (`10.100.0.0/14` for EMEA). Find the next unallocated block and record it. The validator checks for overlaps across all branch files.
+
+```bash
+cat sot/global/ipam.yml
+```
+
+Look for the `branch_allocations` section and find the last used prefix in the UK range.
+
+### 3. Add the branch entry — `sot/devices/branches/uk-branches.yml`
+
+This is what you did in the exercise above. The required fields are: `hostname`, `asn`, `site_prefix`, `region`, `zone_permissions`, `compliance_tags`, `lab_state`.
+
+### 4. Add the BGP MD5 password reference — `inventory/group_vars/vault.yml`
+
+Every BGP session uses an MD5 password stored in the vault. Add an entry for the new branch:
+
+```yaml
+bgp_md5_branch_lon_05: CHANGEME
+```
+
+The `md5_password_ref` in the branch entry must match this key exactly. The validator enforces that no inline passwords appear in device files (INTENT-005).
+
+### 5. Add the eBGP neighbour to the border router — `sot/devices/lon-dc1/border-lon-01.yml`
+
+The branch router peers with `border-lon-01`. Open that device file and add a neighbour entry under `bgp.neighbors`:
+
+```yaml
+- peer_ip: 10.100.4.2        # border-lon-01 side of the /29
+  remote_as: 65104
+  description: "eBGP -> branch-lon-05 (Canary Wharf)"
+  md5_password_ref: bgp_md5_branch_lon_05
+  route_map_in: RM_BRANCH_IN
+  route_map_out: RM_INTERDC_LON_NYC_IN
+```
+
+### 6. If lab_state: active — add a startup config
+
+For a device that will be instantiated in containerlab, add an FRR startup config directory under `topology/startup_configs/<hostname>/` with `frr.conf` and `daemons`. Use `topology/startup_configs/branch-lon-01/` as a template.
+
+---
+
+### The manual process in practice
+
+Six files. Three of them require cross-referencing each other (ASN range, IP range, vault key name). One error — a duplicate ASN, a typo in `md5_password_ref`, a prefix outside the pool — fails the validator or, worse, causes a BGP session to never come up.
+
+This is the process that Chapter 35 automates. `bulk_import.py` takes a CSV row and handles steps 1–4 in one pass, with schema validation at the import gate. The border router neighbour update (step 5) is handled by re-rendering `border-lon-01` from the updated SoT.
+
+For now, knowing what the automation replaces makes the later exercise meaningful rather than mechanical.
 
 ---
 
