@@ -45,7 +45,7 @@
 
     - name: Parse BGP peers (EOS)
       ansible.builtin.set_fact:
-        bgp_peers: "{{ (bgp_summary_raw.stdout[0] | from_json).vrfs.default.peers | default({}) }}"
+        bgp_peers: "{{ bgp_summary_raw.stdout[0].vrfs.default.peers | default({}) }}"
       when: ansible_network_os == 'eos' or ansible_network_os == 'arista.eos.eos'
 
     - name: Assert all expected BGP peers are Established (EOS)
@@ -73,8 +73,8 @@
     - name: Assert Loopback0 is connected (EOS)
       ansible.builtin.assert:
         that:
-          - (intf_status_raw.stdout[0] | from_json).interfaceStatuses['Loopback0'] is defined
-          - (intf_status_raw.stdout[0] | from_json).interfaceStatuses['Loopback0'].lineProtocolStatus == 'up'
+          - intf_status_raw.stdout[0].interfaceStatuses['Loopback0'] is defined
+          - intf_status_raw.stdout[0].interfaceStatuses['Loopback0'].lineProtocolStatus == 'up'
         fail_msg: "Loopback0 is not up on {{ inventory_hostname }}"
         success_msg: "Loopback0 is up"
       when:
@@ -85,12 +85,12 @@
       ansible.builtin.assert:
         that:
           - >
-            (intf_status_raw.stdout[0] | from_json).interfaceStatuses.values()
+            intf_status_raw.stdout[0].interfaceStatuses.values()
             | selectattr('lineProtocolStatus', 'equalto', 'errdisabled')
             | list | length == 0
         fail_msg: >
           One or more interfaces are err-disabled on {{ inventory_hostname }}:
-          {{ (intf_status_raw.stdout[0] | from_json).interfaceStatuses.items()
+          {{ intf_status_raw.stdout[0].interfaceStatuses.items()
              | selectattr('1.lineProtocolStatus', 'equalto', 'errdisabled')
              | map(attribute='0') | list }}
         success_msg: "No err-disabled interfaces"
@@ -118,7 +118,7 @@
     # ── FRR verification ─────────────────────────────────────────────────
 
     - name: Collect BGP summary (FRR via vtysh)
-      ansible.builtin.command: vtysh -c "show bgp summary json"
+      ansible.builtin.command: /usr/bin/vtysh -c "show bgp summary json"
       register: frr_bgp_raw
       when: platform | default('') == 'frr' or ansible_network_os == 'frr'
       become: true
