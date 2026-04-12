@@ -89,8 +89,10 @@ ntp local-interface {{ ntp_source_interface | default('Loopback0') }}
 {% if server.ip is defined and server.ip is not none %}
 {% if server.preferred | default(false) %}
 ntp server vrf MGMT {{ server.ip }} prefer key {{ server.key_id }}
+{% elif server.key_id is defined and server.key_id %}
+ntp server vrf MGMT {{ server.ip }} key {{ server.key_id }}
 {% else %}
-ntp server vrf MGMT {{ server.ip }}{% if server.key_id is defined and server.key_id %} key {{ server.key_id }}{% endif %}
+ntp server vrf MGMT {{ server.ip }}
 {% endif %}
 {% else %}
 ntp server vrf MGMT {{ server.hostname }}
