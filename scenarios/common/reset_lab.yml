@@ -26,7 +26,7 @@
   tasks:
     - name: Push config (EOS)
       when: platform == 'arista_eos'
-      community.network.napalm_install_config:
+      napalm.napalm.napalm_install_config:
         hostname: "{{ ansible_host }}"
         username: "{{ ansible_user }}"
         password: "{{ ansible_password }}"

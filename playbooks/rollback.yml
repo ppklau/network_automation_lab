@@ -81,7 +81,7 @@
     # ── EOS rollback ─────────────────────────────────────────────────────
 
     - name: Push rollback config to EOS device
-      community.network.napalm_install_config:
+      napalm.napalm.napalm_install_config:
         hostname: "{{ ansible_host }}"
         username: "{{ ansible_user }}"
         password: "{{ ansible_password }}"

@@ -50,32 +50,45 @@ The first section renders hostname, domain name, and banners:
 
 ```jinja2
 hostname {{ hostname }}
-ip domain-name {{ platform_defaults.domain_name }}
+!
+dns domain {{ platform_defaults.dns.domain_name }}
+{% for ns in platform_defaults.dns.servers %}
+ip name-server vrf {{ platform_defaults.dns.vrf }} {{ ns }}
+{% endfor %}
+ip domain lookup source-interface {{ management.interface }}
 !
 banner motd
-  {{ platform_defaults.banners.motd }}
+{{ platform_defaults.banner.motd -}}
 EOF
 !
 banner login
-  {{ platform_defaults.banners.login }}
+{{ platform_defaults.banner.login }}
 EOF
 ```
 
-`{{ hostname }}` comes from the device file. `{{ platform_defaults.domain_name }}` comes from `sot/global/platform_defaults.yml`, loaded by the playbook as a variable available to all templates.
+`{{ hostname }}` comes from the device file. `{{ platform_defaults.dns.domain_name }}` and the name-server list come from `sot/global/platform_defaults.yml`, loaded by the playbook as a variable available to all templates. `{{ management.interface }}` comes from the device file and pins DNS lookups to the management plane so they are never sent over a data-plane interface.
 
 The NTP section shows how vault references work:
 
 ```jinja2
 ntp authenticate
-ntp authentication-key 1 md5 {{ vault_ntp_keys['ntp_key_primary'] }}
+ntp authentication-key 1 md5 {{ vault_ntp_keys['ntp_key_primary'] | default('CHANGEME') }}
+ntp authentication-key 2 md5 {{ vault_ntp_keys['ntp_key_secondary'] | default('CHANGEME') }}
 ntp trusted-key 1
-ntp source-interface Management0
+ntp trusted-key 2
+ntp local-interface {{ ntp_source_interface | default('Loopback0') }}
 {% for server in platform_defaults.ntp.servers %}
-ntp server {{ server }}
+{% if server.preferred | default(false) %}
+ntp server vrf MGMT {{ server.ip }} prefer key {{ server.key_id }}
+{% elif server.key_id is defined and server.key_id %}
+ntp server vrf MGMT {{ server.ip }} key {{ server.key_id }}
+{% else %}
+ntp server vrf MGMT {{ server.ip }}
+{% endif %}
 {% endfor %}
 ```
 
-`vault_ntp_keys` is a dictionary defined in `inventory/group_vars/vault.yml`. In the lab, all vault values are set to `CHANGEME`. In production, this file would be encrypted with Ansible Vault or replaced with a secrets manager lookup. The template does not care which — it just dereferences the variable.
+`vault_ntp_keys` is a dictionary defined in `inventory/group_vars/vault.yml`. In the lab, all vault values are set to `CHANGEME`. In production, this file would be encrypted with Ansible Vault or replaced with a secrets manager lookup. The template does not care which — it just dereferences the variable. Two keys are defined (primary and secondary) so that key rotation can be performed without a service disruption.
 
 ---
 
@@ -88,18 +101,22 @@ cat templates/arista_eos/vlans.j2
 The Frankfurt constraint is enforced here:
 
 ```jinja2
-vlan database
-{% for vlan in vlans %}
-{% if vlan.vlan_id in (site_data.vlans_prohibited | default([])) %}
-! SKIPPED: VLAN {{ vlan.vlan_id }} ({{ vlan.name }}) is prohibited at {{ site }} — {{ site_data.prohibition_reason | default('regulatory constraint') }}
+{% if vlans is defined and vlans | length > 0 %}
+! ── VLAN Database ────────────────────────────────────────────────────────
+!
+{% for vlan in vlans if vlan.active | default(true) %}
+{% if vlan.vlan_id == 100 and site == 'fra-dc1' %}
+! SKIPPED: VLAN 100 (TRADING) is prohibited on fra-dc1 (INTENT-003, REQ-007)
 {% else %}
 vlan {{ vlan.vlan_id }}
    name {{ vlan.name }}
+!
 {% endif %}
 {% endfor %}
+{% endif %}
 ```
 
-When rendering a Frankfurt device, `site_data.vlans_prohibited` contains `[100]`. The template skips VLAN 100 and leaves a comment explaining why. The comment survives in the rendered config and is visible in the pipeline diff — a reviewer can see exactly why VLAN 100 was not rendered on this device.
+The outer `{% if vlans is defined and vlans | length > 0 %}` guard prevents the entire VLAN block from rendering when the device has no VLANs defined in its SoT — important for devices like pure routers that carry no L2 switching. The loop skips any VLAN with `active: false` before it even reaches the Frankfurt check. When rendering a Frankfurt device, the hardcoded check on `vlan_id == 100` fires and leaves a comment in its place. The comment survives in the rendered config and is visible in the pipeline diff — a reviewer can see exactly why VLAN 100 was not rendered on this device.
 
 > 🔴 **Deep Dive** — The comment is not just informational. When the drift detection playbook compares the SoT-rendered config to the running config, it skips comment lines. This means a device that was previously configured with VLAN 100 (perhaps before the Frankfurt constraint was added) will show a drift alert: the running config has VLAN 100, the SoT-rendered config does not. The drift is the compliance signal.
 
@@ -114,26 +131,41 @@ cat templates/arista_eos/bgp.j2
 The spine/leaf distinction is handled with a conditional:
 
 ```jinja2
+{% if bgp is defined %}
+...
 router bgp {{ bgp.local_as }}
    router-id {{ bgp.router_id }}
-   maximum-paths 4 ecmp 4
-   graceful-restart
-   !
+   ...
+   timers bgp {{ bgp.timers.keepalive | default(30) }} {{ bgp.timers.hold_time | default(90) }}
+   ...
 {% for neighbor in bgp.neighbors %}
-   neighbor {{ neighbor.peer }} remote-as {{ neighbor.remote_as }}
-   neighbor {{ neighbor.peer }} description {{ neighbor.description }}
+   neighbor {{ neighbor.peer_ip }} remote-as {{ neighbor.remote_as }}
+   neighbor {{ neighbor.peer_ip }} description {{ neighbor.description | default('') }}
 {% if neighbor.md5_password_ref is defined %}
-   neighbor {{ neighbor.peer }} password {{ vault_bgp_passwords[neighbor.md5_password_ref] }}
+   neighbor {{ neighbor.peer_ip }} password 0 {{ vault_bgp_passwords[neighbor.md5_password_ref] | default('CHANGEME') }}
 {% endif %}
+{% if neighbor.remote_as == bgp.local_as %}
 {% if bgp.role == 'route_reflector' and neighbor.route_reflector_client | default(false) %}
-   neighbor {{ neighbor.peer }} route-reflector-client
+   neighbor {{ neighbor.peer_ip }} route-reflector-client
 {% endif %}
+{% else %}
+{% if neighbor.ebgp_multihop is defined and neighbor.ebgp_multihop %}
+   neighbor {{ neighbor.peer_ip }} ebgp-multihop {{ neighbor.ebgp_multihop }}
+{% endif %}
+{% endif %}
+   !
 {% endfor %}
+...
+{% endif %}
 ```
 
-A spine (`bgp.role == 'route_reflector'`) renders `route-reflector-client` for each neighbor flagged as such. A leaf (`bgp.role == 'rr_client'`) never renders that line — the conditional is never true.
+The outer `{% if bgp is defined %}` guard skips the entire block for devices with no BGP config — a pure L2 switch, for example, would have no `bgp:` key in its SoT file.
 
-The password lookup — `vault_bgp_passwords[neighbor.md5_password_ref]` — dereferences the password dict using the reference name as a key. In the lab vault:
+A spine (`bgp.role == 'route_reflector'`) renders `route-reflector-client` for each neighbor flagged as such. The `remote_as == local_as` guard ensures this is only evaluated for iBGP neighbors — an eBGP neighbor can never be an RR client. The `{% else %}` branch handles eBGP-specific attributes (`ebgp-multihop`, per-neighbor timers) that are meaningless for iBGP sessions. A leaf (`bgp.role == 'rr_client'`) never renders `route-reflector-client` — the inner conditional is never true.
+
+The address-family section activates each neighbor for IPv4 unicast and applies any route-maps defined in the SoT. The per-VRF section at the end renders `vrf` stanzas only for VRFs that appear in `bgp.networks_advertised` — VRFs defined in the SoT but not advertised via BGP are handled by the VRF template, not here.
+
+The password lookup — `vault_bgp_passwords[neighbor.md5_password_ref]` — dereferences the password dict using the reference name as a key. The `password 0` prefix tells EOS the value is cleartext (as opposed to type-7 obfuscation). In the lab vault:
 
 ```yaml
 vault_bgp_passwords:
@@ -159,16 +191,23 @@ Frankfurt TRADING filter is rendered conditionally:
 
 ```jinja2
 {% if site == 'fra-dc1' %}
-! Frankfurt regulatory ring-fence (INTENT-003, REQ-007, REQ-009)
+! Frankfurt TRADING filter (INTENT-003, INTENT-004, REQ-007)
 ip prefix-list PL_DENY_TRADING seq 5 deny 10.1.1.0/24 le 32
 ip prefix-list PL_DENY_TRADING seq 10 permit any
 !
-route-map RM_INTERDC_LON_FRA_IN permit 10
- match ip address prefix-list PL_DENY_TRADING
 {% endif %}
 ```
 
-The same ACME zone isolation requirement (`INTENT-003`) is enforced in both the EOS template (skip VLAN 100) and the FRR template (add DENY_TRADING prefix-list). The SoT does not specify HOW to enforce it — it specifies WHAT must be true. The template is the how.
+The prefix-list is rendered once, before the `router bgp` block. Later, in the `address-family ipv4 unicast` section, the template applies it to every eBGP neighbor on Frankfurt devices:
+
+```jinja2
+{% elif site == 'fra-dc1' and neighbor.remote_as != bgp.local_as %}
+  neighbor {{ neighbor.peer_ip }} route-map RM_DENY_TRADING_IN in
+```
+
+The route-map itself (`RM_DENY_TRADING_IN`) is a permissive stub rendered earlier in the template — the actual `match ip address prefix-list PL_DENY_TRADING` statement is pushed by Ansible separately. This two-part structure (prefix-list in config, route-map policy via Ansible) is how FRR separates data-plane policy objects from the BGP config that references them.
+
+The same ACME zone isolation requirement (`INTENT-003`) is enforced in both the EOS template (skip VLAN 100) and the FRR template (deny TRADING prefixes at BGP import). The SoT does not specify HOW to enforce it — it specifies WHAT must be true. The template is the how.
 
 This is the multi-vendor templating pattern the Handbook describes: the SoT is platform-agnostic; the templates are platform-specific; the rendered configs are platform-correct.
 
