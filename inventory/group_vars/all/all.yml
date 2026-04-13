@@ -18,6 +18,6 @@ ansible_password: "{{ vault_ansible_password }}"
 
 # ── Paths — used by render_configs.yml ───────────────────────────────────
 
-sot_device_dir: "{{ playbook_dir }}/../sot/devices"
-sot_global_dir: "{{ playbook_dir }}/../sot/global"
-configs_output_dir: "{{ playbook_dir }}/../configs"
+sot_device_dir: "{{ inventory_dir }}/../sot/devices"
+sot_global_dir: "{{ inventory_dir }}/../sot/global"
+configs_output_dir: "{{ inventory_dir }}/../configs"
