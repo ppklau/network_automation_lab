@@ -46,7 +46,7 @@
       ansible.builtin.assert:
         that:
           - >-
-            (eos_bgp.stdout[0] | from_json).vrfs.values() | map(attribute='peers')
+            eos_bgp.stdout[0].vrfs.values() | map(attribute='peers')
             | map('dict2items') | flatten
             | selectattr('value.peerState', 'ne', 'Established')
             | list | length == 0
@@ -63,7 +63,7 @@
       failed_when: false
 
     - name: Assert all FRR BGP peers Established
-      when: ansible_network_os == 'frr' and frr_bgp is not failed
+      when: ansible_network_os == 'frr' and frr_bgp is not failed and frr_bgp.stdout | default('') | length > 0
       vars:
         bgp_data: "{{ frr_bgp.stdout | from_json }}"
         not_established: >-
@@ -72,9 +72,7 @@
       ansible.builtin.assert:
         that:
           - not_established | length == 0
-        fail_msg: >
-          [{{ inventory_hostname }}] {{ not_established | length }} BGP peer(s) not Established.
-          Run: ansible-playbook scenarios/common/reset_lab.yml
+        fail_msg: "[{{ inventory_hostname }}] {{ not_established | length }} BGP peer(s) not Established. Run: ansible-playbook scenarios/common/reset_lab.yml"
         success_msg: "[{{ inventory_hostname }}] All BGP sessions Established."
 
 - name: Check management reachability and loopback connectivity
