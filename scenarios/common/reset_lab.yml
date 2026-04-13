@@ -37,30 +37,23 @@
         commit_changes: true
       no_log: true
 
+    # FRR nodes run in containerlab Linux containers. network_cli for FRR
+    # drops into vtysh — not a Linux shell — so file operations are done
+    # via docker exec delegated to localhost instead (mirrors push_configs.yml).
     - name: Push config (FRR)
       when: platform == 'frr'
       block:
-        - name: Ensure /etc/frr directory exists
-          ansible.builtin.file:
-            path: /etc/frr
-            state: directory
-            owner: frr
-            group: frr
-            mode: '0755'
-          become: true
+        - name: Copy frr.conf to container
+          ansible.builtin.shell: >
+            docker exec -i clab-acme-lab-{{ inventory_hostname }}
+            sh -c 'cat > /tmp/frr_reset.conf'
+            < {{ configs_output_dir }}/{{ inventory_hostname }}/running.conf
+          delegate_to: localhost
 
-        - name: Copy frr.conf to device
-          ansible.builtin.copy:
-            src: "{{ configs_output_dir }}/{{ inventory_hostname }}/running.conf"
-            dest: /etc/frr/frr.conf
-            owner: frr
-            group: frr
-            mode: '0640'
-          become: true
-
-        - name: Reload FRR config
-          ansible.builtin.command: vtysh -f /etc/frr/frr.conf
-          become: true
+        - name: Reload FRR config via vtysh
+          ansible.builtin.command: >
+            docker exec clab-acme-lab-{{ inventory_hostname }} vtysh -f /tmp/frr_reset.conf
+          delegate_to: localhost
           changed_when: true
 
     - name: Clear scenario breadcrumb
