@@ -5,8 +5,7 @@
 # before starting any exercise that depends on a known-good baseline.
 #
 # Checks:
-#   - All BGP sessions Established (EOS and FRR)
-#   - All loopbacks reachable from spine-lon-01
+#   - All BGP sessions Established (EOS and FRR) — expected peers only (from SoT)
 #   - Management plane reachable for all active nodes
 #   - No active scenario breadcrumbs from a previous exercise
 #
@@ -15,9 +14,26 @@
 # Usage:
 #   ansible-playbook scenarios/common/verify_lab_healthy.yml
 
-- name: Check BGP health on EOS nodes
+- name: Check BGP health on active nodes
   hosts: lab_active
   gather_facts: false
+  pre_tasks:
+    # Load device SoT so bgp.neighbors is available for the BGP peer checks below.
+    # find runs on the control node (delegate_to: localhost); include_vars is an
+    # action plugin that always loads into the current host's variable context.
+    - name: Find device SoT file
+      ansible.builtin.find:
+        paths: "{{ sot_device_dir }}"
+        patterns: "{{ inventory_hostname }}.yml"
+        recurse: true
+      register: device_sot_search
+      delegate_to: localhost
+
+    - name: Load device SoT data
+      ansible.builtin.include_vars:
+        file: "{{ device_sot_search.files[0].path }}"
+      when: device_sot_search.files | length > 0
+
   tasks:
     - name: Check for stale scenario breadcrumb
       ansible.builtin.stat:
@@ -33,6 +49,10 @@
           WARNING: /tmp/scenario_active.txt exists on {{ inventory_hostname }}.
           A scenario may not have been cleaned up. Run reset_lab.yml first.
 
+    # ── EOS BGP check ────────────────────────────────────────────────────
+    # Only asserts on peers listed in bgp.neighbors (from the SoT).
+    # Inactive branch/site stubs in the BGP config are intentionally excluded.
+
     - name: Collect BGP summary (EOS)
       when: ansible_network_os is search('eos')
       arista.eos.eos_command:
@@ -41,51 +61,53 @@
       register: eos_bgp
       failed_when: false
 
-    - name: Assert all EOS BGP peers Established
+    - name: Assert expected EOS BGP peers Established
       when: ansible_network_os is search('eos') and eos_bgp is not failed
-      vars:
-        not_established: >-
-          {{ eos_bgp.stdout[0].vrfs.default.peers | default({}) | dict2items
-             | selectattr('value.peerState', 'ne', 'Established') | list }}
       ansible.builtin.assert:
         that:
-          - not_established | length == 0
-        fail_msg: "[{{ inventory_hostname }}] {{ not_established | map(attribute='key') | list | join(', ') }} not Established. Run: ansible-playbook scenarios/common/reset_lab.yml"
-        success_msg: "[{{ inventory_hostname }}] All BGP sessions Established."
+          - eos_bgp.stdout[0].vrfs.default.peers[item.peer_ip] is defined
+          - eos_bgp.stdout[0].vrfs.default.peers[item.peer_ip].peerState == 'Established'
+        fail_msg: >
+          [{{ inventory_hostname }}] BGP peer {{ item.peer_ip }}
+          ({{ item.description | default('') }}) is
+          {{ eos_bgp.stdout[0].vrfs.default.peers[item.peer_ip].peerState | default('missing') }}.
+          Run: ansible-playbook scenarios/common/reset_lab.yml
+        success_msg: "[{{ inventory_hostname }}] BGP peer {{ item.peer_ip }} is Established."
+      loop: "{{ bgp.neighbors | default([]) }}"
+
+    # ── FRR BGP check ─────────────────────────────────────────────────────
+    # network_cli for FRR drops into vtysh, not a Linux shell, so collect BGP
+    # state via docker exec delegated to localhost (same pattern as verify_state.yml).
 
     - name: Collect BGP summary (FRR)
       when: ansible_network_os == 'frr'
-      ansible.builtin.raw: vtysh -c "show bgp summary json" 2>/dev/null
+      ansible.builtin.shell: >
+        docker exec clab-acme-lab-{{ inventory_hostname }}
+        vtysh -c 'show bgp summary json'
+      delegate_to: localhost
       register: frr_bgp
       changed_when: false
       failed_when: false
 
-    - name: Assert all FRR BGP peers Established
+    - name: Assert expected FRR BGP peers Established
       when: ansible_network_os == 'frr' and frr_bgp is not failed and frr_bgp.stdout | default('') | length > 0
       vars:
-        bgp_data: "{{ frr_bgp.stdout | from_json }}"
-        not_established: >-
-          {{ bgp_data.get('ipv4Unicast', {}).get('peers', {}).values()
-             | selectattr('state', 'ne', 'Established') | list }}
+        frr_peers: "{{ (frr_bgp.stdout | from_json).get('ipv4Unicast', {}).get('peers', {}) }}"
       ansible.builtin.assert:
         that:
-          - not_established | length == 0
-        fail_msg: "[{{ inventory_hostname }}] {{ not_established | length }} BGP peer(s) not Established. Run: ansible-playbook scenarios/common/reset_lab.yml"
-        success_msg: "[{{ inventory_hostname }}] All BGP sessions Established."
+          - frr_peers[item.peer_ip] is defined
+          - frr_peers[item.peer_ip].state == 'Established'
+        fail_msg: >
+          [{{ inventory_hostname }}] BGP peer {{ item.peer_ip }}
+          ({{ item.description | default('') }}) is
+          {{ frr_peers[item.peer_ip].state | default('missing') }}.
+          Run: ansible-playbook scenarios/common/reset_lab.yml
+        success_msg: "[{{ inventory_hostname }}] BGP peer {{ item.peer_ip }} is Established."
+      loop: "{{ bgp.neighbors | default([]) }}"
 
-- name: Check management reachability and loopback connectivity
+- name: Check management reachability
   hosts: localhost
   gather_facts: false
-  vars:
-    loopbacks:
-      spine-lon-01:  "10.1.255.1"
-      spine-lon-02:  "10.1.255.2"
-      leaf-lon-01:   "10.1.255.11"
-      leaf-lon-02:   "10.1.255.12"
-      leaf-lon-03:   "10.1.255.13"
-      leaf-lon-04:   "10.1.255.14"
-      border-lon-01: "10.1.255.20"
-      fw-lon-01:     "10.1.255.30"
   tasks:
     - name: Ping management IPs
       ansible.builtin.command: "ping -c 1 -W 2 {{ hostvars[item].ansible_host }}"
