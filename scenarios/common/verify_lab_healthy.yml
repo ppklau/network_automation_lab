@@ -34,7 +34,7 @@
           A scenario may not have been cleaned up. Run reset_lab.yml first.
 
     - name: Collect BGP summary (EOS)
-      when: platform == 'arista_eos'
+      when: ansible_network_os is search('eos')
       arista.eos.eos_command:
         commands:
           - show bgp summary vrf all | json
@@ -42,7 +42,7 @@
       failed_when: false
 
     - name: Assert all EOS BGP peers Established
-      when: platform == 'arista_eos' and eos_bgp is not failed
+      when: ansible_network_os is search('eos') and eos_bgp is not failed
       ansible.builtin.assert:
         that:
           - >-
@@ -56,14 +56,14 @@
         success_msg: "[{{ inventory_hostname }}] All BGP sessions Established."
 
     - name: Collect BGP summary (FRR)
-      when: platform == 'frr'
+      when: ansible_network_os == 'frr'
       ansible.builtin.raw: vtysh -c "show bgp summary json" 2>/dev/null
       register: frr_bgp
       changed_when: false
       failed_when: false
 
     - name: Assert all FRR BGP peers Established
-      when: platform == 'frr' and frr_bgp is not failed
+      when: ansible_network_os == 'frr' and frr_bgp is not failed
       vars:
         bgp_data: "{{ frr_bgp.stdout | from_json }}"
         not_established: >-
