@@ -37,22 +37,20 @@
       when: ansible_network_os is search('eos')
       arista.eos.eos_command:
         commands:
-          - show bgp summary vrf all | json
+          - show bgp summary | json
       register: eos_bgp
       failed_when: false
 
     - name: Assert all EOS BGP peers Established
       when: ansible_network_os is search('eos') and eos_bgp is not failed
+      vars:
+        not_established: >-
+          {{ eos_bgp.stdout[0].vrfs.default.peers | default({}) | dict2items
+             | selectattr('value.peerState', 'ne', 'Established') | list }}
       ansible.builtin.assert:
         that:
-          - >-
-            eos_bgp.stdout[0].vrfs.values() | map(attribute='peers')
-            | map('dict2items') | flatten
-            | selectattr('value.peerState', 'ne', 'Established')
-            | list | length == 0
-        fail_msg: >
-          [{{ inventory_hostname }}] One or more BGP sessions are not Established.
-          Run: ansible-playbook scenarios/common/reset_lab.yml
+          - not_established | length == 0
+        fail_msg: "[{{ inventory_hostname }}] {{ not_established | map(attribute='key') | list | join(', ') }} not Established. Run: ansible-playbook scenarios/common/reset_lab.yml"
         success_msg: "[{{ inventory_hostname }}] All BGP sessions Established."
 
     - name: Collect BGP summary (FRR)
