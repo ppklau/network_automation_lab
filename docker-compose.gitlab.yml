@@ -3,7 +3,7 @@ services:
     image: gitlab/gitlab-ce:17.6.0-ce.0
     container_name: gitlab
     restart: unless-stopped
-    hostname: localhost
+    network_mode: host
     environment:
       GITLAB_OMNIBUS_CONFIG: |
         external_url 'http://localhost:8929'
@@ -20,9 +20,6 @@ services:
         gitlab_exporter['enable'] = false
         puma['worker_processes'] = 2
         sidekiq['concurrency'] = 5
-    ports:
-      - "8929:8929"
-      - "2424:22"
     volumes:
       - gitlab-config:/etc/gitlab
       - gitlab-logs:/var/log/gitlab
@@ -43,8 +40,6 @@ services:
     volumes:
       - gitlab-runner-config:/etc/gitlab-runner
       - /var/run/docker.sock:/var/run/docker.sock
-    depends_on:
-      - gitlab
 
 volumes:
   gitlab-config:
