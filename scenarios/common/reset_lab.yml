@@ -40,6 +40,15 @@
     - name: Push config (FRR)
       when: platform == 'frr'
       block:
+        - name: Ensure /etc/frr directory exists
+          ansible.builtin.file:
+            path: /etc/frr
+            state: directory
+            owner: frr
+            group: frr
+            mode: '0755'
+          become: true
+
         - name: Copy frr.conf to device
           ansible.builtin.copy:
             src: "{{ configs_output_dir }}/{{ inventory_hostname }}/running.conf"
