@@ -146,6 +146,10 @@ generate-inventory:
 
 batfish-intent-check:
   stage: intent-check
+  needs:
+    - job: generate-inventory
+      artifacts: true
+    - job: schema-validate
   # Lab: Batfish runs as a shared container started in Chapter 2 Step 8.
   #      BATFISH_HOST is set to 'localhost' in CI/CD variables by setup_gitlab.sh.
   #      Job containers use host networking (runner configured with --docker-network-mode=host)
@@ -156,6 +160,7 @@ batfish-intent-check:
   #     alias: batfish
   script:
     - pip install --cache-dir .pip_cache -q pybatfish pytest
+    - ansible-playbook playbooks/render_configs.yml --vault-password-file /tmp/.vault_pass -i inventory/hosts.yml
     - bash batfish/run_checks.sh || (echo "Intent checks FAILED" && exit 1)
   artifacts:
     when: always
