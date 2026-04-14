@@ -156,7 +156,7 @@ batfish-intent-check:
   #     alias: batfish
   script:
     - pip install --cache-dir .pip_cache -q pybatfish pytest
-    - python3 batfish/run_checks.sh || (echo "Intent checks FAILED" && exit 1)
+    - bash batfish/run_checks.sh || (echo "Intent checks FAILED" && exit 1)
   artifacts:
     when: always
     paths:
