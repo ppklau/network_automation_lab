@@ -216,6 +216,8 @@ The pipeline starts automatically. Stay on the MR page and watch the status badg
 > 🔵 **Strategic**
 >
 > The MR pipeline stops at `config-diff`. No config is pushed to any device while the MR is open. This is intentional: the MR pipeline exists to produce a reviewable artefact and give automated systems a chance to object. A human reviewer looks at the diff and decides whether to merge. The push happens only after merge, and only after a manual gate on the main pipeline.
+>
+> **Lab note — "Approval is optional":** You will see an **Approve** button on the MR page with the label *"Approval is optional"*. This is expected. Enforced required approvals (where GitLab hard-blocks the merge until a named approver clicks Approve) are a GitLab EE (Premium/Ultimate) feature not available in the GitLab CE instance used in this lab. In this lab, the merge gate is the pipeline: GitLab will block the merge if the pipeline is failing. In a production environment with GitLab EE, GitHub Enterprise, or Gitea with branch protection rules, you would configure required reviewers so the Approve step becomes a hard gate — not advisory.
 
 ---
 
@@ -274,7 +276,9 @@ GitLab records your username and a timestamp in the job log at the moment you cl
 
 > 🔵 **Strategic**
 >
-> The manual gate exists because `diff` alone is not sufficient assurance for a production push. The approval step enforces that a named individual, with appropriate access, has looked at the pipeline state and decided it is safe to proceed. In a team environment you would configure GitLab protected environments so that only senior engineers or a network change manager can trigger `approve-push`. The mechanism is GitLab's environment protection rules, not a separate change management tool.
+> The manual gate exists because `diff` alone is not sufficient assurance for a production push. The `approve-push` job enforces that a named individual, with appropriate access, has explicitly triggered the push — GitLab records their username and timestamp in the job log. In a team environment you would configure GitLab protected environments so that only senior engineers or a network change manager can trigger `approve-push`. The mechanism is GitLab's environment protection rules, not a separate change management tool.
+>
+> This is distinct from the MR-level **Approve** button, which in GitLab CE is advisory. The hard gate in this pipeline is the CI job, not the MR approval — which means the audit trail lives in the pipeline log rather than the MR thread. In production with GitLab EE, you would use both: required MR approvals to gate the merge, and a protected environment to gate the push.
 
 ---
 

@@ -197,15 +197,8 @@ api \
   "${GITLAB_URL}/api/v4/projects/${PROJECT_ID}" \
   > /dev/null
 
-# Require at least 1 approval before merge
-# merge_requests_author_approval (set above) allows the solo lab user to self-approve
-api \
-  --request POST \
-  --data '{"approvals_before_merge": 1}' \
-  "${GITLAB_URL}/api/v4/projects/${PROJECT_ID}/approvals" \
-  > /dev/null
-
-info "Merge settings applied: pipeline must pass, 1 approval required."
+info "Merge settings applied: pipeline must pass before merge is allowed."
+info "Note: enforced required approvals require GitLab EE — approval is advisory in this CE lab."
 
 # ─── Step 8: Create GitLab Runner via API ─────────────────────────────────────
 info "Checking for existing instance runners..."
