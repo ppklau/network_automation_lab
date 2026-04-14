@@ -109,7 +109,7 @@ class TestTradingVrfIsolation:
                 srcIps=TRADING_PREFIX,
                 dstIps=CORPORATE_PREFIX,
             ),
-            actions=["ACCEPTED"],
+            actions="ACCEPTED",
         ).answer().frame()
 
         assert_no_rows(
@@ -131,7 +131,7 @@ class TestTradingVrfIsolation:
                 srcIps=CORPORATE_PREFIX,
                 dstIps=TRADING_PREFIX,
             ),
-            actions=["ACCEPTED"],
+            actions="ACCEPTED",
         ).answer().frame()
 
         assert_no_rows(
@@ -180,7 +180,7 @@ class TestDmzIsolation:
                 ipProtocols=["TCP"],
                 dstPorts=["22"],       # SSH — must not be permitted
             ),
-            actions=["ACCEPTED"],
+            actions="ACCEPTED",
         ).answer().frame()
 
         assert_no_rows(

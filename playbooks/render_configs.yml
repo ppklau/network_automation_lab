@@ -57,6 +57,12 @@
         name: global_snmp
       run_once: true
 
+    - name: Load BGP route policies
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../sot/bgp/route_policies.yml"
+        name: route_policies
+      run_once: true
+
     # ── Load device SoT file ─────────────────────────────────────────────
     # Device SoT files are under sot/devices/<site>/<hostname>.yml
     # The 'site' var comes from the device file itself — we resolve the path
@@ -127,10 +133,17 @@
         mode: "0644"
       when: platform == 'arista_eos'
 
+    - name: Render EOS route policies
+      ansible.builtin.template:
+        src: "{{ playbook_dir }}/../templates/arista_eos/route_policies.j2"
+        dest: "{{ configs_output_dir }}/{{ inventory_hostname }}/06_route_policies.conf"
+        mode: "0644"
+      when: platform == 'arista_eos'
+
     - name: Render EOS BGP config
       ansible.builtin.template:
         src: "{{ playbook_dir }}/../templates/arista_eos/bgp.j2"
-        dest: "{{ configs_output_dir }}/{{ inventory_hostname }}/06_bgp.conf"
+        dest: "{{ configs_output_dir }}/{{ inventory_hostname }}/07_bgp.conf"
         mode: "0644"
       when: platform == 'arista_eos' and bgp is defined
 
@@ -139,7 +152,7 @@
         src: "{{ configs_output_dir }}/{{ inventory_hostname }}"
         dest: "{{ configs_output_dir }}/{{ inventory_hostname }}/running.conf"
         delimiter: "!"
-        regexp: ^0[1-6]_.*\.conf$
+        regexp: ^0[1-7]_.*\.conf$
         mode: "0644"
       when: platform == 'arista_eos'
 

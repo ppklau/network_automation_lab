@@ -118,6 +118,25 @@ def bgp_edges(bf):
 
 
 @pytest.fixture(scope="session")
+def bgp_peer_config_enriched(bgp_peer_config, bgp_sessions):
+    """bgpPeerConfiguration enriched with Remote_Node from bgpSessionStatus.
+
+    bgpPeerConfiguration does not include Remote_Node in all pybatfish versions.
+    bgpSessionStatus does — so we left-join on (Node, VRF, Local_IP, Remote_IP).
+    """
+    if "Remote_Node" in bgp_peer_config.columns:
+        return bgp_peer_config
+    remote_node_map = bgp_sessions[
+        ["Node", "VRF", "Local_IP", "Remote_IP", "Remote_Node"]
+    ].drop_duplicates()
+    return bgp_peer_config.merge(
+        remote_node_map,
+        on=["Node", "VRF", "Local_IP", "Remote_IP"],
+        how="left",
+    )
+
+
+@pytest.fixture(scope="session")
 def routes(bf):
     """DataFrame of the full routing table across all nodes and VRFs."""
     return bf.q.routes().answer().frame()
@@ -147,12 +166,12 @@ def ebgp_sessions(df: pd.DataFrame) -> pd.DataFrame:
     """Filter a bgpSessionStatus or bgpPeerConfiguration frame to eBGP peers."""
     if "Session_Type" in df.columns:
         return df[df["Session_Type"].str.startswith("EBGP", na=False)]
-    # bgpPeerConfiguration uses Remote_AS / Local_AS columns
-    return df[df["Remote_AS"] != df["Local_AS"]]
+    # bgpPeerConfiguration: Remote_AS may be str while Local_AS is int (pybatfish type variance)
+    return df[df["Remote_AS"].astype(str) != df["Local_AS"].astype(str)]
 
 
 def ibgp_sessions(df: pd.DataFrame) -> pd.DataFrame:
     """Filter a bgpSessionStatus or bgpPeerConfiguration frame to iBGP peers."""
     if "Session_Type" in df.columns:
         return df[df["Session_Type"].str.startswith("IBGP", na=False)]
-    return df[df["Remote_AS"] == df["Local_AS"]]
+    return df[df["Remote_AS"].astype(str) == df["Local_AS"].astype(str)]

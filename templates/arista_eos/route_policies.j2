@@ -1,0 +1,88 @@
+{# ─────────────────────────────────────────────────────────────────────────
+   ACME Investments — Arista EOS Route Policy Configuration Template
+   Source: templates/arista_eos/route_policies.j2
+   Rendered by: playbooks/render_configs.yml (task: Render EOS route policies)
+
+   Renders from: sot/bgp/route_policies.yml (loaded as var: route_policies)
+
+   Renders:
+     - IP prefix-lists            (used by route-map match clauses)
+     - AS path access-lists       (used for AS-path based filtering)
+     - Community-lists            (ZONE_TRADING = 65001:200 for FRA isolation)
+     - Route-maps                 (full permit/deny sequences with match + set)
+
+   All policies are rendered to every EOS device. Only policies applied to
+   BGP neighbors in bgp.j2 have any operational effect; unused definitions
+   are harmless and provide a consistent policy library across devices.
+
+   Design refs: INTENT-003 (FRA TRADING isolation), INTENT-005 (eBGP policy),
+                REQ-013 (route-map on every eBGP session)
+   ─────────────────────────────────────────────────────────────────────────
+#}
+{% if route_policies is defined %}
+! ── Prefix Lists ──────────────────────────────────────────────────────────
+!
+{% for pl_name, pl in route_policies.prefix_lists.items() %}
+{% for entry in pl.entries %}
+ip prefix-list {{ pl_name }} seq {{ entry.seq }}
+    {%- if entry.permit is defined %} permit {{ entry.permit }}
+    {%- elif entry.deny is defined %} deny {{ entry.deny }}
+    {%- endif %}
+    {%- if entry.ge is defined %} ge {{ entry.ge }}
+    {%- endif %}
+    {%- if entry.le is defined %} le {{ entry.le }}
+    {%- endif %}
+
+{% endfor %}
+!
+{% endfor %}
+! ── AS Path Access Lists ──────────────────────────────────────────────────
+!
+{% for aspath_name, aspath in route_policies.as_path_lists.items() %}
+{% for entry in aspath.entries | sort(attribute='seq') %}
+ip as-path access-list {{ aspath_name }} {{ 'permit' if entry.permit is defined else 'deny' }} {{ entry.permit | default(entry.deny) }}
+{% endfor %}
+!
+{% endfor %}
+! ── Community Lists ───────────────────────────────────────────────────────
+! ZONE_TRADING (65001:200) — MiFID II trading isolation tag.
+! Used to deny trading-zone prefixes inbound/outbound on the LON-FRA WAN link
+! (INTENT-003, INTENT-004, REQ-007).
+!
+ip community-list standard ZONE_TRADING permit 65001:200
+!
+! ── Route Maps ────────────────────────────────────────────────────────────
+!
+{% for rm_name, rm in route_policies.route_maps.items() %}
+{% for seq in rm.sequences %}
+route-map {{ rm_name }} {{ seq.action }} {{ seq.seq }}
+{% if seq.description is defined %}
+   description {{ seq.description }}
+{% endif %}
+{% if seq.match is defined %}
+{% if seq.match.prefix_list is defined %}
+{% if seq.match.prefix_list is string %}
+   match ip address prefix-list {{ seq.match.prefix_list }}
+{% else %}
+   match ip address prefix-list {{ seq.match.prefix_list | join(' ') }}
+{% endif %}
+{% endif %}
+{% if seq.match.community is defined %}
+   match community {{ seq.match.community }}
+{% endif %}
+{% endif %}
+{% if seq.set is defined %}
+{% if seq.set.local_preference is defined %}
+   set local-preference {{ seq.set.local_preference }}
+{% endif %}
+{% if seq.set.community_additive is defined %}
+   set community {{ seq.set.community_additive }} additive
+{% endif %}
+{% if seq.set.community_delete is defined %}
+   set comm-list ZONE_TRADING delete
+{% endif %}
+{% endif %}
+!
+{% endfor %}
+{% endfor %}
+{% endif %}

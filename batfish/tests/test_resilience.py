@@ -56,22 +56,22 @@ class TestSpineRedundancy:
             f"redundancy (REQ-020)."
         )
 
-    def test_each_spine_has_all_leaves_as_rr_clients(self, bgp_peer_config):
+    def test_each_spine_has_all_leaves_as_rr_clients(self, bgp_peer_config_enriched):
         """
         Each spine must have iBGP RR-client sessions to all four leaves and
         border-lon-01. Missing RR client sessions leave those devices without
         full fabric visibility via that spine.
         """
-        if "Route_Reflector_Client" not in bgp_peer_config.columns:
+        if "Route_Reflector_Client" not in bgp_peer_config_enriched.columns:
             pytest.skip("Route_Reflector_Client column not available")
 
         expected_rr_clients = set(LEAF_NODES) | {LON_BORDER_NODE}
 
         for spine in SPINE_NODES:
             spine_rr_clients = set(
-                bgp_peer_config[
-                    (bgp_peer_config["Node"] == spine) &
-                    bgp_peer_config["Route_Reflector_Client"].fillna(False)
+                bgp_peer_config_enriched[
+                    (bgp_peer_config_enriched["Node"] == spine) &
+                    bgp_peer_config_enriched["Route_Reflector_Client"].fillna(False)
                 ]["Remote_Node"].dropna()
             )
             missing = expected_rr_clients - spine_rr_clients
@@ -81,16 +81,16 @@ class TestSpineRedundancy:
                 f"(REQ-020 — single spine failure survivability)."
             )
 
-    def test_spine_to_spine_ibgp_peering_exists(self, bgp_peer_config):
+    def test_spine_to_spine_ibgp_peering_exists(self, bgp_peer_config_enriched):
         """
         The two spines must peer with each other as non-RR-client iBGP peers.
         This is the inter-RR session that prevents split-brain in the fabric.
         """
         for spine in SPINE_NODES:
             peer_spine = [s for s in SPINE_NODES if s != spine][0]
-            spine_to_spine = bgp_peer_config[
-                (bgp_peer_config["Node"] == spine) &
-                (bgp_peer_config["Remote_Node"] == peer_spine)
+            spine_to_spine = bgp_peer_config_enriched[
+                (bgp_peer_config_enriched["Node"] == spine) &
+                (bgp_peer_config_enriched["Remote_Node"] == peer_spine)
             ]
             assert not spine_to_spine.empty, (
                 f"INTENT-008: No iBGP session from {spine} to {peer_spine}. "
@@ -107,15 +107,15 @@ class TestLeafEcmpPaths:
     """
 
     @pytest.mark.parametrize("leaf_node", LEAF_NODES)
-    def test_leaf_has_two_ibgp_sessions_to_spines(self, bgp_peer_config, leaf_node):
+    def test_leaf_has_two_ibgp_sessions_to_spines(self, bgp_peer_config_enriched, leaf_node):
         """
         Each leaf must have exactly two iBGP sessions — one to each spine.
         A leaf with only one spine session loses 50% of its fabric paths on
         the single-connected spine's failure.
         """
-        leaf_to_spines = bgp_peer_config[
-            (bgp_peer_config["Node"] == leaf_node) &
-            (bgp_peer_config["Remote_Node"].isin(SPINE_NODES))
+        leaf_to_spines = bgp_peer_config_enriched[
+            (bgp_peer_config_enriched["Node"] == leaf_node) &
+            (bgp_peer_config_enriched["Remote_Node"].isin(SPINE_NODES))
         ]
         spine_peers = set(leaf_to_spines["Remote_Node"].dropna())
         assert spine_peers == set(SPINE_NODES), (
@@ -168,7 +168,7 @@ class TestBorderWanRedundancy:
             bgp_peer_config[bgp_peer_config["Node"] == LON_BORDER_NODE]
         )
         # Exclude branch sessions (Remote_AS >= 65100)
-        wan_sessions = border_ebgp[border_ebgp["Remote_AS"] < 65100]
+        wan_sessions = border_ebgp[border_ebgp["Remote_AS"].astype(int) < 65100]
         wan_peer_count = len(wan_sessions)
 
         assert wan_peer_count >= MIN_WAN_NEIGHBORS, (
@@ -185,7 +185,7 @@ class TestBorderWanRedundancy:
         border_ebgp_status = bgp_sessions[
             (bgp_sessions["Node"] == LON_BORDER_NODE) &
             (bgp_sessions["Session_Type"].str.startswith("EBGP", na=False)) &
-            (bgp_sessions["Remote_AS"] < 65100)   # WAN only, not branches
+            (bgp_sessions["Remote_AS"].astype(int) < 65100)   # WAN only, not branches
         ]
 
         not_established = border_ebgp_status[

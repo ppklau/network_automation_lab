@@ -39,7 +39,7 @@ POSITIVE_PATH_CASES = [
         "@enter(leaf-lon-01[Vlan100])",  # start: TRADING zone on leaf-lon-01
         "10.1.1.100",                    # src IP: TRADING host
         "10.1.1.200",                    # dst IP: another TRADING host
-        ["ACCEPTED"],                    # expected action
+        "ACCEPTED",                      # expected action
         None,                            # IP protocol (None = any)
         None,                            # dst port (None = any)
         "TRADING_intra_zone_reachability",
@@ -50,7 +50,7 @@ POSITIVE_PATH_CASES = [
         "@enter(leaf-lon-01[Vlan200])",
         "10.1.2.100",
         "10.1.2.200",
-        ["ACCEPTED"],
+        "ACCEPTED",
         None,
         None,
         "CORPORATE_intra_zone_reachability",
@@ -61,7 +61,7 @@ POSITIVE_PATH_CASES = [
         "@enter(leaf-lon-01[Ethernet1])",
         "10.1.255.11",                  # leaf-lon-01 loopback
         "10.1.255.1",                   # spine-lon-01 loopback
-        ["ACCEPTED"],
+        "ACCEPTED",
         None,
         None,
         "fabric_loopback_reachability",
@@ -72,7 +72,7 @@ POSITIVE_PATH_CASES = [
         "@enter(border-lon-01[Ethernet3])",
         "10.0.1.1",                     # NYC border WAN IP
         "10.1.255.20",                  # border-lon-01 loopback
-        ["ACCEPTED"],
+        "ACCEPTED",
         None,
         None,
         "WAN_session_reachability",
@@ -83,7 +83,7 @@ POSITIVE_PATH_CASES = [
         "@enter(leaf-lon-01[Vlan100])",
         "10.1.1.100",
         "10.1.6.80",                    # DMZ host — market data server
-        ["ACCEPTED"],
+        "ACCEPTED",
         "TCP",
         "443",
         "TRADING_to_DMZ_market_data",
@@ -216,7 +216,7 @@ class TestNegativeReachability:
         accepted = bf.q.reachability(
             pathConstraints=PathConstraints(startLocation=start_location),
             headers=HeaderConstraints(**header_kwargs),
-            actions=["ACCEPTED"],
+            actions="ACCEPTED",
         ).answer().frame()
 
         assert_no_rows(
@@ -258,7 +258,7 @@ class TestSpineFailureResilience:
                 srcIps=leaf_loopback,
                 dstIps=border_loopback,
             ),
-            actions=["ACCEPTED"],
+            actions="ACCEPTED",
         ).answer().frame()
 
         assert not result.empty, (
@@ -290,7 +290,7 @@ class TestSpineFailureResilience:
                 srcIps=leaf_loopback,
                 dstIps=border_loopback,
             ),
-            actions=["ACCEPTED"],
+            actions="ACCEPTED",
         ).answer().frame()
 
         assert not result.empty, (

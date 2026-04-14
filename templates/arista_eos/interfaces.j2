@@ -97,3 +97,18 @@ interface {{ management.interface }}
    vrf {{ management.vrf | default('MGMT') }}
 !
 {% endif %}
+{# ── Static Routes ─────────────────────────────────────────────────────── #}
+{% if static_routes is defined %}
+! ── Static Routes ────────────────────────────────────────────────────────
+!
+{% for route in static_routes %}
+{% if route.vrf is defined %}
+ip route vrf {{ route.vrf }} {{ route.prefix }} {{ route.next_hop }}{% if route.description is defined %} name {{ route.description }}{% endif %}
+
+{% else %}
+ip route {{ route.prefix }} {{ route.next_hop }}{% if route.description is defined %} name {{ route.description }}{% endif %}
+
+{% endif %}
+{% endfor %}
+!
+{% endif %}

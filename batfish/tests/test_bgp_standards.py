@@ -147,14 +147,14 @@ class TestEbgpRouteMaps:
             "An open outbound policy leaks all known prefixes to the eBGP peer."
         )
 
-    def test_ibgp_spine_sessions_have_route_reflector_config(self, bgp_peer_config):
+    def test_ibgp_spine_sessions_have_route_reflector_config(self, bgp_peer_config_enriched):
         """
         Spine nodes must have route-reflector-client configured on all leaf/border
         iBGP sessions. This is not a security check but a correctness check —
         missing RR client config would cause iBGP black-holing (INTENT-008 dependency).
         """
-        spine_sessions = bgp_peer_config[
-            bgp_peer_config["Node"].isin(SPINE_NODES)
+        spine_sessions = bgp_peer_config_enriched[
+            bgp_peer_config_enriched["Node"].isin(SPINE_NODES)
         ]
         ibgp = ibgp_sessions(spine_sessions)
 
@@ -207,7 +207,7 @@ class TestBranchPrefixAdvertisements:
         # (next-hop in the branch /29 subnet)
         branch_next_hops = branch_routes[
             branch_routes["Next_Hop_IP"].apply(
-                lambda nh: _ip_in_network(str(nh), assigned_net) if nh else False
+                lambda nh: _ip_in_network(str(nh), assigned_net) if pd.notna(nh) else False
             )
         ]
 
