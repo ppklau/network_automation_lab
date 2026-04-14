@@ -32,7 +32,7 @@
       ansible.builtin.file:
         path: "{{ playbook_dir }}/../reports"
         state: directory
-        mode: '0755'
+        mode: "0755"
 
     - name: Run hygiene linter (JSON output)
       ansible.builtin.command:
@@ -95,7 +95,7 @@
         dest: "{{ playbook_dir }}/../reports/hygiene_{{ hygiene_timestamp }}.txt"
 
     - name: Display report
-      ansible.builtin.command: "cat {{ playbook_dir }}/../reports/hygiene_{{ hygiene_timestamp }}.txt"
+      ansible.builtin.command: cat {{ playbook_dir }}/../reports/hygiene_{{ hygiene_timestamp }}.txt
       changed_when: false
       register: report_out
 

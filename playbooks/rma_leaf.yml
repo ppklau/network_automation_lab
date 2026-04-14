@@ -35,21 +35,21 @@
     - name: Verify target was specified
       ansible.builtin.assert:
         that: ansible_limit is defined
-        fail_msg: "Use --limit to specify the leaf to replace. This playbook must not run against all hosts."
+        fail_msg: Use --limit to specify the leaf to replace. This playbook must not run against all hosts.
 
     - name: Verify new_serial provided
       ansible.builtin.assert:
         that:
           - new_serial is defined
           - new_serial | length > 3
-        fail_msg: "Provide --extra-vars \"new_serial=<serial>\" with the replacement device serial number."
+        fail_msg: Provide --extra-vars "new_serial=<serial>" with the replacement device serial number.
 
     - name: Verify rma_reason provided
       ansible.builtin.assert:
         that:
           - rma_reason is defined
           - rma_reason | length > 5
-        fail_msg: "Provide --extra-vars \"rma_reason='<description>'\" to document the reason for this RMA."
+        fail_msg: Provide --extra-vars "rma_reason='<description>'" to document the reason for this RMA.
 
     - name: Verify target is a leaf (not a spine or border)
       ansible.builtin.assert:
@@ -69,8 +69,8 @@
     - name: Collect current BGP state (EOS)
       arista.eos.eos_command:
         commands:
-          - "show bgp summary vrf all | json"
-          - "show version | json"
+          - show bgp summary vrf all | json
+          - show version | json
       register: pre_rma_state
       failed_when: false
 
@@ -133,14 +133,14 @@
     - name: Update serial number in SoT
       ansible.builtin.replace:
         path: "{{ playbook_dir }}/../sot/devices/{{ hostvars[target].site }}/{{ target }}.yml"
-        regexp: '^serial:.*$'
+        regexp: ^serial:.*$
         replace: "serial: {{ new_serial }}  # RMA {{ rma_timestamp }}"
 
     - name: Update hardware_model in SoT (if new_model provided)
       when: new_model is defined
       ansible.builtin.replace:
         path: "{{ playbook_dir }}/../sot/devices/{{ hostvars[target].site }}/{{ target }}.yml"
-        regexp: '^hardware_model:.*$'
+        regexp: ^hardware_model:.*$
         replace: "hardware_model: {{ new_model }}  # replaced {{ rma_timestamp }}"
 
     - name: Record SoT change
@@ -175,7 +175,7 @@
 
     - name: Confirm render completed
       ansible.builtin.debug:
-        msg: "Config rendered for {{ ansible_limit }}. Proceeding to push."
+        msg: Config rendered for {{ ansible_limit }}. Proceeding to push.
 
 - name: Phase 5 — Config push to replacement device
   hosts: "{{ ansible_limit | default('none') }}"
@@ -219,9 +219,9 @@
       when: platform == 'arista_eos'
       arista.eos.eos_command:
         commands:
-          - "show bgp summary vrf all | json"
-          - "show vlan | json"
-          - "show version | json"
+          - show bgp summary vrf all | json
+          - show vlan | json
+          - show version | json
       register: post_rma_state
       retries: 6
       delay: 10
@@ -272,7 +272,7 @@
       ansible.builtin.file:
         path: "{{ playbook_dir }}/../state/rma"
         state: directory
-        mode: '0755'
+        mode: "0755"
 
     - name: Write RMA artefact record
       ansible.builtin.copy:

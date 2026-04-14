@@ -32,14 +32,14 @@
   vars:
     metrics_timestamp: "{{ lookup('pipe', 'date +%s') }}"
     region_map:
-      spine-lon-01:  emea-lon
-      spine-lon-02:  emea-lon
-      leaf-lon-01:   emea-lon
-      leaf-lon-02:   emea-lon
-      leaf-lon-03:   emea-lon
-      leaf-lon-04:   emea-lon
+      spine-lon-01: emea-lon
+      spine-lon-02: emea-lon
+      leaf-lon-01: emea-lon
+      leaf-lon-02: emea-lon
+      leaf-lon-03: emea-lon
+      leaf-lon-04: emea-lon
       border-lon-01: emea-lon
-      fw-lon-01:     emea-lon
+      fw-lon-01: emea-lon
       border-nyc-01: americas-nyc
       border-sin-01: apac-sin
       border-fra-01: eu-fra
@@ -52,9 +52,9 @@
       when: platform == 'arista_eos'
       arista.eos.eos_command:
         commands:
-          - "show bgp summary vrf all | json"
-          - "show ntp status | json"
-          - "show version | json"
+          - show bgp summary vrf all | json
+          - show ntp status | json
+          - show version | json
       register: eos_data
       failed_when: false
 
@@ -155,7 +155,7 @@
       ansible.builtin.file:
         path: "{{ output_dir }}"
         state: directory
-        mode: '0755'
+        mode: "0755"
 
     - name: Assemble all BGP sessions
       ansible.builtin.set_fact:

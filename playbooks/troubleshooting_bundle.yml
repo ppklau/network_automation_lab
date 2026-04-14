@@ -33,7 +33,7 @@
   vars:
     bundle_timestamp: "{{ lookup('pipe', 'date +%Y%m%d_%H%M%S') }}"
     bundles_root: "{{ playbook_dir }}/../bundles"
-    bundle_name: "bundle_{{ bundle_timestamp }}"
+    bundle_name: bundle_{{ bundle_timestamp }}
     bundle_dir: "{{ bundles_root }}/{{ bundle_name }}"
     incident_id: "{{ incident_id | default('not specified') }}"
     triggered_by: "{{ triggered_by | default('manual') }}"
@@ -553,7 +553,7 @@
         device_drift:
           hostname: "{{ inventory_hostname }}"
           drift_detected: false
-          max_severity: "NONE"
+          max_severity: NONE
           change_count: 0
           changes: []
       when: drift_analysis is not defined or drift_analysis is skipped
@@ -669,7 +669,7 @@
         dest: "{{ bundle_dir }}/MANIFEST.md"
         mode: "0644"
       vars:
-        bundle_scope: "lab_active ({{ groups['lab_active'] | length }} devices)"
+        bundle_scope: lab_active ({{ groups['lab_active'] | length }} devices)
 
     - name: Write manifest.json
       ansible.builtin.copy:
@@ -690,7 +690,7 @@
 
     - name: Create tarball
       ansible.builtin.command:
-        cmd: "tar -czf {{ bundle_name }}.tar.gz {{ bundle_name }}"
+        cmd: tar -czf {{ bundle_name }}.tar.gz {{ bundle_name }}
         chdir: "{{ bundles_root }}"
       changed_when: true
 
@@ -701,7 +701,7 @@
 
     - name: Compute SHA256
       ansible.builtin.command:
-        cmd: "shasum -a 256 {{ bundle_name }}.tar.gz"
+        cmd: shasum -a 256 {{ bundle_name }}.tar.gz
         chdir: "{{ bundles_root }}"
       register: sha256_result
       changed_when: false
@@ -709,15 +709,15 @@
     - name: Display bundle complete
       ansible.builtin.debug:
         msg:
-          - "========================================"
-          - "Troubleshooting bundle ready"
-          - "========================================"
+          - ========================================
+          - Troubleshooting bundle ready
+          - ========================================
           - "File   : {{ bundles_root }}/{{ bundle_name }}.tar.gz"
           - "Size   : {{ (tarball_stat.stat.size / 1024) | round(1) }} KB"
           - "SHA256 : {{ sha256_result.stdout.split(' ')[0] }}"
           - "Health : {{ health_summary.status | default('UNKNOWN') }}"
           - "Drift  : {{ drift_summary.nodes_with_drift | default([]) | length }} node(s) with drift"
           - ""
-          - "Attach this file to the incident ticket."
-          - "The on-call engineer should start with MANIFEST.md."
-          - "========================================"
+          - Attach this file to the incident ticket.
+          - The on-call engineer should start with MANIFEST.md.
+          - ========================================

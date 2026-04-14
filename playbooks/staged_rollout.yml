@@ -131,7 +131,7 @@
 - name: Stage 2 — Push remaining devices
   hosts: "{{ target_group | default('all') }}"
   gather_facts: false
-  serial: "25%"
+  serial: 25%
   vars:
     target_group: "{{ target_group | default('all') }}"
     canary_device: "{{ canary_device | default('') }}"
@@ -190,6 +190,6 @@
     - name: Report stage 2 completion
       debug:
         msg:
-          - "Staged rollout complete."
+          - Staged rollout complete.
           - "Canary: {{ resolved_canary }} — PASSED"
           - "Remaining devices pushed: {{ remaining_devices }}"

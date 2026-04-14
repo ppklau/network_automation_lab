@@ -32,11 +32,11 @@
       when: platform == 'arista_eos'
       arista.eos.eos_command:
         commands:
-          - "show running-config"
-          - "show bgp summary vrf all | json"
-          - "show ntp status | json"
-          - "show snmp | json"
-          - "show interfaces | json"
+          - show running-config
+          - show bgp summary vrf all | json
+          - show ntp status | json
+          - show snmp | json
+          - show interfaces | json
       register: eos_evidence
       failed_when: false
 
@@ -200,7 +200,7 @@
         dest: "{{ playbook_dir }}/../reports/compliance_{{ compliance_timestamp }}.txt"
 
     - name: Display report
-      ansible.builtin.command: "cat {{ playbook_dir }}/../reports/compliance_{{ compliance_timestamp }}.txt"
+      ansible.builtin.command: cat {{ playbook_dir }}/../reports/compliance_{{ compliance_timestamp }}.txt
       changed_when: false
       register: report_out
 

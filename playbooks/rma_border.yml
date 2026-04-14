@@ -42,14 +42,14 @@
     - name: Verify target was specified
       ansible.builtin.assert:
         that: ansible_limit is defined
-        fail_msg: "Use --limit to specify the border router to replace."
+        fail_msg: Use --limit to specify the border router to replace.
 
     - name: Verify new_serial and rma_reason provided
       ansible.builtin.assert:
         that:
           - new_serial is defined and new_serial | length > 3
           - rma_reason is defined and rma_reason | length > 5
-        fail_msg: "Provide --extra-vars \"new_serial=<serial> rma_reason='<reason>'\"."
+        fail_msg: Provide --extra-vars "new_serial=<serial> rma_reason='<reason>'".
 
     - name: Verify target is a border router
       ansible.builtin.assert:
@@ -68,8 +68,8 @@
     - name: Collect pre-RMA BGP state
       arista.eos.eos_command:
         commands:
-          - "show bgp summary vrf all | json"
-          - "show version | json"
+          - show bgp summary vrf all | json
+          - show version | json
       register: pre_rma_state
       failed_when: false
 
@@ -142,10 +142,10 @@
     - name: Apply BGP graceful-shutdown (signals peers to depref routes)
       arista.eos.eos_config:
         lines:
-          - "graceful-restart-helper"
-          - "graceful-shutdown"
+          - graceful-restart-helper
+          - graceful-shutdown
         parents:
-          - "router bgp {{ bgp.local_as | default(65001) }}"
+          - router bgp {{ bgp.local_as | default(65001) }}
 
     - name: Set maintenance banner
       arista.eos.eos_config:
@@ -165,7 +165,7 @@
 
     - name: Maintenance mode confirmed
       ansible.builtin.debug:
-        msg: "BGP graceful-shutdown applied on {{ inventory_hostname }}. Waiting 90s for traffic to drain."
+        msg: BGP graceful-shutdown applied on {{ inventory_hostname }}. Waiting 90s for traffic to drain.
 
 - name: Phase 4 — SoT update
   hosts: localhost
@@ -177,14 +177,14 @@
     - name: Update serial number in SoT
       ansible.builtin.replace:
         path: "{{ playbook_dir }}/../sot/devices/{{ hostvars[target].site }}/{{ target }}.yml"
-        regexp: '^serial:.*$'
+        regexp: ^serial:.*$
         replace: "serial: {{ new_serial }}  # RMA {{ rma_timestamp }}"
 
     - name: Update hardware_model in SoT (if new_model provided)
       when: new_model is defined
       ansible.builtin.replace:
         path: "{{ playbook_dir }}/../sot/devices/{{ hostvars[target].site }}/{{ target }}.yml"
-        regexp: '^hardware_model:.*$'
+        regexp: ^hardware_model:.*$
         replace: "hardware_model: {{ new_model }}  # replaced {{ rma_timestamp }}"
 
 - name: Phase 5 — Config generation
@@ -199,7 +199,7 @@
 
     - name: Render config for replacement border router
       ansible.builtin.command:
-        cmd: "ansible-playbook playbooks/render_configs.yml --limit {{ ansible_limit }}"
+        cmd: ansible-playbook playbooks/render_configs.yml --limit {{ ansible_limit }}
         chdir: "{{ playbook_dir }}/.."
       changed_when: true
 
@@ -237,8 +237,8 @@
     - name: Collect post-RMA state
       arista.eos.eos_command:
         commands:
-          - "show bgp summary vrf all | json"
-          - "show version | json"
+          - show bgp summary vrf all | json
+          - show version | json
       register: post_rma_state
       retries: 8
       delay: 15
@@ -269,14 +269,14 @@
     - name: Remove maintenance mode (graceful-shutdown)
       arista.eos.eos_config:
         lines:
-          - "no graceful-shutdown"
+          - no graceful-shutdown
         parents:
-          - "router bgp {{ bgp.local_as | default(65001) }}"
+          - router bgp {{ bgp.local_as | default(65001) }}
 
     - name: Restore standard banner
       arista.eos.eos_config:
         lines:
-          - "no banner motd"
+          - no banner motd
 
     - name: Post-RMA verification summary
       ansible.builtin.debug:
@@ -302,7 +302,7 @@
       ansible.builtin.file:
         path: "{{ playbook_dir }}/../state/rma"
         state: directory
-        mode: '0755'
+        mode: "0755"
 
     - name: Write RMA artefact record
       ansible.builtin.copy:

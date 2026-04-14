@@ -41,7 +41,7 @@
     - name: Verify target was specified
       ansible.builtin.assert:
         that: ansible_limit is defined
-        fail_msg: "Use --limit to specify the device(s) to upgrade."
+        fail_msg: Use --limit to specify the device(s) to upgrade.
 
     - name: Resolve target version (SoT field takes precedence over extra-vars)
       ansible.builtin.set_fact:
@@ -59,8 +59,8 @@
       when: platform == 'arista_eos'
       arista.eos.eos_command:
         commands:
-          - "show version | json"
-          - "show bgp summary vrf all | json"
+          - show version | json
+          - show bgp summary vrf all | json
       register: pre_upgrade_state
 
     - name: Parse current version (EOS)
@@ -144,9 +144,9 @@
       when: platform == 'arista_eos'
       arista.eos.eos_config:
         lines:
-          - "graceful-shutdown"
+          - graceful-shutdown
         parents:
-          - "router bgp {{ bgp.local_as | default(65001) }}"
+          - router bgp {{ bgp.local_as | default(65001) }}
 
     - name: Wait for traffic to drain
       ansible.builtin.wait_for:
@@ -155,7 +155,7 @@
 
     - name: Maintenance mode applied
       ansible.builtin.debug:
-        msg: "BGP graceful-shutdown applied on {{ inventory_hostname }}. Waiting 60s for traffic drain."
+        msg: BGP graceful-shutdown applied on {{ inventory_hostname }}. Waiting 60s for traffic drain.
 
 - name: Phase 4 — Stage image
   hosts: "{{ ansible_limit | default('none') }}"
@@ -200,7 +200,7 @@
 
     - name: Image staged
       ansible.builtin.debug:
-        msg: "Image {{ image_path | basename }} staged on {{ inventory_hostname }} flash:."
+        msg: Image {{ image_path | basename }} staged on {{ inventory_hostname }} flash:.
 
 - name: Phase 5 — Perform upgrade
   hosts: "{{ ansible_limit | default('none') }}"
@@ -214,20 +214,20 @@
       when: platform == 'arista_eos'
       arista.eos.eos_config:
         lines:
-          - "boot system flash:{{ image_path | basename }}"
+          - boot system flash:{{ image_path | basename }}
       notify: save config and reload
 
     - name: Save config before reload (EOS)
       when: platform == 'arista_eos'
       arista.eos.eos_command:
         commands:
-          - "write memory"
+          - write memory
 
     - name: Initiate reload (EOS)
       when: platform == 'arista_eos'
       arista.eos.eos_command:
         commands:
-          - "reload now"
+          - reload now
       failed_when: false  # device will disconnect immediately on reload
 
     - name: Wait for device to go offline
@@ -268,8 +268,8 @@
       when: platform == 'arista_eos'
       arista.eos.eos_command:
         commands:
-          - "show version | json"
-          - "show bgp summary vrf all | json"
+          - show version | json
+          - show bgp summary vrf all | json
       register: post_upgrade_state
       retries: 10
       delay: 15
@@ -293,9 +293,9 @@
       when: platform == 'arista_eos'
       arista.eos.eos_config:
         lines:
-          - "no graceful-shutdown"
+          - no graceful-shutdown
         parents:
-          - "router bgp {{ bgp.local_as | default(65001) }}"
+          - router bgp {{ bgp.local_as | default(65001) }}
 
     - name: Calculate post-upgrade BGP counts
       when: platform == 'arista_eos'
@@ -334,14 +334,14 @@
     - name: Update image field in SoT to reflect new running version
       ansible.builtin.replace:
         path: "{{ playbook_dir }}/../sot/devices/{{ hostvars[target].site }}/{{ target }}.yml"
-        regexp: '^image:.*$'
+        regexp: ^image:.*$
         replace: "image: ceos:{{ hostvars[target].resolved_target_version }}"
 
     - name: Ensure upgrade artefact directory exists
       ansible.builtin.file:
         path: "{{ playbook_dir }}/../state/upgrades"
         state: directory
-        mode: '0755'
+        mode: "0755"
 
     - name: Write upgrade artefact record
       ansible.builtin.copy:

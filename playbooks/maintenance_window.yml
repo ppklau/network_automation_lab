@@ -43,7 +43,7 @@
         that:
           - action is defined
           - action in ['enter', 'exit']
-        fail_msg: "Parameter 'action' is required and must be 'enter' or 'exit'."
+        fail_msg: Parameter 'action' is required and must be 'enter' or 'exit'.
 
     - name: Check window_reason for enter
       when: action == 'enter'
@@ -51,7 +51,7 @@
         that:
           - window_reason is defined
           - window_reason | length > 5
-        fail_msg: "Parameter 'window_reason' is required when action=enter."
+        fail_msg: Parameter 'window_reason' is required when action=enter.
 
 - name: Enter maintenance mode
   hosts: "{{ ansible_limit | default('lab_active') }}"
@@ -87,7 +87,7 @@
       when: platform == 'arista_eos'
       arista.eos.eos_config:
         lines:
-          - "banner motd @"
+          - banner motd @
           - "{{ maintenance_banner }}"
           - "@"
 
@@ -152,9 +152,9 @@
       when: platform == 'arista_eos'
       arista.eos.eos_config:
         lines:
-          - "no graceful-restart-helper"
+          - no graceful-restart-helper
         parents:
-          - "router bgp {{ bgp.local_as }}"
+          - router bgp {{ bgp.local_as }}
       vars:
         bgp: "{{ hostvars[inventory_hostname].bgp | default({'local_as': 65001}) }}"
 
@@ -162,8 +162,8 @@
       when: platform == 'arista_eos'
       arista.eos.eos_config:
         lines:
-          - "banner motd @"
-          - "Authorised access only. All activity is monitored and logged."
+          - banner motd @
+          - Authorised access only. All activity is monitored and logged.
           - "@"
 
     - name: Remove BGP graceful-shutdown (FRR)
@@ -185,9 +185,9 @@
       when: platform == 'arista_eos'
       arista.eos.eos_command:
         commands:
-          - "show bgp summary | json"
+          - show bgp summary | json
         wait_for:
-          - "result[0].vrfs.default.peers is defined"
+          - result[0].vrfs.default.peers is defined
         retries: 6
         interval: 10
 

@@ -164,7 +164,7 @@
     - name: Report successful auto-remediation
       debug:
         msg:
-          - "Auto-remediation completed successfully."
+          - Auto-remediation completed successfully.
           - "Device: {{ hostvars['localhost'].drifted_device }}"
           - "Batfish post-check: PASSED"
 

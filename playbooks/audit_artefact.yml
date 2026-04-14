@@ -36,7 +36,7 @@
       ansible.builtin.file:
         path: "{{ audit_dir }}"
         state: directory
-        mode: '0755'
+        mode: "0755"
       delegate_to: localhost
       run_once: true
 
@@ -44,10 +44,10 @@
       when: platform == 'arista_eos'
       arista.eos.eos_command:
         commands:
-          - "show bgp summary vrf all | json"
-          - "show ip route summary vrf all | json"
-          - "show interfaces status | json"
-          - "show running-config"
+          - show bgp summary vrf all | json
+          - show ip route summary vrf all | json
+          - show interfaces status | json
+          - show running-config
       register: eos_audit_state
       failed_when: false
 

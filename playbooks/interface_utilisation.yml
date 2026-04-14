@@ -23,7 +23,7 @@
       when: platform == 'arista_eos'
       arista.eos.eos_command:
         commands:
-          - "show interfaces | json"
+          - show interfaces | json
       register: eos_interfaces
       failed_when: false
 
@@ -46,7 +46,7 @@
           timestamp: "{{ utilisation_timestamp }}"
           interfaces: []
           high_utilisation: []
-          note: "FRR nodes do not expose interface rate counters via vtysh — use SNMP or Prometheus node_exporter."
+          note: FRR nodes do not expose interface rate counters via vtysh — use SNMP or Prometheus node_exporter.
 
     - name: Write per-device utilisation JSON
       when: interface_utilisation is defined
@@ -132,7 +132,7 @@
         dest: "{{ playbook_dir }}/../reports/utilisation_{{ utilisation_timestamp }}.txt"
 
     - name: Display report
-      ansible.builtin.command: "cat {{ playbook_dir }}/../reports/utilisation_{{ utilisation_timestamp }}.txt"
+      ansible.builtin.command: cat {{ playbook_dir }}/../reports/utilisation_{{ utilisation_timestamp }}.txt
       changed_when: false
       register: report_out
 

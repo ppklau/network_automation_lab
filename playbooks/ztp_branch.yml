@@ -40,7 +40,7 @@
     - name: Verify target was specified
       ansible.builtin.assert:
         that: ansible_limit is defined
-        fail_msg: "Use --limit to specify the branch to provision."
+        fail_msg: Use --limit to specify the branch to provision.
 
     - name: Verify target is a branch
       ansible.builtin.assert:
@@ -103,14 +103,14 @@
 
     - name: Render config for target branch
       ansible.builtin.command:
-        cmd: "ansible-playbook playbooks/render_configs.yml --limit {{ ansible_limit }}"
+        cmd: ansible-playbook playbooks/render_configs.yml --limit {{ ansible_limit }}
         chdir: "{{ playbook_dir }}/.."
       changed_when: true
       register: render_result
 
     - name: Confirm config rendered
       ansible.builtin.debug:
-        msg: "Config rendered for {{ ansible_limit }}. Proceeding to push."
+        msg: Config rendered for {{ ansible_limit }}. Proceeding to push.
 
 - name: Phase 3 — Push config to branch device
   hosts: "{{ ansible_limit | default('none') }}"
@@ -131,7 +131,7 @@
             dest: /etc/frr/frr.conf
             owner: frr
             group: frr
-            mode: '0640'
+            mode: "0640"
           become: true
 
         - name: Reload FRR
@@ -159,7 +159,7 @@
 
     - name: Config push confirmed
       ansible.builtin.debug:
-        msg: "Config pushed to {{ inventory_hostname }}. Waiting for BGP to establish."
+        msg: Config pushed to {{ inventory_hostname }}. Waiting for BGP to establish.
 
 - name: Phase 4 — Verify BGP session to border router
   hosts: "{{ ansible_limit | default('none') }}"
@@ -218,7 +218,7 @@
       ansible.builtin.file:
         path: "{{ playbook_dir }}/../state/provisioned"
         state: directory
-        mode: '0755'
+        mode: "0755"
 
     - name: Write provisioning record
       ansible.builtin.copy:

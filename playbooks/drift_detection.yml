@@ -228,7 +228,7 @@
         dest: "{{ playbook_dir }}/../reports/drift_{{ drift_timestamp }}.txt"
 
     - name: Display drift report
-      ansible.builtin.command: "cat {{ playbook_dir }}/../reports/drift_{{ drift_timestamp }}.txt"
+      ansible.builtin.command: cat {{ playbook_dir }}/../reports/drift_{{ drift_timestamp }}.txt
       changed_when: false
       register: report_out
 
@@ -237,5 +237,5 @@
 
     - name: Fail with exit code 2 on CRITICAL drift
       ansible.builtin.fail:
-        msg: "CRITICAL drift detected. Remediate via pipeline before proceeding."
+        msg: CRITICAL drift detected. Remediate via pipeline before proceeding.
       when: drift_summary.critical_nodes | length > 0

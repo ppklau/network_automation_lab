@@ -56,7 +56,7 @@
         fail_msg: >
           BGP peer {{ item.peer_ip }} ({{ item.description | default('') }}) is
           {{ bgp_peers[item.peer_ip].peerState | default('missing') }} on {{ inventory_hostname }}
-        success_msg: "BGP peer {{ item.peer_ip }} is Established"
+        success_msg: BGP peer {{ item.peer_ip }} is Established
       loop: "{{ bgp.neighbors | default([]) }}"
       when:
         - ansible_network_os == 'eos' or ansible_network_os == 'arista.eos.eos'
@@ -75,8 +75,8 @@
         that:
           - intf_status_raw.stdout[0].interfaceStatuses['Loopback0'] is defined
           - intf_status_raw.stdout[0].interfaceStatuses['Loopback0'].lineProtocolStatus == 'up'
-        fail_msg: "Loopback0 is not up on {{ inventory_hostname }}"
-        success_msg: "Loopback0 is up"
+        fail_msg: Loopback0 is not up on {{ inventory_hostname }}
+        success_msg: Loopback0 is up
       when:
         - ansible_network_os == 'eos' or ansible_network_os == 'arista.eos.eos'
         - loopback is defined
@@ -93,13 +93,13 @@
           {{ intf_status_raw.stdout[0].interfaceStatuses.items()
              | selectattr('1.lineProtocolStatus', 'equalto', 'errdisabled')
              | map(attribute='0') | list }}
-        success_msg: "No err-disabled interfaces"
+        success_msg: No err-disabled interfaces
       when: ansible_network_os == 'eos' or ansible_network_os == 'arista.eos.eos'
 
     - name: Verify management reachability — ping management gateway (EOS)
       arista.eos.eos_command:
         commands:
-          - "ping vrf MGMT {{ management.gateway }} source {{ management.interface }} repeat 3"
+          - ping vrf MGMT {{ management.gateway }} source {{ management.interface }} repeat 3
       register: mgmt_ping
       when:
         - ansible_network_os == 'eos' or ansible_network_os == 'arista.eos.eos'
@@ -108,8 +108,8 @@
     - name: Assert management ping succeeded (EOS)
       ansible.builtin.assert:
         that: "'3 received' in mgmt_ping.stdout[0] or '2 received' in mgmt_ping.stdout[0]"
-        fail_msg: "Management gateway {{ management.gateway }} unreachable from {{ inventory_hostname }}"
-        success_msg: "Management gateway reachable"
+        fail_msg: Management gateway {{ management.gateway }} unreachable from {{ inventory_hostname }}
+        success_msg: Management gateway reachable
       when:
         - ansible_network_os == 'eos' or ansible_network_os == 'arista.eos.eos'
         - management.gateway is defined
@@ -144,7 +144,7 @@
           BGP peer {{ item.peer_ip }} is
           {{ frr_bgp_summary.ipv4Unicast.peers[item.peer_ip].state | default('missing') }}
           on {{ inventory_hostname }}
-        success_msg: "BGP peer {{ item.peer_ip }} is Established"
+        success_msg: BGP peer {{ item.peer_ip }} is Established
       loop: "{{ bgp.neighbors | default([]) }}"
       when:
         - platform | default('') == 'frr' or ansible_network_os == 'frr'

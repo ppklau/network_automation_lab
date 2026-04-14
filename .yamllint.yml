@@ -107,16 +107,7 @@ rules:
     forbid-implicit-octal: true
     forbid-explicit-octal: false
 
-  # ── Quoted strings ─────────────────────────────────────────────────────────
-  # Double quotes are preferred for strings that require escaping or contain
-  # special characters. Single quotes are allowed for simple strings.
-  # 'only-when-needed' ensures unquoted scalars aren't unnecessarily wrapped.
-  quoted-strings:
-    quote-type: double
-    required: only-when-needed
-    allow-quoted-quotes: false
-
-  # ── Trailing spaces ────────────────────────────────────────────────────────
+# ── Trailing spaces ────────────────────────────────────────────────────────
   # Trailing whitespace causes spurious diffs in Git and is always an error.
   trailing-spaces: enable
 

@@ -25,10 +25,10 @@
       when: platform == 'arista_eos'
       arista.eos.eos_command:
         commands:
-          - "show bgp summary vrf all | json"
-          - "show interfaces | json"
-          - "show ntp status | json"
-          - "show version | json"
+          - show bgp summary vrf all | json
+          - show interfaces | json
+          - show ntp status | json
+          - show version | json
       register: eos_health_raw
       failed_when: false
 
@@ -170,7 +170,7 @@
       ansible.builtin.file:
         path: "{{ playbook_dir }}/../reports"
         state: directory
-        mode: '0755'
+        mode: "0755"
 
     - name: Write human-readable health report
       ansible.builtin.copy:
@@ -230,7 +230,7 @@
         dest: "{{ playbook_dir }}/../reports/health_{{ report_timestamp }}.txt"
 
     - name: Display report
-      ansible.builtin.command: "cat {{ playbook_dir }}/../reports/health_{{ report_timestamp }}.txt"
+      ansible.builtin.command: cat {{ playbook_dir }}/../reports/health_{{ report_timestamp }}.txt
       changed_when: false
       register: report_output
 

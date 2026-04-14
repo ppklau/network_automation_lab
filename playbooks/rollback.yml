@@ -27,14 +27,14 @@
   vars:
     configs_dir: "{{ playbook_dir }}/../configs"
     state_dir: "{{ configs_dir }}/{{ inventory_hostname }}/state"
-    rollback_timestamp: "latest"   # override with -e rollback_timestamp=<ts>
+    rollback_timestamp: latest   # override with -e rollback_timestamp=<ts>
 
   pre_tasks:
 
     - name: Find available pre-push snapshots
       ansible.builtin.find:
         paths: "{{ state_dir }}"
-        patterns: "pre_push_*.conf"
+        patterns: pre_push_*.conf
         age_stamp: ctime
       register: pre_push_snapshots
       delegate_to: localhost

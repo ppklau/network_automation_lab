@@ -139,7 +139,7 @@
         src: "{{ configs_output_dir }}/{{ inventory_hostname }}"
         dest: "{{ configs_output_dir }}/{{ inventory_hostname }}/running.conf"
         delimiter: "!"
-        regexp: "^0[1-6]_.*\\.conf$"
+        regexp: ^0[1-6]_.*\.conf$
         mode: "0644"
       when: platform == 'arista_eos'
 
@@ -171,7 +171,7 @@
         src: "{{ configs_output_dir }}/{{ inventory_hostname }}"
         dest: "{{ configs_output_dir }}/{{ inventory_hostname }}/running.conf"
         delimiter: "!"
-        regexp: "^(base|interfaces|bgp)\\.conf$"
+        regexp: ^(base|interfaces|bgp)\.conf$
         mode: "0644"
       when: platform == 'frr'
 

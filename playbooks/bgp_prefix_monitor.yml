@@ -27,7 +27,7 @@
       when: platform == 'arista_eos'
       arista.eos.eos_command:
         commands:
-          - "show bgp summary vrf all | json"
+          - show bgp summary vrf all | json
       register: eos_bgp_summary
       failed_when: false
 
@@ -145,7 +145,7 @@
         dest: "{{ playbook_dir }}/../reports/bgp_prefix_{{ monitor_timestamp }}.txt"
 
     - name: Display report
-      ansible.builtin.command: "cat {{ playbook_dir }}/../reports/bgp_prefix_{{ monitor_timestamp }}.txt"
+      ansible.builtin.command: cat {{ playbook_dir }}/../reports/bgp_prefix_{{ monitor_timestamp }}.txt
       changed_when: false
       register: report_out
 
@@ -154,5 +154,5 @@
 
     - name: Fail on any alert
       ansible.builtin.fail:
-        msg: "BGP prefix count deviations detected. See reports/bgp_prefix_{{ monitor_timestamp }}.txt"
+        msg: BGP prefix count deviations detected. See reports/bgp_prefix_{{ monitor_timestamp }}.txt
       when: monitor_summary.peers_alert | int > 0

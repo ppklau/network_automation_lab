@@ -36,14 +36,14 @@
     - name: Verify target was specified
       ansible.builtin.assert:
         that: ansible_limit is defined
-        fail_msg: "Use --limit to specify the device to decommission. This playbook must not run against all hosts."
+        fail_msg: Use --limit to specify the device to decommission. This playbook must not run against all hosts.
 
     - name: Verify reason provided
       ansible.builtin.assert:
         that:
           - reason is defined
           - reason | length > 5
-        fail_msg: "Provide --extra-vars \"reason='<description>'\" to document why this device is being decommissioned."
+        fail_msg: Provide --extra-vars "reason='<description>'" to document why this device is being decommissioned.
 
     - name: Check device SoT file exists
       ansible.builtin.stat:
@@ -62,7 +62,7 @@
 
     - name: Confirm device is reachable
       arista.eos.eos_command:
-        commands: ["show version | json"]
+        commands: [show version | json]
       register: version_check
       when: platform == 'arista_eos'
       failed_when: false
@@ -84,9 +84,9 @@
       when: platform == 'arista_eos'
       arista.eos.eos_config:
         lines:
-          - "graceful-restart-helper"
+          - graceful-restart-helper
         parents:
-          - "router bgp {{ bgp.local_as | default(65001) }}"
+          - router bgp {{ bgp.local_as | default(65001) }}
 
     - name: Apply BGP graceful-shutdown (FRR)
       when: platform == 'frr'
@@ -142,17 +142,15 @@
   gather_facts: false
   tasks:
     - name: Shutdown all data-plane interfaces (EOS)
-      when: platform == 'arista_eos'
+      when: platform == 'arista_eos' and item.name not in ['Management0', 'Loopback0']
       arista.eos.eos_config:
         lines:
-          - "shutdown"
+          - shutdown
         parents:
-          - "interface {{ item.name }}"
+          - interface {{ item.name }}
       loop: "{{ interfaces | default([]) }}"
-      when: item.name not in ['Management0', 'Loopback0']
 
     - name: Shutdown all data-plane interfaces (FRR)
-      when: platform == 'frr'
       ansible.builtin.raw: |
         vtysh -c "configure terminal" \
               -c "interface {{ item.name }}" \
@@ -160,7 +158,7 @@
               -c "exit" \
               -c "end" -c "write"
       loop: "{{ interfaces | default([]) }}"
-      when: item.name not in ['lo', 'eth0']
+      when: platform == 'frr' and item.name not in ['lo', 'eth0']
       become: true
 
 - name: Phase 5 — SoT update
@@ -179,7 +177,7 @@
     - name: Update lab_state to decommissioned
       ansible.builtin.replace:
         path: "{{ playbook_dir }}/../sot/devices/{{ hostvars[target].site }}/{{ target }}.yml"
-        regexp: '^lab_state:.*$'
+        regexp: ^lab_state:.*$
         replace: >-
           lab_state: decommissioned
           decommission_date: "{{ decommission_timestamp }}"
@@ -197,7 +195,7 @@
       ansible.builtin.file:
         path: "{{ playbook_dir }}/../state/decommissioned"
         state: directory
-        mode: '0755'
+        mode: "0755"
 
     - name: Archive device SoT record
       ansible.builtin.copy:
