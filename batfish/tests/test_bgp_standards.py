@@ -165,7 +165,7 @@ class TestEbgpRouteMaps:
         # All other iBGP sessions from a spine should be RR clients
         spine_to_non_spine = ibgp[~ibgp["Remote_Node"].isin(SPINE_NODES)]
         not_rr_client = spine_to_non_spine[
-            ~spine_to_non_spine["Route_Reflector_Client"].fillna(False)
+            spine_to_non_spine["Route_Reflector_Client"].fillna(False).eq(False)
         ]
         assert_no_rows(
             not_rr_client[["Node", "Remote_Node", "Remote_IP"]],
@@ -210,6 +210,9 @@ class TestBranchPrefixAdvertisements:
                 lambda nh: _ip_in_network(str(nh), assigned_net) if pd.notna(nh) else False
             )
         ]
+
+        if branch_next_hops.empty:
+            return  # no routes with next-hops in the branch subnet — nothing to check
 
         # All prefixes from this branch must be the assigned /29 exactly
         non_assigned = branch_next_hops[
