@@ -49,7 +49,7 @@ before_script:
       pyyaml
       napalm
       napalm-ansible
-  - ansible-galaxy collection install arista.eos ansible.netcommon community.network -q
+  - ansible-galaxy collection install arista.eos ansible.netcommon community.network
   - echo "${VAULT_PASS}" > /tmp/.vault_pass
 
 stages:
