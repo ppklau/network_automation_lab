@@ -29,7 +29,7 @@ from pybatfish.datamodel import HeaderConstraints, PathConstraints
 
 # London DC1 zone subnets
 TRADING_PREFIX   = "10.1.1.0/24"
-CORPORATE_PREFIX = "10.1.2.0/22"
+CORPORATE_PREFIX = "10.1.2.0/23"
 DMZ_PREFIX       = "10.1.6.0/24"
 MGMT_PREFIX      = "10.1.0.0/25"
 

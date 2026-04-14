@@ -129,7 +129,7 @@ interfaces:
   - name: Ethernet5
     description: fw-lon-01 internal facing eth3 (leaf-lon-04 -> FW)
     mode: access
-    access_vlan: 300
+    access_vlan: 400           # MGMT VLAN — fw-lon-01 eth3 is 10.1.0.254/25 (MGMT_VRF)
     peer_device: fw-lon-01
     peer_interface: eth3
     mtu: 9214

@@ -154,6 +154,11 @@ interfaces:
     encapsulation: dot1q
     vlan: 101
 
+  - name: Vlan300
+    description: SVI DMZ — border-lon-01 DMZ zone boundary (fw-lon-01 BGP peer)
+    ip: 10.1.6.253/24
+    vrf: DMZ_VRF
+
   - name: Loopback0
     description: Router-ID
     ip: 10.1.255.20/32

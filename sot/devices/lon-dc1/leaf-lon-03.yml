@@ -130,7 +130,7 @@ interfaces:
   - name: Ethernet5
     description: fw-lon-01 internal facing eth2 (leaf-lon-03 -> FW)
     mode: access
-    access_vlan: 300           # DMZ traffic towards firewall internal interface
+    access_vlan: 100           # TRADING VLAN — fw-lon-01 eth2 is 10.1.1.254/24 (TRADING_VRF)
     peer_device: fw-lon-01
     peer_interface: eth2
     mtu: 9214

@@ -55,6 +55,7 @@ bgp:
       remote_as: 65010
       description: eBGP -> border-nyc-01
       md5_password_ref: bgp_md5_branch_nyc_01
+      route_map_in: RM_BRANCH_IN
       route_map_out: RM_BRANCH_OUT
   networks_advertised:
     - prefix: 10.101.0.0/29
