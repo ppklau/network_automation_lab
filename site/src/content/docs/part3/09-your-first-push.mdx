@@ -2,9 +2,105 @@
 title: "Chapter 9: Your First Config Push"
 ---
 
+import Mermaid from '../../../components/Mermaid.astro';
+
 > 🟡 **Practitioner** — Exercise 9.1
 
 *Estimated time: 35 minutes (pipeline runs add a few minutes to each step)*
+
+---
+
+## Git, repositories, and pipelines — a primer for network engineers
+
+> 🔵 **Strategic**
+
+When you cloned this lab repository in Chapter 2, you ran a `git clone` command. If you came from a networking background, you may have followed the instruction without thinking too hard about what it meant. Before you touch anything in this chapter, it is worth pausing to understand the machinery you are about to use — because this machinery is the core of infrastructure as code.
+
+### What is Git?
+
+Git is a version control system. Think of it as the network equivalent of keeping every revision of a router config you have ever pushed, with a timestamp, the name of the engineer who made the change, and a short note explaining why. Except Git does this automatically, for every file in the project, forever.
+
+Without Git, network config management tends to look like this: engineers SSH into devices, make changes, and maybe update a spreadsheet or paste the diff into a ticket. The "source of truth" is the running config on the device. If something breaks, you rely on someone remembering what changed, or you diff the running config against a backup that may or may not be current.
+
+With Git, the source of truth lives in the repository. Every change is tracked. You can see exactly what changed, when, and who did it. You can roll back to any previous state. You can work on a change in isolation and only introduce it to the production config after it has been reviewed and validated.
+
+### What is a repository?
+
+A repository (or "repo") is a directory that Git is tracking. When you ran `git clone`, you created a local copy of the `network-automation-lab` repository on your machine. That local copy contains the full history of every change ever made to the project — not just the current state.
+
+There is also a remote copy, hosted in the GitLab instance running on your machine at `http://localhost:8929`. Your local copy and the remote copy are kept in sync by explicitly pushing and pulling changes. Nothing moves between them automatically.
+
+### What is a commit?
+
+A commit is a snapshot of the repository at a point in time. When you run `git commit`, you are saying: "Save this exact state. Here is a message explaining what I did." Each commit has a unique identifier (a hash like `a3f9c2e`) and is permanently recorded in the repository's history.
+
+Commits are the atomic unit of change in Git. If you need to roll something back, you revert to a specific commit. If you need to audit what changed in a deployment, you look at the commits that went into it.
+
+### What is a branch?
+
+A branch is an isolated line of development. The default branch is called `main` — it represents the authoritative, production-ready state of the repository. When you want to make a change, you do not edit `main` directly. You create a new branch (a copy of `main` at that moment), make your changes there, and then — after review and validation — merge it back into `main`.
+
+Think of it this way: `main` is the production network config. A feature branch is a change request being built in a staging environment. You test in staging. You review in staging. Only after it passes do you promote it to production.
+
+This separation is important. Multiple engineers can work on different changes simultaneously, each on their own branch, without interfering with each other or with `main`. The pipeline can validate each branch independently before anything touches production.
+
+### What is a push?
+
+`git push` sends your local commits to the remote repository (GitLab). Until you push, your changes exist only on your machine. After you push a branch, GitLab knows about it and can run automated checks against it.
+
+`git push` does not deploy anything to network devices. It moves data between your local Git history and the remote Git repository. Device deployment is a separate step that happens later, only after the change has been reviewed and approved.
+
+### What is a Merge Request?
+
+A Merge Request (MR) — also called a Pull Request (PR) in GitHub — is a formal proposal to merge a feature branch into `main`. When you open an MR in GitLab, you are saying: "Here is my proposed change. Please review the diff and decide whether to accept it."
+
+The MR is where human review happens: a second engineer reads the diff, asks questions if needed, and either requests changes or approves. In a traditional network operations team, this corresponds to the peer review step in a change request process. In GitLab, it is built into the workflow — there is no separate ticketing system needed.
+
+MRs are permanent records. After a change ships, the MR thread is still there, showing who reviewed the diff, what comments were made, and who approved the merge. That is your audit trail.
+
+### What is a CI/CD pipeline?
+
+CI/CD stands for Continuous Integration / Continuous Delivery. When you push a branch or open an MR, GitLab automatically runs a pipeline — a sequence of automated jobs defined in `.gitlab-ci.yml`. In ACME's lab, the pipeline validates the SoT, runs Batfish intent checks, renders configs, and produces a config diff. Only after a human approves does it push to devices.
+
+The pipeline is not just automation for convenience. It is a technical enforcement of your change process. It is impossible to push a config to a device without passing validation. It is impossible to bypass the approval gate without GitLab recording it. This is the mechanism that makes the process auditable and repeatable — not documentation, not a shared understanding, but code that enforces the rules every time.
+
+### A note on the SoT in this lab
+
+In this lab, the source of truth is a set of YAML files that live directly inside the repository. That is a deliberate choice for convenience: it means you only need one tool (Git) to make a change and trigger the pipeline, and the entire SoT is visible and auditable alongside the playbooks and templates that use it.
+
+In a real production environment, the SoT is often a separate system — a CMDB, [Nautobot](https://www.networktocode.com/nautobot/), [NetBox](https://netboxlabs.com/), or an in-house database. The underlying concept is identical: when a change is made in that external SoT, it triggers the pipeline here to render configs, validate intent, and report back whether the proposed state is safe to push. The pipeline does not care where the SoT data comes from — it consumes structured data and acts on it. What changes between a YAML-in-repo SoT and an external SoT is the trigger mechanism and the integration layer, not the pipeline logic itself.
+
+> 🔵 **Strategic**
+>
+> If your organisation already has NetBox or Nautobot, the path forward is to replace the YAML files in `sot/` with an API call that fetches the same structured data from that system. The pipeline stages — validate, intent-check, render, diff, approve, push, verify — remain unchanged. The investment you make building and understanding this pipeline is not wasted when you outgrow flat YAML files.
+
+---
+
+## The flow, in one picture
+
+<Mermaid code={`
+flowchart TD
+    A([Edit SoT file on your machine]) --> B[git commit]
+    B --> C[git push feature branch]
+    C --> D[(GitLab: branch appears)]
+    D --> E[Open Merge Request]
+    E --> F[MR Pipeline\nvalidate → intent-check → render → diff]
+    F --> G{Human reviews diff}
+    G -->|Changes needed| A
+    G -->|Approved| H[Merge to main]
+    H --> I[Main Pipeline\nvalidate → intent-check → render → diff]
+    I --> J{Manual approval gate\napprove-push}
+    J --> K[push-configs\nNAPALM → devices]
+    K --> L[verify-state]
+    L --> M([Done — device updated])
+
+    style A fill:#1e3a5f,color:#fff,stroke:#1e3a5f
+    style M fill:#1a4731,color:#fff,stroke:#1a4731
+    style J fill:#5a3e00,color:#fff,stroke:#5a3e00
+    style K fill:#3b1f00,color:#fff,stroke:#3b1f00
+`} />
+
+No device is touched until the very last steps. Every step before `push-configs` is validation, review, and approval.
 
 ---
 
@@ -229,7 +325,7 @@ A description change is a trivial example. The same process applies when a BGP p
 
 ---
 
-## Exercise 9.1 — Your second push {#ex91}
+## Exercise 9.1 — Your second push
 
 > 🟡 **Practitioner**
 
