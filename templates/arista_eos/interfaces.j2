@@ -23,15 +23,19 @@ interface {{ intf.name }}
    description {{ intf.description | default('') }}
 {% if intf.name.startswith('Loopback') %}
    ip address {{ intf.ip }}
+{% if ospf is defined %}
+   ip ospf area {{ ospf.area }}
+{% endif %}
 {% elif intf.name.startswith('Management') %}
    ip address {{ ansible_host }}/24
 {% elif intf.name.startswith('Vlan') %}
 {# SVI interface — look up VRRP group for this VLAN #}
+{# NOTE: vrf MUST come before ip address in EOS — ip address is scoped to the VRF #}
 {% set vlan_id = intf.name | replace('Vlan', '') | int %}
-   ip address {{ intf.ip }}
 {% if intf.vrf is defined and intf.vrf not in ['default', 'MGMT'] %}
    vrf {{ intf.vrf }}
 {% endif %}
+   ip address {{ intf.ip }}
 {# Render VRRP configuration if a vrrp group is defined for this VLAN #}
 {% if vrrp is defined %}
 {% for vg in vrrp if vg.vlan == vlan_id %}
@@ -84,6 +88,10 @@ interface {{ intf.name }}
 {% endif %}
 {% if intf.speed is defined and intf.speed not in ['auto', None] %}
    speed forced {{ intf.speed | replace('G', '000') }}full
+{% endif %}
+{% if ospf is defined and intf.name in ospf.fabric_interfaces %}
+   ip ospf network point-to-point
+   ip ospf area {{ ospf.area }}
 {% endif %}
 {% endif %}
 {% endif %}
