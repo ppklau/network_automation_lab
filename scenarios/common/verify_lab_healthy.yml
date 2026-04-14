@@ -74,6 +74,8 @@
           Run: ansible-playbook scenarios/common/reset_lab.yml
         success_msg: "[{{ inventory_hostname }}] BGP peer {{ item.peer_ip }} is Established."
       loop: "{{ bgp.neighbors | default([]) }}"
+      register: eos_bgp_assertions
+      failed_when: false
 
     # ── FRR BGP check ─────────────────────────────────────────────────────
     # network_cli for FRR drops into vtysh, not a Linux shell, so collect BGP
@@ -104,6 +106,17 @@
           Run: ansible-playbook scenarios/common/reset_lab.yml
         success_msg: "[{{ inventory_hostname }}] BGP peer {{ item.peer_ip }} is Established."
       loop: "{{ bgp.neighbors | default([]) }}"
+      register: frr_bgp_assertions
+      failed_when: false
+
+    - name: Record BGP failures on localhost
+      ansible.builtin.set_fact:
+        bgp_check_failed_hosts: "{{ (hostvars['localhost'].bgp_check_failed_hosts | default([])) + [inventory_hostname] }}"
+      delegate_to: localhost
+      when: >
+        (eos_bgp_assertions.results | default([]) | selectattr('failed', 'equalto', true) | list | length > 0)
+        or
+        (frr_bgp_assertions.results | default([]) | selectattr('failed', 'equalto', true) | list | length > 0)
 
 - name: Check management reachability
   hosts: localhost
@@ -131,8 +144,13 @@
   gather_facts: false
   tasks:
     - name: Lab healthy
-      ansible.builtin.debug:
-        msg: >
+      ansible.builtin.assert:
+        that: bgp_check_failed_hosts | default([]) | length == 0
+        fail_msg: >
+          Lab health check FAILED. BGP sessions not Established on:
+          {{ bgp_check_failed_hosts | default([]) | join(', ') }}.
+          Run: ansible-playbook scenarios/common/reset_lab.yml
+        success_msg: >
           Lab health check PASSED.
           All BGP sessions Established. Management plane reachable.
           Safe to proceed with exercises.

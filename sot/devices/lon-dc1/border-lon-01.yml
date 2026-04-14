@@ -164,6 +164,18 @@ interfaces:
     ip: 10.1.0.20/25
     vrf: MGMT
 
+# ──────────────────────────────────────────
+# OSPF Configuration (underlay IGP)
+# ──────────────────────────────────────────
+ospf:
+  process_id: 1
+  router_id: 10.1.255.20
+  area: "0.0.0.0"
+  fabric_interfaces:
+    - Ethernet1   # P2P -> spine-lon-01
+    - Ethernet2   # P2P -> spine-lon-02
+  # WAN (Et3-Et5) and branch (Et7.x) interfaces intentionally excluded
+
 bgp:
   local_as: 65001
   router_id: 10.1.255.20

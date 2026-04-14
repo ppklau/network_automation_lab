@@ -1,0 +1,31 @@
+{# ─────────────────────────────────────────────────────────────────────────
+   ACME Investments — Arista EOS OSPF Configuration Template
+   Source: templates/arista_eos/ospf.j2
+
+   Provides IGP underlay for iBGP loopback reachability across the fabric.
+   Only fabric P2P interfaces and Loopback0 participate in OSPF.
+
+   Design:
+     - All fabric P2P links run OSPF network point-to-point (no DR/BDR)
+     - Loopback0 is passive (advertised but no adjacency formed)
+     - Area 0 backbone only — no inter-area complexity needed in the lab
+   ─────────────────────────────────────────────────────────────────────────
+#}
+{% if ospf is defined %}
+! ── OSPF (underlay — loopback reachability for iBGP) ─────────────────────
+!
+router ospf {{ ospf.process_id }}
+   router-id {{ ospf.router_id }}
+   passive-interface Loopback0
+   max-lsa 12000
+!
+{% for intf_name in ospf.fabric_interfaces %}
+interface {{ intf_name }}
+   ip ospf network point-to-point
+   ip ospf {{ ospf.process_id }} area {{ ospf.area }}
+!
+{% endfor %}
+interface Loopback0
+   ip ospf {{ ospf.process_id }} area {{ ospf.area }}
+!
+{% endif %}

@@ -111,6 +111,20 @@ interfaces:
     vrf: MGMT
 
 # ──────────────────────────────────────────
+# OSPF Configuration (underlay IGP)
+# ──────────────────────────────────────────
+ospf:
+  process_id: 1
+  router_id: 10.1.255.1
+  area: "0.0.0.0"
+  fabric_interfaces:
+    - Ethernet1   # P2P -> leaf-lon-01
+    - Ethernet2   # P2P -> leaf-lon-02
+    - Ethernet3   # P2P -> leaf-lon-03
+    - Ethernet4   # P2P -> leaf-lon-04
+    - Ethernet5   # P2P -> border-lon-01
+
+# ──────────────────────────────────────────
 # BGP Configuration
 # ──────────────────────────────────────────
 bgp:

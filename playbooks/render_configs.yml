@@ -120,10 +120,17 @@
         mode: "0644"
       when: platform == 'arista_eos' and interfaces is defined
 
+    - name: Render EOS OSPF config
+      ansible.builtin.template:
+        src: "{{ playbook_dir }}/../templates/arista_eos/ospf.j2"
+        dest: "{{ configs_output_dir }}/{{ inventory_hostname }}/05_ospf.conf"
+        mode: "0644"
+      when: platform == 'arista_eos'
+
     - name: Render EOS BGP config
       ansible.builtin.template:
         src: "{{ playbook_dir }}/../templates/arista_eos/bgp.j2"
-        dest: "{{ configs_output_dir }}/{{ inventory_hostname }}/05_bgp.conf"
+        dest: "{{ configs_output_dir }}/{{ inventory_hostname }}/06_bgp.conf"
         mode: "0644"
       when: platform == 'arista_eos' and bgp is defined
 
@@ -132,7 +139,7 @@
         src: "{{ configs_output_dir }}/{{ inventory_hostname }}"
         dest: "{{ configs_output_dir }}/{{ inventory_hostname }}/running.conf"
         delimiter: "!"
-        regexp: "^0[1-5]_.*\\.conf$"
+        regexp: "^0[1-6]_.*\\.conf$"
         mode: "0644"
       when: platform == 'arista_eos'
 
