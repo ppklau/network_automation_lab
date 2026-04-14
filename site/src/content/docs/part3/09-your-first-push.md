@@ -36,19 +36,27 @@ Open `sot/devices/lon-dc1/leaf-lon-01.yml` and find the `Ethernet3` interface. I
 
 ```yaml
   - name: Ethernet3
-    ip: 10.1.100.5/31
-    peer: spine-lon-02
-    peer_interface: Ethernet3
+    mode: access
+    access_vlan: 100
+    peer_device: srv-trading-01   # production server — not in lab
+    peer_interface: eth0
+    mtu: 9214
+    speed: 10G
+    vrf: TRADING_VRF
 ```
 
 Add a description:
 
 ```yaml
   - name: Ethernet3
-    description: "P2P to spine-lon-02 Ethernet3 — iBGP underlay"
-    ip: 10.1.100.5/31
-    peer: spine-lon-02
-    peer_interface: Ethernet3
+    description: "Server access port — TRADING VLAN 100"
+    mode: access
+    access_vlan: 100
+    peer_device: srv-trading-01   # production server — not in lab
+    peer_interface: eth0
+    mtu: 9214
+    speed: 10G
+    vrf: TRADING_VRF
 ```
 
 Save the file.
@@ -120,7 +128,7 @@ Once the `config-diff` job passes (the badge turns green):
 You should see a line like this in the diff:
 
 ```diff
-+   description P2P to spine-lon-02 Ethernet3 — iBGP underlay
++   description Server access port — TRADING VLAN 100
 ```
 
 That single added line is the entire change. Everything else in the rendered config — IP address, routing configuration, BGP stanzas — is unchanged.
@@ -186,7 +194,7 @@ leaf-lon-01# show interface Ethernet3
 
 ```
 Ethernet3 is up, line protocol is up (connected)
-  Description: P2P to spine-lon-02 Ethernet3 — iBGP underlay
+  Description: Server access port — TRADING VLAN 100
   Hardware is Ethernet, address is ...
 ```
 

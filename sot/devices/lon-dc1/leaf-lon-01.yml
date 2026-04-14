@@ -107,7 +107,6 @@ interfaces:
     vrf: default
 
   - name: Ethernet3
-    description: Server access port — TRADING VLAN 100
     mode: access
     access_vlan: 100
     peer_device: srv-trading-01   # production server — not in lab
