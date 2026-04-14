@@ -49,7 +49,6 @@ before_script:
       pyyaml
       napalm
       napalm-ansible
-      ansible-collections-community-network
   - ansible-galaxy collection install arista.eos ansible.netcommon community.network --quiet
   - echo "${VAULT_PASS}" > /tmp/.vault_pass
 

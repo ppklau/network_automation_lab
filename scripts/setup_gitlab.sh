@@ -183,14 +183,29 @@ if [[ -z "${PROJECT_ID}" || "${PROJECT_ID}" == "null" ]]; then
 fi
 info "Project ID: ${PROJECT_ID}"
 
-# ─── Step 7: MR pipeline settings (defaults are fine, ensure MR pipelines on) ─
-info "Ensuring merge request pipelines are enabled..."
+# ─── Step 7: MR merge settings ────────────────────────────────────────────────
+info "Configuring merge request settings..."
+
+# Block merge if pipeline is failing; allow merge even if discussions are open
 api \
   --request PUT \
-  --data '{"only_allow_merge_if_pipeline_succeeds": false}' \
+  --data '{
+    "only_allow_merge_if_pipeline_succeeds": true,
+    "only_allow_merge_if_all_discussions_are_resolved": false,
+    "merge_requests_author_approval": true
+  }' \
   "${GITLAB_URL}/api/v4/projects/${PROJECT_ID}" \
   > /dev/null
-info "Project MR settings applied."
+
+# Require at least 1 approval before merge
+# merge_requests_author_approval (set above) allows the solo lab user to self-approve
+api \
+  --request POST \
+  --data '{"approvals_before_merge": 1}' \
+  "${GITLAB_URL}/api/v4/projects/${PROJECT_ID}/approvals" \
+  > /dev/null
+
+info "Merge settings applied: pipeline must pass, 1 approval required."
 
 # ─── Step 8: Create GitLab Runner via API ─────────────────────────────────────
 info "Checking for existing instance runners..."
