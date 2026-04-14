@@ -124,6 +124,12 @@ ansible-playbook scenarios/common/verify_lab_healthy.yml
 
 Both playbooks should complete with no failures. If `verify_lab_healthy.yml` reports issues, check the lab setup (Chapter 2, Step 9) before continuing. GitLab CE must be reachable at `http://localhost:8929` throughout this chapter.
 
+> **Git identity:** `git commit` requires a name and email address. The `setup_gitlab.sh` script configured these for this repo automatically. If you skipped that script or are seeing *"Author identity unknown"* errors, run:
+> ```bash
+> git config user.name "Your Name"
+> git config user.email "you@example.com"
+> ```
+
 ---
 
 ## Step 1 — Make the SoT change
@@ -145,7 +151,7 @@ Add a description:
 
 ```yaml
   - name: Ethernet3
-    description: "Server access port — TRADING VLAN 100"
+    description: Server access port — TRADING VLAN 100
     mode: access
     access_vlan: 100
     peer_device: srv-trading-01   # production server — not in lab
@@ -337,7 +343,7 @@ Add a new loopback interface to `leaf-lon-02`:
 
 ```yaml
   - name: Loopback1
-    description: "Secondary loopback — SNMP source"
+    description: Secondary loopback — SNMP source
     ip: 10.1.255.112/32
 ```
 

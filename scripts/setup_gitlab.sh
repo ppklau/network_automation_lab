@@ -290,7 +290,22 @@ set_variable "BATFISH_HOST"               "localhost" "false" "false"
 set_variable "ANSIBLE_HOST_KEY_CHECKING"  "False"    "false" "false"
 set_variable "CI_SSH_PRIVATE_KEY"         ""         "true"  "false"
 
-# ─── Step 11: Add git remote ──────────────────────────────────────────────────
+# ─── Step 11: Ensure git identity is configured ───────────────────────────────
+info "Checking git identity..."
+
+GIT_NAME=$(git config --get user.name 2>/dev/null || true)
+GIT_EMAIL=$(git config --get user.email 2>/dev/null || true)
+
+if [[ -z "${GIT_NAME}" || -z "${GIT_EMAIL}" ]]; then
+  warn "No git identity found — setting local defaults for this repo."
+  git config --local user.name  "${GIT_NAME:-ACME Lab User}"
+  git config --local user.email "${GIT_EMAIL:-lab-user@acme-investments.internal}"
+  info "Git identity set (repo-local only). Change anytime with: git config user.name / user.email"
+else
+  info "Git identity already configured: ${GIT_NAME} <${GIT_EMAIL}>"
+fi
+
+# ─── Step 12: Add git remote ──────────────────────────────────────────────────
 info "Configuring git remote 'lab'..."
 
 cd "${REPO_ROOT}"
@@ -305,7 +320,7 @@ else
   info "Remote 'lab' added."
 fi
 
-# ─── Step 12: Push main branch ────────────────────────────────────────────────
+# ─── Step 13: Push main branch ────────────────────────────────────────────────
 info "Pushing main branch to lab remote..."
 
 CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
@@ -313,7 +328,7 @@ git push lab "${CURRENT_BRANCH}:main" --force 2>&1 | sed "s/${GITLAB_PAT}/***PAT
 
 info "Branch '${CURRENT_BRANCH}' pushed to lab remote as 'main'."
 
-# ─── Step 13: Success summary ─────────────────────────────────────────────────
+# ─── Step 14: Success summary ─────────────────────────────────────────────────
 echo ""
 echo -e "${GREEN}╔══════════════════════════════════════════════════════════╗${RESET}"
 echo -e "${GREEN}║              GitLab Lab Setup Complete!                  ║${RESET}"
