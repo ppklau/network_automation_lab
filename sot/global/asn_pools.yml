@@ -61,7 +61,7 @@ asn_pools:
     uk_branches:
       region: emea-lon
       range_start: 65100
-      range_end: 65115
+      range_end: 65111
       count: 12
       uplink_peer_dc: lon-dc1
       allocations:
