@@ -210,7 +210,7 @@ fca:
         TACACS+ authentication with MFA via jump host. All of these
         are enforced via the SoT pipeline — manual configuration
         cannot override them without a pipeline run.
-      satisfied_by: [REQ-012, REQ-017, REQ-018, REQ-019]
+      satisfied_by: [REQ-012, REQ-013, REQ-014, REQ-017, REQ-018, REQ-019]
       verification:
         type: automated
         checks:
@@ -232,7 +232,7 @@ fca:
         and Frankfurt TRADING prohibition verified by ZONE-001 audit
         check. Compliance report playbook produces a per-device
         pass/fail report that can be submitted to the compliance team.
-      satisfied_by: [REQ-001, REQ-003, REQ-005]
+      satisfied_by: [REQ-001, REQ-002, REQ-003, REQ-005]
       verification:
         type: automated
         checks:
@@ -434,7 +434,7 @@ bafin:
         Emergency changes must still pass the validate stage —
         only the manual approval gate can be bypassed by a named
         emergency approver (CTO + Head of Compliance per regulatory.yml).
-      satisfied_by: [REQ-001, REQ-006]
+      satisfied_by: [REQ-001, REQ-002, REQ-006]
       verification:
         type: automated
         checks:
@@ -691,7 +691,7 @@ mas_trm:
         management access. SNMPv3 with auth+priv. TRADING zone
         isolation from corporate and internet-facing zones.
         TACACS+ centralised authentication.
-      satisfied_by: [REQ-007, REQ-008, REQ-012, REQ-017, REQ-018, REQ-019]
+      satisfied_by: [REQ-007, REQ-008, REQ-012, REQ-013, REQ-014, REQ-017, REQ-018, REQ-019]
       verification:
         type: automated
         checks:
@@ -806,7 +806,7 @@ hkma:
 coverage_summary:
   # For each REQ-ID, the list of regulatory obligation IDs it satisfies
   REQ-001: [BAFIN-002, SOX-001, FCA-003]
-  REQ-002: []
+  REQ-002: [FCA-003, BAFIN-002]
   REQ-003: [GDPR-003, FCA-003]
   REQ-004: [MIFID2-005, MAS-001]
   REQ-005: [MIFID2-005, MAS-001, GDPR-003]
@@ -817,8 +817,8 @@ coverage_summary:
   REQ-010: [BAFIN-001, BAFIN-004, MIFID2-002]
   REQ-011: [FCA-006, GDPR-003]
   REQ-012: [FCA-002, MAS-002, GDPR-001, HKMA-001]
-  REQ-013: []
-  REQ-014: []
+  REQ-013: [FCA-002, MAS-002]
+  REQ-014: [FCA-002, MAS-002]
   REQ-015: [MIFID2-003, FCA-001, SOX-002, BAFIN-005]
   REQ-016: [MIFID2-004, MAS-003]
   REQ-017: [FCA-002, BAFIN-003, MAS-004, GDPR-001]

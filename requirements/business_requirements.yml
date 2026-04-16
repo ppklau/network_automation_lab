@@ -87,6 +87,9 @@ requirements:
     regions: [emea-lon, americas-nyc, apac, eu-fra]
     applies_to: all_devices
     design_intents: [INTENT-009]
+    sot_enforcement:
+      - templates/arista_eos/ and templates/frr/ — version-controlled Jinja2 templates are the sole config source
+      - playbooks/render_configs.yml — pipeline render stage produces all configs from templates
 
   - id: REQ-003
     title: Branch provisioning must follow the standard onboarding process
@@ -140,12 +143,15 @@ requirements:
       - framework: mifid2
         reference: MiFID II RTS 7 — Organisational requirements
         obligation: Firms must maintain accurate records of systems used for trading
-      - framework: mas
+      - framework: mas_trm
         reference: MAS TRM Guidelines 9.1 — IT asset management
         obligation: Complete and accurate inventory of all IT assets
     regions: [emea-lon, americas-nyc, apac, eu-fra]
     applies_to: all_devices
     design_intents: [INTENT-009]
+    sot_enforcement:
+      - scripts/validate_sot.py — rejects pipeline run if device file is missing required fields
+      - schema/device.schema.json — JSONSchema enforces required fields on every device record
 
   - id: REQ-005
     title: All devices must carry regulatory compliance tags matching their region
@@ -202,6 +208,9 @@ requirements:
     regions: [emea-lon, americas-nyc, apac, eu-fra]
     applies_to: all_devices
     design_intents: [INTENT-009]
+    sot_enforcement:
+      - .gitlab-ci.yml approve stage — manual gate before push; signed diff stored as pipeline artefact
+      - playbooks/audit_artefact.yml — generates tamper-evident before/after diff per change
 
   # ────────────────────────────────────────────────────────────────────
   # CATEGORY: Zone Isolation
@@ -238,7 +247,7 @@ requirements:
       - framework: fca
         reference: FCA MAR 7A — Algorithmic trading
         obligation: Organisational requirements including system segregation
-      - framework: sec
+      - framework: sec_reg_sci
         reference: SEC Reg SCI Section 242.1001(a)
         obligation: Systems compliance and integrity — physical and logical separation of trading systems
     regions: [emea-lon, americas-nyc, apac]
@@ -414,7 +423,7 @@ requirements:
       - framework: fca
         reference: FCA SYSC 13.9 — Network security
         obligation: Appropriate technical controls on network infrastructure
-      - framework: mas
+      - framework: mas_trm
         reference: MAS TRM 11.2 — Network security
         obligation: Authentication controls on all critical network sessions
     regions: [emea-lon, americas-nyc, apac, eu-fra]
@@ -444,7 +453,7 @@ requirements:
       This is the primary mechanism for enforcing inter-region
       routing policy.
     regulatory_refs:
-      - framework: sec
+      - framework: sec_reg_sci
         reference: SEC Reg SCI 242.1001 — System integrity
         obligation: Controls to prevent unintended traffic routing
     regions: [emea-lon, americas-nyc, apac, eu-fra]
@@ -549,7 +558,7 @@ requirements:
       - framework: mifid2
         reference: MiFID II RTS 25 — Clock synchronisation
         obligation: Clocks synchronised to UTC within 100μs for gated clocks; 1ms for other systems
-      - framework: mas
+      - framework: mas_trm
         reference: MAS TRM 9.2 — Time synchronisation
         obligation: All systems must synchronise to an authoritative time source
     regions: [emea-lon, americas-nyc, apac, eu-fra]
@@ -586,6 +595,10 @@ requirements:
     regions: [emea-lon, americas-nyc, apac, eu-fra]
     applies_to: all_devices
     design_intents: [INTENT-011]
+    sot_enforcement:
+      - templates/arista_eos/base.j2 — no ip telnet server in rendered config
+      - templates/frr/base.j2 — Telnet not configured (FRR has no Telnet by default; template enforces no service telnet)
+      - playbooks/compliance_report.yml — per-device Telnet absence check
 
   - id: REQ-018
     title: SSH version 2 must be the only permitted remote access protocol
@@ -610,7 +623,7 @@ requirements:
       - framework: fca
         reference: FCA SYSC 13.9
         obligation: Appropriate encryption on management channels
-      - framework: mas
+      - framework: mas_trm
         reference: MAS Cyber Hygiene Notice — Secure remote access
         obligation: Only approved SSH versions permitted
     regions: [emea-lon, americas-nyc, apac, eu-fra]
@@ -681,10 +694,10 @@ requirements:
       - framework: fca
         reference: FCA PS21/3 — Operational resilience
         obligation: Firms must identify IBS and remain within impact tolerances during disruptions
-      - framework: sec
+      - framework: sec_reg_sci
         reference: SEC Reg SCI 242.1001(a)(2)(v)
         obligation: Business continuity and disaster recovery plans; 99.999% availability SLA
-      - framework: mas
+      - framework: mas_trm
         reference: MAS TRM 6.2 — System availability
         obligation: Critical systems must achieve agreed availability targets
     regions: [emea-lon, americas-nyc, apac, eu-fra]
@@ -716,7 +729,7 @@ requirements:
       WAN paths with different carriers provide protection against both
       circuit failure and carrier outages.
     regulatory_refs:
-      - framework: sec
+      - framework: sec_reg_sci
         reference: SEC Reg SCI 242.1001 — Business continuity
         obligation: Backup systems and redundant network connectivity
       - framework: fca

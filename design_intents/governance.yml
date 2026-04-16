@@ -1,0 +1,288 @@
+---
+# ACME Investments — Design Intents: Pipeline Governance
+# Layer 2 of the Intent-Based Networking (IBN) model
+#
+# This file defines the governance controls that ensure all network
+# configuration changes originate from the Source of Truth (SoT)
+# and pass through the automation pipeline. These controls are the
+# foundation of ACME's regulatory compliance posture — without them,
+# none of the compliance assertions in other intents are meaningful.
+#
+# Intent defined here:
+#   INTENT-009  SoT-driven pipeline governance:
+#               SoT as sole config source, template generation,
+#               device inventory, compliance tags, audit artefacts
+#
+# Traceability:
+#   REQ-001 → INTENT-009 → .gitlab-ci.yml + validate_sot.py
+#   REQ-002 → INTENT-009 → templates/arista_eos/ + templates/frr/
+#   REQ-004 → INTENT-009 → schema/device.schema.json + validate_sot.py
+#   REQ-005 → INTENT-009 → sot/compliance/regulatory.yml + validate_sot.py
+#   REQ-006 → INTENT-009 → playbooks/audit_artefact.yml + .gitlab-ci.yml
+#
+# Verification approach:
+#   INTENT-009 controls are verified at three points:
+#     1. SoT validation (validate_sot.py) — runs at pipeline validate stage
+#     2. Pipeline gate checks (.gitlab-ci.yml) — blocks pipeline on failure
+#     3. Audit artefact (playbooks/audit_artefact.yml) — produces signed diff
+#        as evidence that the pipeline was used for every change
+#
+# Relationship to other intents:
+#   INTENT-009 is the prerequisite for all other intents. The compliance
+#   assertions in INTENT-001 through INTENT-011 are only meaningful if
+#   INTENT-009 guarantees that device configurations are produced by the
+#   pipeline from a trusted SoT. An operator who can push arbitrary configs
+#   to devices bypasses every other intent assertion.
+#
+# Reviewed by: Head-NetOps, CISO, Head-Compl — 2026-03-01
+
+intents:
+
+  - id: INTENT-009
+    title: All device configuration must originate from the SoT via the automation pipeline
+    requirement_refs: [REQ-001, REQ-002, REQ-004, REQ-005, REQ-006]
+    regulatory_refs: [FCA-003, BAFIN-002, SOX-001, MIFID2-005, MAS-001, HKMA-001]
+    related_intents: [INTENT-011]
+
+    description: >
+      The SoT (sot/) is the sole authoritative source for all network device
+      configuration. Configurations are rendered from Jinja2 templates using SoT
+      data and pushed exclusively via the GitLab CI/CD pipeline. No device may
+      receive a configuration that was not produced by the pipeline from a
+      validated SoT record. Every pipeline run that produces a configuration
+      change must generate a signed, tamper-evident audit artefact. This
+      intent is the governance foundation that makes all other intent
+      assertions meaningful.
+
+    applies_to: all_devices
+
+    # ──────────────────────────────────────────────────────────────
+    # Control 1: SoT as Sole Configuration Source
+    # REQ-001 | Regulatory: FCA-003, BAFIN-002, SOX-001
+    # ──────────────────────────────────────────────────────────────
+    control_sot_source:
+      id: GV-001
+      requirement_ref: REQ-001
+      title: Every device configuration must be rendered from the SoT
+
+      specification:
+        pipeline_stages_enforcing_this_control:
+          validate:
+            tool: scripts/validate_sot.py
+            purpose: Confirms SoT data is schema-valid before any config is rendered
+            blocks_pipeline_on_failure: true
+          render:
+            tool: playbooks/render_configs.yml
+            purpose: Renders device configs from SoT data via Jinja2 templates
+            input: sot/devices/**/*.yml + sot/global/**/*.yml
+            output: configs/<hostname>/running.conf
+          push:
+            tool: playbooks/push_configs.yml
+            purpose: Pushes rendered configs to devices — only runs after approve gate
+            requires_approval: true
+
+        prohibited:
+          - Direct SSH to devices to apply configuration changes outside the pipeline
+          - Committing rendered config files (configs/) directly to the repository
+          - Manually editing device running configuration and not back-porting to SoT
+
+      sot_enforcement:
+        validate_sot_check:
+          check_id: SC-GV-001
+          description: >
+            validate_sot.py verifies that every device in the Ansible inventory
+            has a corresponding SoT file in sot/devices/. Devices in inventory
+            without SoT files cause the validate stage to fail, blocking push.
+
+      batfish_assertion: null  # Enforced by pipeline gates, not Batfish network model
+
+    # ──────────────────────────────────────────────────────────────
+    # Control 2: Template-Based Configuration Generation
+    # REQ-002 | Regulatory: FCA-003, BAFIN-002
+    # ──────────────────────────────────────────────────────────────
+    control_template_generation:
+      id: GV-002
+      requirement_ref: REQ-002
+      title: Device configurations must be generated from version-controlled Jinja2 templates
+
+      specification:
+        template_locations:
+          arista_eos:
+            base: templates/arista_eos/base.j2
+            interfaces: templates/arista_eos/interfaces.j2
+            vrfs: templates/arista_eos/vrfs.j2
+            bgp: templates/arista_eos/bgp.j2
+            vlans: templates/arista_eos/vlans.j2
+          frr:
+            base: templates/frr/base.j2
+            interfaces: templates/frr/interfaces.j2
+            bgp: templates/frr/bgp.j2
+
+        requirements:
+          - Templates must be version-controlled in git — no local-only modifications
+          - Template changes require a pipeline run before taking effect on devices
+          - Ad hoc config fragments committed directly to device SoT files are prohibited
+          - Template logic must be independently reviewable and testable
+
+        render_playbook: playbooks/render_configs.yml
+
+      sot_enforcement:
+        validate_sot_check:
+          check_id: SC-GV-002
+          description: >
+            validate_sot.py confirms that all platform types referenced in device
+            files (arista_eos, frr) have corresponding template directories.
+            Missing template files cause the render stage to fail with a clear
+            error before any config is applied to devices.
+
+      batfish_assertion: null
+
+    # ──────────────────────────────────────────────────────────────
+    # Control 3: SoT Record Required Before Device Deployment
+    # REQ-004 | Regulatory: MIFID2-005, MAS-001
+    # ──────────────────────────────────────────────────────────────
+    control_inventory_record:
+      id: GV-003
+      requirement_ref: REQ-004
+      title: Every device must have a SoT record before receiving a configuration
+
+      specification:
+        required_fields_per_device_record:
+          - hostname
+          - role          # spine | leaf | border | branch
+          - platform      # arista_eos | frr
+          - site          # e.g. lon-dc1, nyc-dc1
+          - region        # emea-lon | americas-nyc | apac | eu-fra
+          - management_ip
+          - compliance_tags
+          - lab_state     # active | sot_only | decommissioned
+
+        schema_enforced_by: schema/device.schema.json
+        schema_for_branches: schema/branch.schema.json
+
+        prohibited:
+          - Devices physically connected to the network without a SoT record
+          - Running the pipeline against a hostname not present in sot/devices/
+
+      sot_enforcement:
+        schema_check:
+          check_id: SC-GV-003
+          tool: scripts/validate_sot.py
+          schema: schema/device.schema.json
+          description: >
+            Every device file in sot/devices/ is validated against device.schema.json.
+            Missing required fields (hostname, role, platform, site, region,
+            management_ip, compliance_tags) cause the validate stage to fail,
+            blocking any pipeline progression.
+
+      batfish_assertion: null
+
+    # ──────────────────────────────────────────────────────────────
+    # Control 4: Regulatory Compliance Tags on All Devices
+    # REQ-005 | Regulatory: MIFID2-005, MAS-001
+    # ──────────────────────────────────────────────────────────────
+    control_compliance_tags:
+      id: GV-004
+      requirement_ref: REQ-005
+      title: All device SoT records must carry regulatory compliance tags matching their region
+
+      specification:
+        compliance_tags_defined_in: sot/compliance/regulatory.yml
+        tag_assignment_by_region:
+          emea-lon:    [mifid2, fca, gdpr, sox]
+          americas-nyc: [sox, sec_reg_sci, gdpr]
+          apac:        [mas_trm, hkma, gdpr]
+          eu-fra:      [mifid2, bafin, gdpr]
+
+        tag_usage:
+          compliance_report: >
+            playbooks/compliance_report.yml uses compliance_tags to determine
+            which regulatory checks apply to each device. A device with wrong
+            or missing tags will be assessed under the wrong framework controls.
+          audit_scope: >
+            Auditors use compliance_tags to scope evidence requests. Missing
+            tags cause devices to be excluded from the evidence set for their
+            applicable regulator.
+
+      sot_enforcement:
+        validate_sot_check:
+          check_id: SC-GV-004
+          tool: scripts/validate_sot.py
+          description: >
+            validate_sot.py verifies that every device record has at least one
+            compliance_tag and that all tags are drawn from the permitted set
+            defined in sot/compliance/regulatory.yml. Tags not present in the
+            regulatory register cause the validate stage to fail.
+
+      batfish_assertion: null
+
+    # ──────────────────────────────────────────────────────────────
+    # Control 5: Tamper-Evident Audit Artefact Per Change
+    # REQ-006 | Regulatory: MIFID2-003, FCA-001, SOX-001, SOX-002, BAFIN-002
+    # ──────────────────────────────────────────────────────────────
+    control_audit_artefact:
+      id: GV-005
+      requirement_ref: REQ-006
+      title: Every pipeline push must generate a signed, timestamped audit artefact
+
+      specification:
+        artefact_content:
+          - Pre-push device configuration (running.conf before change)
+          - Post-push device configuration (running.conf after change)
+          - Unified diff of before and after configurations
+          - Pipeline run ID, git commit hash, and name of authorised approver
+          - Timestamp (UTC) of approval and push events
+          - BGP and interface state before and after (from playbooks/collect_state.yml)
+
+        artefact_location: GitLab CI/CD job artefacts (approve + push stages)
+        retention_target: 7 years minimum (FCA SYSC 9.1 — longest applicable requirement)
+        playbook: playbooks/audit_artefact.yml
+
+        pipeline_stages:
+          collect_pre_state:  playbooks/collect_state.yml — runs before push stage
+          push:               playbooks/push_configs.yml — applies configuration change
+          collect_post_state: playbooks/collect_state.yml — runs after push stage
+          generate_artefact:  playbooks/audit_artefact.yml — diffs and signs the artefact
+
+        signing_mechanism: >
+          The git commit SHA of the SoT change, the GitLab pipeline ID, and the
+          name of the approving engineer (from the GitLab approve stage) are
+          embedded in the artefact. This provides tamper-evidence without
+          requiring a separate code-signing infrastructure.
+
+        emergency_bypass: >
+          The GitLab approve stage can be bypassed by engineers in the
+          emergency_approvers group (CTO + Head-Compl per regulatory.yml).
+          Bypass events are still captured in the audit artefact with a
+          bypass_reason field. The artefact is still generated — the approver
+          name is replaced with the bypass authority and stated reason.
+          This does not weaken GV-005.
+
+      sot_enforcement:
+        pipeline_gate:
+          check_id: SC-GV-005
+          description: >
+            The GitLab approve stage is a mandatory manual gate that must be
+            passed by a named engineer before the push stage executes.
+            audit_artefact.yml runs as part of the push stage and is a
+            required step — pipeline failure if the artefact is not produced.
+
+      batfish_assertion: null  # Artefact generation is a pipeline control, not a network model property
+
+    # ──────────────────────────────────────────────────────────────
+    # Architectural Notes
+    # ──────────────────────────────────────────────────────────────
+    architectural_notes: >
+      INTENT-009 is intentionally not verifiable by Batfish. Batfish models the
+      network's control-plane and forwarding behaviour from device configurations;
+      it cannot verify that those configurations were produced by a pipeline
+      rather than typed manually. INTENT-009 controls are enforced by:
+        (a) the pipeline structure itself (.gitlab-ci.yml);
+        (b) validate_sot.py checks that run at the pipeline entry point;
+        (c) the audit artefact, which provides post-hoc evidence of pipeline use.
+
+      The combination of (b) and (c) creates the audit trail regulators require:
+      (b) proves the SoT was valid when the pipeline ran; (c) proves the pipeline
+      ran and a named engineer approved it. Together they satisfy MiFID II
+      Article 17, SOX Section 404, and BaFin BAIT Section 8 requirements for
+      demonstrable change controls over regulated infrastructure.
