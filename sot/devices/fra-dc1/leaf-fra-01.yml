@@ -102,18 +102,33 @@ vrrp:
     virtual_ip: 10.30.2.1
     priority: 110
     preempt: true
+    track:
+      - interface: Ethernet1
+        decrement: 20
+      - interface: Ethernet2
+        decrement: 20
   - group: 30
     vlan: 300
     vrf: DMZ_VRF
     virtual_ip: 10.30.6.1
     priority: 110
     preempt: true
+    track:
+      - interface: Ethernet1
+        decrement: 20
+      - interface: Ethernet2
+        decrement: 20
   - group: 40
     vlan: 400
     vrf: MGMT_VRF
     virtual_ip: 10.30.0.126
     priority: 110
     preempt: true
+    track:
+      - interface: Ethernet1
+        decrement: 20
+      - interface: Ethernet2
+        decrement: 20
 
 bgp:
   local_as: 65030

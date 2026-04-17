@@ -90,24 +90,44 @@ vrrp:
     virtual_ip: 10.10.1.1
     priority: 80
     preempt: true
+    track:
+      - interface: Ethernet1
+        decrement: 20
+      - interface: Ethernet2
+        decrement: 20
   - group: 20
     vlan: 200
     vrf: CORPORATE_VRF
     virtual_ip: 10.10.2.1
     priority: 80
     preempt: true
+    track:
+      - interface: Ethernet1
+        decrement: 20
+      - interface: Ethernet2
+        decrement: 20
   - group: 30
     vlan: 300
     vrf: DMZ_VRF
     virtual_ip: 10.10.6.1
     priority: 90
     preempt: true
+    track:
+      - interface: Ethernet1
+        decrement: 20
+      - interface: Ethernet2
+        decrement: 20
   - group: 40
     vlan: 400
     vrf: MGMT_VRF
     virtual_ip: 10.10.0.126
     priority: 110
     preempt: true
+    track:
+      - interface: Ethernet1
+        decrement: 20
+      - interface: Ethernet2
+        decrement: 20
 
 bgp:
   local_as: 65010

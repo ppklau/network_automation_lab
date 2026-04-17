@@ -170,6 +170,11 @@ vrrp:
     preempt: true
     preempt_delay_seconds: 60
     advertisement_interval_ms: 1000
+    track:
+      - interface: Ethernet1
+        decrement: 20
+      - interface: Ethernet2
+        decrement: 20
 
   - group: 20
     vlan: 200
@@ -192,6 +197,11 @@ vrrp:
     priority: 80
     preempt: true
     preempt_delay_seconds: 60
+    track:
+      - interface: Ethernet1
+        decrement: 20
+      - interface: Ethernet2
+        decrement: 20
 
 # ──────────────────────────────────────────
 # OSPF Configuration (underlay IGP)

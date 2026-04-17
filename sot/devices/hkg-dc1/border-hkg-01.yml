@@ -60,6 +60,8 @@ bgp:
       remote_as: 65020
       description: eBGP inter-DC -> border-sin-01 [SIN]
       md5_password_ref: bgp_md5_interdc_sin_hkg
+      route_map_in: RM_INTERDC_SIN_HKG_IN
+      route_map_out: RM_INTERDC_SIN_HKG_OUT
   aggregate_addresses:
     - prefix: 10.21.0.0/16
       summary_only: true

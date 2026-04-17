@@ -17,7 +17,12 @@
 {% if site == 'fra-dc1' %}
 ! Frankfurt TRADING filter (INTENT-003, INTENT-004, REQ-007)
 ip prefix-list PL_DENY_TRADING seq 5 deny 10.1.1.0/24 le 32
-ip prefix-list PL_DENY_TRADING seq 10 permit any
+ip prefix-list PL_DENY_TRADING seq 6 deny 10.2.1.0/24 le 32
+ip prefix-list PL_DENY_TRADING seq 7 deny 10.10.1.0/24 le 32
+ip prefix-list PL_DENY_TRADING seq 8 deny 10.11.1.0/24 le 32
+ip prefix-list PL_DENY_TRADING seq 9 deny 10.20.1.0/24 le 32
+ip prefix-list PL_DENY_TRADING seq 10 deny 10.21.1.0/24 le 32
+ip prefix-list PL_DENY_TRADING seq 15 permit any
 !
 {% endif %}
 {# Collect unique route-map names referenced by neighbors #}
@@ -37,6 +42,13 @@ ip prefix-list PL_DENY_TRADING seq 10 permit any
 route-map {{ rm_name }} permit 10
 !
 {% endfor %}
+{% if site == 'fra-dc1' and 'RM_DENY_TRADING_IN' not in route_maps.names %}
+route-map RM_DENY_TRADING_IN deny 5
+ match ip address prefix-list PL_DENY_TRADING
+!
+route-map RM_DENY_TRADING_IN permit 10
+!
+{% endif %}
 {% endif %}
 router bgp {{ bgp.local_as }}
  bgp router-id {{ bgp.router_id }}

@@ -187,6 +187,11 @@ vrrp:
     priority: 80              # leaf-lon-01=110(active), leaf-lon-02=90(standby), leaf-lon-03=80
     preempt: true
     preempt_delay_seconds: 60
+    track:
+      - interface: Ethernet1
+        decrement: 20
+      - interface: Ethernet2
+        decrement: 20
 
   - group: 20
     vlan: 200
@@ -195,6 +200,11 @@ vrrp:
     priority: 80              # leaf-lon-02=110(active), leaf-lon-01=90(standby), leaf-lon-03=80
     preempt: true
     preempt_delay_seconds: 60
+    track:
+      - interface: Ethernet1
+        decrement: 20
+      - interface: Ethernet2
+        decrement: 20
 
   - group: 30
     vlan: 300
@@ -217,6 +227,11 @@ vrrp:
     priority: 90              # STANDBY for MGMT — leaf-lon-04 is active
     preempt: true
     preempt_delay_seconds: 60
+    track:
+      - interface: Ethernet1
+        decrement: 20
+      - interface: Ethernet2
+        decrement: 20
 
 # ──────────────────────────────────────────
 # OSPF Configuration (underlay IGP)

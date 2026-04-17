@@ -54,6 +54,7 @@ branches:
           remote_as: 65010
           description: eBGP -> border-nyc-01
           md5_password_ref: bgp_md5_branch_nyc_01
+          route_map_in: RM_BRANCH_IN
           route_map_out: RM_BRANCH_OUT
       networks_advertised:
         - prefix: 10.101.0.0/29
@@ -83,6 +84,11 @@ branches:
           remote_as: 65010
           description: eBGP -> border-nyc-01
           md5_password_ref: bgp_md5_branch_nyc_02
+          route_map_in: RM_BRANCH_IN
+          route_map_out: RM_BRANCH_OUT
+    networks_advertised:
+      - prefix: 10.101.0.8/29
+        description: Branch LAN
 
   - hostname: branch-nyc-03
     fqdn: branch-nyc-03.americas.acme-investments.internal
@@ -108,6 +114,11 @@ branches:
           remote_as: 65010
           description: eBGP -> border-nyc-01
           md5_password_ref: bgp_md5_branch_nyc_03
+          route_map_in: RM_BRANCH_IN
+          route_map_out: RM_BRANCH_OUT
+    networks_advertised:
+      - prefix: 10.101.0.16/29
+        description: Branch LAN
 
   - hostname: branch-nyc-04
     fqdn: branch-nyc-04.americas.acme-investments.internal
@@ -133,6 +144,11 @@ branches:
           remote_as: 65010
           description: eBGP -> border-nyc-01
           md5_password_ref: bgp_md5_branch_nyc_04
+          route_map_in: RM_BRANCH_IN
+          route_map_out: RM_BRANCH_OUT
+    networks_advertised:
+      - prefix: 10.101.0.24/29
+        description: Branch LAN
 
   - hostname: branch-nyc-05
     fqdn: branch-nyc-05.americas.acme-investments.internal
@@ -158,6 +174,11 @@ branches:
           remote_as: 65010
           description: eBGP -> border-nyc-01
           md5_password_ref: bgp_md5_branch_nyc_05
+          route_map_in: RM_BRANCH_IN
+          route_map_out: RM_BRANCH_OUT
+    networks_advertised:
+      - prefix: 10.101.0.32/29
+        description: Branch LAN
 
   - hostname: branch-nyc-06
     fqdn: branch-nyc-06.americas.acme-investments.internal
@@ -183,6 +204,11 @@ branches:
           remote_as: 65010
           description: eBGP -> border-nyc-01
           md5_password_ref: bgp_md5_branch_nyc_06
+          route_map_in: RM_BRANCH_IN
+          route_map_out: RM_BRANCH_OUT
+    networks_advertised:
+      - prefix: 10.101.0.40/29
+        description: Branch LAN
 
   - hostname: branch-nyc-07
     fqdn: branch-nyc-07.americas.acme-investments.internal
@@ -208,6 +234,11 @@ branches:
           remote_as: 65010
           description: eBGP -> border-nyc-01
           md5_password_ref: bgp_md5_branch_nyc_07
+          route_map_in: RM_BRANCH_IN
+          route_map_out: RM_BRANCH_OUT
+    networks_advertised:
+      - prefix: 10.101.0.48/29
+        description: Branch LAN
 
   - hostname: branch-nyc-08
     fqdn: branch-nyc-08.americas.acme-investments.internal
@@ -233,3 +264,8 @@ branches:
           remote_as: 65010
           description: eBGP -> border-nyc-01
           md5_password_ref: bgp_md5_branch_nyc_08
+          route_map_in: RM_BRANCH_IN
+          route_map_out: RM_BRANCH_OUT
+    networks_advertised:
+      - prefix: 10.101.0.56/29
+        description: Branch LAN

@@ -16,6 +16,23 @@
    VRRP groups are rendered from device SoT vrrp[] list, keyed by vlan.
    ─────────────────────────────────────────────────────────────────────────
 #}
+{# ── Global Track Objects (for VRRP uplink tracking) ─────────────────────── #}
+{# EOS requires global 'track N interface X line-protocol' stanzas before     #}
+{# they can be referenced as tracked-objects in VRRP groups.                  #}
+{% if vrrp is defined %}
+{% set ns = namespace(seen=[]) %}
+{% for vg in vrrp %}
+{% if vg.track is defined %}
+{% for t in vg.track %}
+{% if t.interface not in ns.seen %}
+{% set ns.seen = ns.seen + [t.interface] %}
+track {{ t.interface | replace('Ethernet', '') }} interface {{ t.interface }} line-protocol
+{% endif %}
+{% endfor %}
+{% endif %}
+{% endfor %}
+!
+{% endif %}
 ! ── Interfaces ───────────────────────────────────────────────────────────
 !
 {% for intf in interfaces %}
@@ -48,7 +65,11 @@ interface {{ intf.name }}
    vrrp {{ vg.group }} preempt delay minimum {{ vg.preempt_delay_seconds }}
 {% endif %}
 {% endif %}
-{# vg.track: cEOS does not support global 'track' objects — omitted #}
+{% if vg.track is defined %}
+{% for t in vg.track %}
+   vrrp {{ vg.group }} tracked-object {{ t.interface | replace('Ethernet', '') }} decrement {{ t.decrement }}
+{% endfor %}
+{% endif %}
 {% endfor %}
 {% endif %}
 {% elif '.' in intf.name and intf.name.startswith('Ethernet') %}

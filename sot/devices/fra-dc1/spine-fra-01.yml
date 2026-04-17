@@ -45,10 +45,10 @@ interfaces:
     peer_interface: Ethernet1
     mtu: 9214
   - name: Ethernet5
-    description: P2P -> border-fra-01 eth1
+    description: P2P -> border-fra-01 eth2
     ip: 10.30.100.16/31
     peer_device: border-fra-01
-    peer_interface: eth1
+    peer_interface: eth2
     mtu: 9214
 
 bgp:

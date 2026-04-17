@@ -200,6 +200,11 @@ vrrp:
     preempt: true
     preempt_delay_seconds: 60
     advertisement_interval_ms: 1000
+    track:
+      - interface: Ethernet1
+        decrement: 20
+      - interface: Ethernet2
+        decrement: 20
 
   - group: 40
     vlan: 400
@@ -208,6 +213,11 @@ vrrp:
     priority: 80              # Lower priority — leaf-lon-04 is active for MGMT
     preempt: true
     preempt_delay_seconds: 60
+    track:
+      - interface: Ethernet1
+        decrement: 20
+      - interface: Ethernet2
+        decrement: 20
 
 # ──────────────────────────────────────────
 # OSPF Configuration (underlay IGP)

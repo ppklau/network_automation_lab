@@ -45,6 +45,8 @@ branches:
           remote_as: 65030
           description: eBGP -> border-fra-01 [EU Regulatory DC]
           md5_password_ref: bgp_md5_branch_fra_01
+          route_map_in: RM_BRANCH_IN
+          route_map_out: RM_BRANCH_OUT
       compliance_note: No TRADING routes permitted — CORPORATE and MGMT only
     networks_advertised:
       - prefix: 10.103.0.0/29
@@ -74,6 +76,11 @@ branches:
           remote_as: 65030
           description: eBGP -> border-fra-01
           md5_password_ref: bgp_md5_branch_fra_02
+          route_map_in: RM_BRANCH_IN
+          route_map_out: RM_BRANCH_OUT
+    networks_advertised:
+      - prefix: 10.103.0.8/29
+        description: Branch LAN — CORPORATE only
 
   - hostname: branch-fra-03
     fqdn: branch-fra-03.eu.acme-investments.internal
@@ -99,6 +106,11 @@ branches:
           remote_as: 65030
           description: eBGP -> border-fra-01
           md5_password_ref: bgp_md5_branch_fra_03
+          route_map_in: RM_BRANCH_IN
+          route_map_out: RM_BRANCH_OUT
+    networks_advertised:
+      - prefix: 10.103.0.16/29
+        description: Branch LAN — CORPORATE only
 
   - hostname: branch-fra-04
     fqdn: branch-fra-04.eu.acme-investments.internal
@@ -124,3 +136,8 @@ branches:
           remote_as: 65030
           description: eBGP -> border-fra-01
           md5_password_ref: bgp_md5_branch_fra_04
+          route_map_in: RM_BRANCH_IN
+          route_map_out: RM_BRANCH_OUT
+    networks_advertised:
+      - prefix: 10.103.0.24/29
+        description: Branch LAN — CORPORATE only

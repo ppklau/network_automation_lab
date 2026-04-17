@@ -26,7 +26,7 @@ prefix_lists:
     entries:
       - {seq: 10, permit: 10.1.0.0/25, le: 32}   # mgmt
       - {seq: 20, permit: 10.1.1.0/24, le: 32}   # trading
-      - {seq: 30, permit: 10.2.0.0/22, le: 32}   # corporate (note: /22)
+      - {seq: 30, permit: 10.1.2.0/22, le: 32}   # corporate
       - {seq: 40, permit: 10.1.6.0/24, le: 32}   # dmz
       - {seq: 50, permit: 10.1.255.0/24, le: 32}   # loopbacks
 
@@ -292,6 +292,32 @@ route_maps:
       - seq: 30
         action: deny
 
+  RM_INTERDC_SIN_HKG_IN:
+    description: Inbound on SIN↔HKG inter-DC eBGP session — permit APAC DC aggregates
+    sequences:
+      - seq: 10
+        match:
+          prefix_list: PL_DC_AGGREGATES
+        set:
+          local_preference: 100
+        action: permit
+      - seq: 20
+        action: deny
+
+  RM_INTERDC_SIN_HKG_OUT:
+    description: Outbound on SIN↔HKG inter-DC eBGP session — send DC aggregates only
+    sequences:
+      - seq: 10
+        match:
+          prefix_list: PL_DC_AGGREGATES
+        action: permit
+      - seq: 20
+        match:
+          prefix_list: PL_LOOPBACKS_ALL
+        action: permit
+      - seq: 30
+        action: deny
+
   RM_IBGP_RR_TO_CLIENTS:
     description: Route reflector outbound to iBGP RR clients — internal fabric
     sequences:
@@ -330,3 +356,10 @@ inter_region_policy_summary:
     outbound_from_lon: RM_INTERDC_LON_FRA_OUT
     md5_key_ref: bgp_md5_wan_lon_fra
     compliance_enforcement: TRADING prefixes denied both inbound and outbound
+
+  - link: sin-hkg
+    inbound_on_sin: RM_INTERDC_SIN_HKG_IN
+    outbound_from_sin: RM_INTERDC_SIN_HKG_OUT
+    inbound_on_hkg: RM_INTERDC_SIN_HKG_IN
+    outbound_from_hkg: RM_INTERDC_SIN_HKG_OUT
+    md5_key_ref: bgp_md5_interdc_sin_hkg

@@ -55,7 +55,7 @@ branches:
           remote_as: 65001
           description: eBGP -> border-lon-01
           md5_password_ref: bgp_md5_branch_lon_01
-          route_map_in: RM_INTERDC_LON_NYC_IN
+          route_map_in: RM_BRANCH_IN
           route_map_out: RM_BRANCH_OUT
       networks_advertised:
         - prefix: 10.100.0.0/29
@@ -85,6 +85,11 @@ branches:
           remote_as: 65001
           description: eBGP -> border-lon-01
           md5_password_ref: bgp_md5_branch_lon_02
+          route_map_in: RM_BRANCH_IN
+          route_map_out: RM_BRANCH_OUT
+      networks_advertised:
+        - prefix: 10.100.0.8/29
+          description: Branch LAN
 
   - hostname: branch-lon-03
     fqdn: branch-lon-03.emea.acme-investments.internal
@@ -110,6 +115,11 @@ branches:
           remote_as: 65001
           description: eBGP -> border-lon-01
           md5_password_ref: bgp_md5_branch_lon_03
+          route_map_in: RM_BRANCH_IN
+          route_map_out: RM_BRANCH_OUT
+      networks_advertised:
+        - prefix: 10.100.0.16/29
+          description: Branch LAN
 
   - hostname: branch-lon-04
     fqdn: branch-lon-04.emea.acme-investments.internal
@@ -135,6 +145,11 @@ branches:
           remote_as: 65001
           description: eBGP -> border-lon-01
           md5_password_ref: bgp_md5_branch_lon_04
+          route_map_in: RM_BRANCH_IN
+          route_map_out: RM_BRANCH_OUT
+      networks_advertised:
+        - prefix: 10.100.0.24/29
+          description: Branch LAN
 
   - hostname: branch-lon-05
     fqdn: branch-lon-05.emea.acme-investments.internal
@@ -160,6 +175,11 @@ branches:
           remote_as: 65001
           description: eBGP -> border-lon-01
           md5_password_ref: bgp_md5_branch_lon_05
+          route_map_in: RM_BRANCH_IN
+          route_map_out: RM_BRANCH_OUT
+      networks_advertised:
+        - prefix: 10.100.0.32/29
+          description: Branch LAN
 
   - hostname: branch-lon-06
     fqdn: branch-lon-06.emea.acme-investments.internal
@@ -185,6 +205,11 @@ branches:
           remote_as: 65001
           description: eBGP -> border-lon-01
           md5_password_ref: bgp_md5_branch_lon_06
+          route_map_in: RM_BRANCH_IN
+          route_map_out: RM_BRANCH_OUT
+      networks_advertised:
+        - prefix: 10.100.0.40/29
+          description: Branch LAN
 
   - hostname: branch-lon-07
     fqdn: branch-lon-07.emea.acme-investments.internal
@@ -210,6 +235,11 @@ branches:
           remote_as: 65001
           description: eBGP -> border-lon-01
           md5_password_ref: bgp_md5_branch_lon_07
+          route_map_in: RM_BRANCH_IN
+          route_map_out: RM_BRANCH_OUT
+      networks_advertised:
+        - prefix: 10.100.0.48/29
+          description: Branch LAN
 
   - hostname: branch-lon-08
     fqdn: branch-lon-08.emea.acme-investments.internal
@@ -235,6 +265,11 @@ branches:
           remote_as: 65001
           description: eBGP -> border-lon-01
           md5_password_ref: bgp_md5_branch_lon_08
+          route_map_in: RM_BRANCH_IN
+          route_map_out: RM_BRANCH_OUT
+      networks_advertised:
+        - prefix: 10.100.0.56/29
+          description: Branch LAN
 
   - hostname: branch-lon-09
     fqdn: branch-lon-09.emea.acme-investments.internal
@@ -260,6 +295,11 @@ branches:
           remote_as: 65001
           description: eBGP -> border-lon-01
           md5_password_ref: bgp_md5_branch_lon_09
+          route_map_in: RM_BRANCH_IN
+          route_map_out: RM_BRANCH_OUT
+      networks_advertised:
+        - prefix: 10.100.0.64/29
+          description: Branch LAN
 
   - hostname: branch-lon-10
     fqdn: branch-lon-10.emea.acme-investments.internal
@@ -285,6 +325,11 @@ branches:
           remote_as: 65001
           description: eBGP -> border-lon-01
           md5_password_ref: bgp_md5_branch_lon_10
+          route_map_in: RM_BRANCH_IN
+          route_map_out: RM_BRANCH_OUT
+      networks_advertised:
+        - prefix: 10.100.0.72/29
+          description: Branch LAN
 
   - hostname: branch-lon-11
     fqdn: branch-lon-11.emea.acme-investments.internal
@@ -310,6 +355,11 @@ branches:
           remote_as: 65001
           description: eBGP -> border-lon-01
           md5_password_ref: bgp_md5_branch_lon_11
+          route_map_in: RM_BRANCH_IN
+          route_map_out: RM_BRANCH_OUT
+      networks_advertised:
+        - prefix: 10.100.0.80/29
+          description: Branch LAN
 
   - hostname: branch-lon-12
     fqdn: branch-lon-12.emea.acme-investments.internal
@@ -335,3 +385,8 @@ branches:
           remote_as: 65001
           description: eBGP -> border-lon-01
           md5_password_ref: bgp_md5_branch_lon_12
+          route_map_in: RM_BRANCH_IN
+          route_map_out: RM_BRANCH_OUT
+      networks_advertised:
+        - prefix: 10.100.0.88/29
+          description: Branch LAN

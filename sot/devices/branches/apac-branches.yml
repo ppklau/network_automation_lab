@@ -42,6 +42,11 @@ branches:
           remote_as: 65020
           description: eBGP -> border-sin-01
           md5_password_ref: bgp_md5_branch_sin_01
+          route_map_in: RM_BRANCH_IN
+          route_map_out: RM_BRANCH_OUT
+    networks_advertised:
+      - prefix: 10.102.0.0/29
+        description: Branch LAN
 
   - hostname: branch-sin-02
     fqdn: branch-sin-02.apac.acme-investments.internal
@@ -67,6 +72,11 @@ branches:
           remote_as: 65020
           description: eBGP -> border-sin-01
           md5_password_ref: bgp_md5_branch_sin_02
+          route_map_in: RM_BRANCH_IN
+          route_map_out: RM_BRANCH_OUT
+    networks_advertised:
+      - prefix: 10.102.0.8/29
+        description: Branch LAN
 
   - hostname: branch-sin-03
     fqdn: branch-sin-03.apac.acme-investments.internal
@@ -92,6 +102,11 @@ branches:
           remote_as: 65020
           description: eBGP -> border-sin-01
           md5_password_ref: bgp_md5_branch_sin_03
+          route_map_in: RM_BRANCH_IN
+          route_map_out: RM_BRANCH_OUT
+    networks_advertised:
+      - prefix: 10.102.0.16/29
+        description: Branch LAN
 
   - hostname: branch-sin-04
     fqdn: branch-sin-04.apac.acme-investments.internal
@@ -117,6 +132,11 @@ branches:
           remote_as: 65020
           description: eBGP -> border-sin-01
           md5_password_ref: bgp_md5_branch_sin_04
+          route_map_in: RM_BRANCH_IN
+          route_map_out: RM_BRANCH_OUT
+    networks_advertised:
+      - prefix: 10.102.0.24/29
+        description: Branch LAN
 
   - hostname: branch-sin-05
     fqdn: branch-sin-05.apac.acme-investments.internal
@@ -142,6 +162,11 @@ branches:
           remote_as: 65020
           description: eBGP -> border-sin-01
           md5_password_ref: bgp_md5_branch_sin_05
+          route_map_in: RM_BRANCH_IN
+          route_map_out: RM_BRANCH_OUT
+    networks_advertised:
+      - prefix: 10.102.0.32/29
+        description: Branch LAN
 
   - hostname: branch-sin-06
     fqdn: branch-sin-06.apac.acme-investments.internal
@@ -167,3 +192,8 @@ branches:
           remote_as: 65020
           description: eBGP -> border-sin-01
           md5_password_ref: bgp_md5_branch_sin_06
+          route_map_in: RM_BRANCH_IN
+          route_map_out: RM_BRANCH_OUT
+    networks_advertised:
+      - prefix: 10.102.0.40/29
+        description: Branch LAN

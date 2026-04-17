@@ -103,6 +103,8 @@ bgp:
       remote_as: 65021
       description: eBGP inter-DC -> border-hkg-01 [HKG]
       md5_password_ref: bgp_md5_interdc_sin_hkg
+      route_map_in: RM_INTERDC_SIN_HKG_IN
+      route_map_out: RM_INTERDC_SIN_HKG_OUT
 
     - peer_ip: 10.102.0.1
       remote_as: 65130

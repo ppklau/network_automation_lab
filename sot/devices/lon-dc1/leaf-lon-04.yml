@@ -186,6 +186,11 @@ vrrp:
     priority: 80              # lowest priority for TRADING
     preempt: true
     preempt_delay_seconds: 60
+    track:
+      - interface: Ethernet1
+        decrement: 20
+      - interface: Ethernet2
+        decrement: 20
 
   - group: 20
     vlan: 200
@@ -194,6 +199,11 @@ vrrp:
     priority: 80              # lowest priority for CORPORATE
     preempt: true
     preempt_delay_seconds: 60
+    track:
+      - interface: Ethernet1
+        decrement: 20
+      - interface: Ethernet2
+        decrement: 20
 
   - group: 30
     vlan: 300
@@ -202,6 +212,11 @@ vrrp:
     priority: 90              # STANDBY for DMZ — leaf-lon-03 is active (110)
     preempt: true
     preempt_delay_seconds: 60
+    track:
+      - interface: Ethernet1
+        decrement: 20
+      - interface: Ethernet2
+        decrement: 20
 
   - group: 40
     vlan: 400
