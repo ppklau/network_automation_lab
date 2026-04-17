@@ -114,9 +114,9 @@
         bgp_check_failed_hosts: "{{ (hostvars['localhost'].bgp_check_failed_hosts | default([])) + [inventory_hostname] }}"
       delegate_to: localhost
       when: >
-        (eos_bgp_assertions.results | default([]) | selectattr('failed', 'equalto', true) | list | length > 0)
+        (eos_bgp_assertions.results | default([]) | selectattr('failed', 'defined') | selectattr('failed', 'equalto', true) | list | length > 0)
         or
-        (frr_bgp_assertions.results | default([]) | selectattr('failed', 'equalto', true) | list | length > 0)
+        (frr_bgp_assertions.results | default([]) | selectattr('failed', 'defined') | selectattr('failed', 'equalto', true) | list | length > 0)
 
 - name: Check management reachability
   hosts: localhost
