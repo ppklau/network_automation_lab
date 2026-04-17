@@ -79,7 +79,7 @@ route-map {{ rm_name }} {{ seq.action }} {{ seq.seq }}
    set community {{ seq.set.community_additive }} additive
 {% endif %}
 {% if seq.set.community_delete is defined %}
-   set comm-list ZONE_TRADING delete
+   set community-list ZONE_TRADING delete
 {% endif %}
 {% endif %}
 !
