@@ -290,8 +290,6 @@ route_maps:
       - seq: 10
         match:
           prefix_list: PL_DC_AGGREGATES
-        set:
-          community_delete: 65001:200   # strip TRADING community before sending
         action: permit
       - seq: 20
         match:
