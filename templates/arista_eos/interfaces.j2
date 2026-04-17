@@ -37,7 +37,9 @@ track {{ t.interface | replace('Ethernet', '') }} interface {{ t.interface }} li
 !
 {% for intf in interfaces %}
 interface {{ intf.name }}
-   description {{ intf.description | default('') }}
+{% if intf.description is defined and intf.description %}
+   description {{ intf.description }}
+{% endif %}
 {% if intf.name.startswith('Loopback') %}
    ip address {{ intf.ip }}
 {% if ospf is defined %}
@@ -131,12 +133,13 @@ interface {{ management.interface }}
 ! ── Static Routes ────────────────────────────────────────────────────────
 !
 {% for route in static_routes %}
+{% if route.description is defined %}
+! {{ route.description }}
+{% endif %}
 {% if route.vrf is defined %}
-ip route vrf {{ route.vrf }} {{ route.prefix }} {{ route.next_hop }}{% if route.description is defined %} name {{ route.description }}{% endif %}
-
+ip route vrf {{ route.vrf }} {{ route.prefix }} {{ route.next_hop }}
 {% else %}
-ip route {{ route.prefix }} {{ route.next_hop }}{% if route.description is defined %} name {{ route.description }}{% endif %}
-
+ip route {{ route.prefix }} {{ route.next_hop }}
 {% endif %}
 {% endfor %}
 !

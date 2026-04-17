@@ -49,7 +49,7 @@ ip as-path access-list {{ aspath_name }} {{ 'permit' if entry.permit is defined 
 ! Used to deny trading-zone prefixes inbound/outbound on the LON-FRA WAN link
 ! (INTENT-003, INTENT-004, REQ-007).
 !
-ip community-list standard ZONE_TRADING permit 65001:200
+ip community-list ZONE_TRADING permit 65001:200
 !
 ! ── Route Maps ────────────────────────────────────────────────────────────
 !
