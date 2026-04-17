@@ -58,6 +58,14 @@ prefix_lists:
     entries:
       - {seq: 10, permit: 10.103.0.0/16, ge: 29, le: 29}
 
+  PL_ALL_BRANCH_NETS:
+    description: All branch /29 prefixes across all regions — used in RM_BRANCH_IN inbound match
+    entries:
+      - {seq: 10, permit: 10.100.0.0/16, ge: 29, le: 29}  # UK branches
+      - {seq: 20, permit: 10.101.0.0/16, ge: 29, le: 29}  # US branches
+      - {seq: 30, permit: 10.102.0.0/16, ge: 29, le: 29}  # APAC branches
+      - {seq: 40, permit: 10.103.0.0/16, ge: 29, le: 29}  # EU branches
+
   PL_WAN_LINKS:
     description: Inter-region WAN /31 links
     entries:
@@ -139,7 +147,7 @@ route_maps:
     sequences:
       - seq: 10
         match:
-          prefix_list: [PL_UK_BRANCHES, PL_US_BRANCHES, PL_APAC_BRANCHES, PL_EU_BRANCHES]
+          prefix_list: PL_ALL_BRANCH_NETS
         set:
           local_preference: 100
           community_additive: 65001:502    # tag as branch aggregate
