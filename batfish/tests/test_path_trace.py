@@ -39,7 +39,7 @@ POSITIVE_PATH_CASES = [
         "@enter(leaf-lon-01[Vlan100])",  # start: TRADING zone on leaf-lon-01
         "10.1.1.100",                    # src IP: TRADING host
         "10.1.1.200",                    # dst IP: another TRADING host
-        "ACCEPTED",                      # expected action
+        "DELIVERED_TO_SUBNET",           # dst is a host in a connected subnet, not the router's own IP
         None,                            # IP protocol (None = any)
         None,                            # dst port (None = any)
         "TRADING_intra_zone_reachability",
@@ -50,7 +50,7 @@ POSITIVE_PATH_CASES = [
         "@enter(leaf-lon-01[Vlan200])",
         "10.1.2.100",
         "10.1.2.200",
-        "ACCEPTED",
+        "DELIVERED_TO_SUBNET",           # dst is a host in a connected subnet, not the router's own IP
         None,
         None,
         "CORPORATE_intra_zone_reachability",
@@ -83,7 +83,7 @@ POSITIVE_PATH_CASES = [
         "@enter(leaf-lon-01[Vlan100])",
         "10.1.1.100",
         "10.1.6.80",                    # DMZ host — market data server
-        "ACCEPTED",
+        "DELIVERED_TO_SUBNET",          # dst is a host in a connected subnet on fw-lon-01
         "TCP",
         "443",
         "TRADING_to_DMZ_market_data",
