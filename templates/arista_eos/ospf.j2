@@ -18,5 +18,13 @@ router ospf {{ ospf.process_id }}
    router-id {{ ospf.router_id }}
    passive-interface Loopback0
    max-lsa 12000
+{# network statements are required for Batfish compatibility.                #}
+{# EOS also accepts interface-level 'ip ospf area' but Batfish ignores it.   #}
+{% for intf in interfaces if intf.name in ospf.fabric_interfaces and intf.ip is defined %}
+   network {{ intf.ip }} area {{ ospf.area }}
+{% endfor %}
+{% for intf in interfaces if intf.name.startswith('Loopback') and intf.ip is defined %}
+   network {{ intf.ip }} area {{ ospf.area }}
+{% endfor %}
 !
 {% endif %}
