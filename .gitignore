@@ -11,6 +11,10 @@ __pycache__/
 configs/*/
 !configs/.gitkeep
 
+# Batfish snapshot files
+batfish/snapshots/acme_lab/configs/*.cfg
+batfish/reports/*.xml
+
 # Ansible
 *.retry
 inventory/group_vars/vault.yml.bak
