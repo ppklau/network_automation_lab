@@ -180,7 +180,6 @@ bgp:
     - peer_ip: 10.1.6.253          # border-lon-01 DMZ-facing address
       remote_as: 65001
       description: iBGP to border-lon-01 for DMZ route exchange
-      update_source: lo
       md5_password_ref: bgp_md5_lon_dc1_fabric
       address_families:
         - afi: ipv4
@@ -196,3 +195,42 @@ bgp:
     hold_time: 90
 
   log_neighbor_changes: true
+
+# ──────────────────────────────────────────
+# FRR Access Lists (rendered to frr.conf — Batfish models these as ACLs)
+# Implements firewall_policy rules in a form Batfish can analyse.
+# Applied inbound on eth2 (TRADING-facing interface).
+# ──────────────────────────────────────────
+acls:
+  - name: TRADING_TO_DMZ_IN
+    description: "Firewall rule 100 — TRADING→DMZ: permit market data ports only (REQ-008, INTENT-002)"
+    entries:
+      - seq: 10
+        action: permit
+        protocol: tcp
+        src: 10.1.1.0/24
+        dst: 10.1.6.0/24
+        dst_port: 443
+      - seq: 20
+        action: permit
+        protocol: tcp
+        src: 10.1.1.0/24
+        dst: 10.1.6.0/24
+        dst_port: 8443
+      - seq: 30
+        action: permit
+        protocol: tcp
+        src: 10.1.1.0/24
+        dst: 10.1.6.0/24
+        dst_port: 6000
+      - seq: 100
+        action: deny
+        protocol: any
+        src: any
+        dst: any
+        description: "Implicit deny — all other TRADING→DMZ traffic blocked"
+
+interface_acls:
+  - interface: eth2
+    direction: in
+    acl: TRADING_TO_DMZ_IN

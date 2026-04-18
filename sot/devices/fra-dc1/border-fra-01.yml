@@ -75,13 +75,13 @@ bgp:
     - peer_ip: 10.30.255.1
       remote_as: 65030
       description: iBGP RR -> spine-fra-01
-      update_source: lo
+      update_source: Loopback0
       md5_password_ref: bgp_md5_fra_dc1_fabric
 
     - peer_ip: 10.30.255.2
       remote_as: 65030
       description: iBGP RR -> spine-fra-02
-      update_source: lo
+      update_source: Loopback0
       md5_password_ref: bgp_md5_fra_dc1_fabric
 
     - peer_ip: 10.0.3.0

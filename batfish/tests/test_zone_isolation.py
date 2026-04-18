@@ -169,10 +169,15 @@ class TestDmzIsolation:
         Unrestricted TCP traffic (e.g. port 22, not market data) from TRADING
         to DMZ must be DENIED. Only ports 443, 8443, 6000 are permitted
         by firewall rule 100.
+
+        Start from leaf-lon-03 — the leaf directly connected to fw-lon-01:eth2
+        (TRADING-facing interface). leaf-lon-03 has a default route to fw-lon-01,
+        so Batfish can trace to the ACL and verify the deny rather than dropping
+        with NO_ROUTE at an upstream leaf.
         """
         result = bf.q.reachability(
             pathConstraints=PathConstraints(
-                startLocation="@enter(leaf-lon-01[Vlan100])",
+                startLocation="@enter(leaf-lon-03[Vlan100])",
             ),
             headers=HeaderConstraints(
                 srcIps=TRADING_PREFIX,
@@ -193,9 +198,13 @@ class TestDmzIsolation:
         """
         Any permitted traffic from TRADING to DMZ must pass through fw-lon-01.
         Verify that the firewall node appears in the trace for market-data TCP.
+
+        Start from leaf-lon-03 — the leaf directly connected to fw-lon-01:eth2.
+        leaf-lon-03 has a default route (0.0.0.0/0 via 10.1.1.254) into fw-lon-01,
+        so the traceroute path is resolvable and fw-lon-01 will appear as a hop.
         """
         result = bf.q.traceroute(
-            startLocation="@enter(leaf-lon-01[Vlan100])",
+            startLocation="@enter(leaf-lon-03[Vlan100])",
             headers=HeaderConstraints(
                 srcIps="10.1.1.100",
                 dstIps="10.1.6.100",

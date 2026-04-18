@@ -77,13 +77,13 @@ bgp:
     - peer_ip: 10.10.255.1
       remote_as: 65010
       description: iBGP RR -> spine-nyc-01 (sot_only spine)
-      update_source: lo
+      update_source: Loopback0
       md5_password_ref: bgp_md5_nyc_dc1_fabric
 
     - peer_ip: 10.10.255.2
       remote_as: 65010
       description: iBGP RR -> spine-nyc-02 (sot_only spine)
-      update_source: lo
+      update_source: Loopback0
       md5_password_ref: bgp_md5_nyc_dc1_fabric
 
     # ── eBGP WAN to London ──

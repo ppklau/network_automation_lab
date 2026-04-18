@@ -179,12 +179,19 @@
         mode: "0644"
       when: platform == 'frr' and bgp is defined
 
+    - name: Render FRR ACL config
+      ansible.builtin.template:
+        src: "{{ playbook_dir }}/../templates/frr/acl.j2"
+        dest: "{{ configs_output_dir }}/{{ inventory_hostname }}/acl.conf"
+        mode: "0644"
+      when: platform == 'frr' and acls is defined
+
     - name: Assemble FRR full frr.conf
       ansible.builtin.assemble:
         src: "{{ configs_output_dir }}/{{ inventory_hostname }}"
         dest: "{{ configs_output_dir }}/{{ inventory_hostname }}/running.conf"
         delimiter: "!"
-        regexp: ^(base|interfaces|bgp)\.conf$
+        regexp: ^(base|interfaces|bgp|acl)\.conf$
         mode: "0644"
       when: platform == 'frr'
 

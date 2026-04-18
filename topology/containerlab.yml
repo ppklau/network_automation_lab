@@ -60,6 +60,12 @@ topology:
 
     linux:
       image: quay.io/frrouting/frr:9.1.3
+      # Create a Loopback0 dummy interface so FRR configs use 'Loopback0'
+      # (Cisco-compatible name) instead of Linux 'lo'. This allows Batfish
+      # to parse the configs without crashing on 'interface lo'.
+      exec:
+        - "ip link add Loopback0 type dummy || true"
+        - "ip link set Loopback0 up"
 
   # ── Nodes ───────────────────────────────────────────────────────────────────
   nodes:

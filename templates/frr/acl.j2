@@ -1,0 +1,48 @@
+{# ─────────────────────────────────────────────────────────────────────────
+   ACME Investments — FRR ACL Configuration Template
+   Source: templates/frr/acl.j2
+
+   Renders FRR access-lists in Cisco IOS extended ACL syntax.
+   Batfish parses FRR configs as CISCO_IOS — this format is required for
+   Batfish to model ACL-based firewall policy (reachability, traceroute).
+   Interface bindings are rendered as 'ip access-group' under interface stanzas.
+   ─────────────────────────────────────────────────────────────────────────
+#}
+{% if acls is defined %}
+! ── Access Lists ─────────────────────────────────────────────────────────
+!
+{% for acl in acls %}
+{% if acl.description is defined %}
+! {{ acl.description }}
+{% endif %}
+ip access-list extended {{ acl.name }}
+{% for entry in acl.entries %}
+{# Map 'any' protocol to 'ip' for IOS ACL syntax #}
+{% set proto = 'ip' if entry.protocol == 'any' else entry.protocol %}
+{# Build source address string: 'any' or 'network wildcard' #}
+{% if entry.src == 'any' %}
+{% set src_str = 'any' %}
+{% else %}
+{% set src_str = (entry.src | ansible.utils.ipaddr('network')) + ' ' + (entry.src | ansible.utils.ipaddr('hostmask')) %}
+{% endif %}
+{# Build destination address string: 'any' or 'network wildcard' #}
+{% if entry.dst == 'any' %}
+{% set dst_str = 'any' %}
+{% else %}
+{% set dst_str = (entry.dst | ansible.utils.ipaddr('network')) + ' ' + (entry.dst | ansible.utils.ipaddr('hostmask')) %}
+{% endif %}
+ {{ entry.seq }} {{ entry.action }} {{ proto }} {{ src_str }} {{ dst_str }}{% if entry.dst_port is defined %} eq {{ entry.dst_port }}{% endif %}
+
+{% endfor %}
+!
+{% endfor %}
+{% if interface_acls is defined %}
+! ── Interface ACL bindings ────────────────────────────────────────────────
+!
+{% for binding in interface_acls %}
+interface {{ binding.interface }}
+ ip access-group {{ binding.acl }} {{ binding.direction }}
+!
+{% endfor %}
+{% endif %}
+{% endif %}

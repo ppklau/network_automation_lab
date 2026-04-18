@@ -80,10 +80,10 @@ POSITIVE_PATH_CASES = [
         id="wan-ebgp-reachability",
     ),
     pytest.param(
-        "@enter(leaf-lon-01[Vlan100])",
+        "@enter(leaf-lon-03[Vlan100])",  # leaf-lon-03 eth2 connects directly to fw-lon-01
         "10.1.1.100",
         "10.1.6.80",                    # DMZ host — market data server
-        "DELIVERED_TO_SUBNET",          # dst is a host in a connected subnet on fw-lon-01
+        "DELIVERED_TO_SUBNET",          # fw-lon-01 eth1 is 10.1.6.254/24; host is in that subnet
         "TCP",
         "443",
         "TRADING_to_DMZ_market_data",

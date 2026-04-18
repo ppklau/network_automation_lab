@@ -80,13 +80,13 @@ bgp:
     - peer_ip: 10.20.255.1
       remote_as: 65020
       description: iBGP RR -> spine-sin-01
-      update_source: lo
+      update_source: Loopback0
       md5_password_ref: bgp_md5_sin_dc1_fabric
 
     - peer_ip: 10.20.255.2
       remote_as: 65020
       description: iBGP RR -> spine-sin-02
-      update_source: lo
+      update_source: Loopback0
       md5_password_ref: bgp_md5_sin_dc1_fabric
 
     - peer_ip: 10.0.2.0
