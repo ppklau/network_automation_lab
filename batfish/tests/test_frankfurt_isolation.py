@@ -248,7 +248,7 @@ class TestFrankfurtApacIsolation:
         ]
         # Filter out connected and static routes (null0 anchors)
         fra_non_local_bgp = fra_originated[
-            routes["Protocol"].isin(["bgp"])
+            fra_originated["Protocol"].isin(["bgp"])
         ]
         # We're checking that FRA doesn't have non-FRA originated routes
         # (routes learned from LON that it could re-advertise)
