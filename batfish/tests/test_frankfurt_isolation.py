@@ -19,6 +19,7 @@ INTENT-004: Frankfurt has no direct BGP path to APAC (SIN, HKG).
 Lab guide exercises enabled: 6.3, 4.1, 4.4, 12.3
 """
 
+import re
 import pytest
 import pandas as pd
 
@@ -127,59 +128,50 @@ class TestFrankfurtBgpPolicyEnforcement:
     """
     INTENT-003: border-fra-01 BGP sessions must have explicit route-maps
     applied in BOTH directions on the LON WAN session.
+
+    Batfish does not model FRR↔EOS cross-platform sessions in bgpPeerConfiguration,
+    so these tests verify policy by parsing the rendered FRR config directly.
     """
 
-    def test_fra_wan_session_has_import_policy(self, bgp_peer_config):
-        """
-        The eBGP session from border-fra-01 to border-lon-01 (10.0.3.0)
-        must have an import route-map (RM_INTERDC_LON_FRA_IN) applied.
-        An absent import policy means TRADING prefixes would be accepted.
-        """
-        fra_wan_sessions = bgp_peer_config[
-            (bgp_peer_config["Node"] == FRA_BORDER_NODE) &
-            (bgp_peer_config["Remote_AS"] == LON_ASN)
-        ]
+    # LON peer IP from border-fra-01's perspective (10.0.3.0/31, LON side)
+    _LON_PEER_IP = "10.0.3.0"
 
-        if fra_wan_sessions.empty:
-            pytest.skip(
-                f"No BGP session from {FRA_BORDER_NODE} to AS{LON_ASN} in "
-                "bgpPeerConfiguration — Batfish does not model FRR↔EOS cross-platform "
-                "sessions in this query. Verify import policy via device config review."
-            )
+    def test_fra_wan_session_has_import_policy(self, snapshot_configs_dir):
+        """
+        The eBGP session from border-fra-01 to border-lon-01 must have an inbound
+        route-map applied. Verified by parsing the rendered FRR config since Batfish
+        does not expose FRR↔EOS sessions in bgpPeerConfiguration.
+        """
+        fra_cfg = (snapshot_configs_dir / f"{FRA_BORDER_NODE}.cfg").read_text()
 
-        missing_import = fra_wan_sessions[
-            fra_wan_sessions["Import_Policy"].isna() |
-            (fra_wan_sessions["Import_Policy"].apply(
-                lambda p: len(p) == 0 if isinstance(p, list) else not p
-            ))
-        ]
-        assert_no_rows(
-            missing_import,
-            "INTENT-003 VIOLATED: border-fra-01 WAN session to LON has no import "
-            "route-map. TRADING prefixes could be accepted (BaFin, REQ-009)."
+        # FRR syntax: 'neighbor <ip> route-map <name> in'
+        has_import = re.search(
+            rf"neighbor\s+{re.escape(self._LON_PEER_IP)}\s+route-map\s+\S+\s+in\b",
+            fra_cfg,
+        )
+        assert has_import, (
+            f"INTENT-003 VIOLATED: {FRA_BORDER_NODE} has no inbound route-map on the "
+            f"LON WAN session (peer {self._LON_PEER_IP}). TRADING prefixes would be "
+            "accepted without filtering (BaFin, REQ-009)."
         )
 
-    def test_fra_wan_session_has_export_policy(self, bgp_peer_config):
+    def test_fra_wan_session_has_export_policy(self, snapshot_configs_dir):
         """
-        The export route-map (RM_INTERDC_LON_FRA_OUT) must also be configured.
-        Without it, any TRADING prefix that erroneously exists at FRA could
-        be advertised back to London, corrupting the LON routing table.
+        The eBGP session from border-fra-01 to border-lon-01 must have an outbound
+        route-map applied. Without it, TRADING prefixes at FRA could be leaked to LON.
+        Verified by parsing the rendered FRR config directly.
         """
-        fra_wan_sessions = bgp_peer_config[
-            (bgp_peer_config["Node"] == FRA_BORDER_NODE) &
-            (bgp_peer_config["Remote_AS"] == LON_ASN)
-        ]
+        fra_cfg = (snapshot_configs_dir / f"{FRA_BORDER_NODE}.cfg").read_text()
 
-        missing_export = fra_wan_sessions[
-            fra_wan_sessions["Export_Policy"].isna() |
-            (fra_wan_sessions["Export_Policy"].apply(
-                lambda p: len(p) == 0 if isinstance(p, list) else not p
-            ))
-        ]
-        assert_no_rows(
-            missing_export,
-            "INTENT-003 VIOLATED: border-fra-01 WAN session to LON has no export "
-            "route-map. TRADING prefixes could be leaked outbound (BaFin, REQ-009)."
+        # FRR syntax: 'neighbor <ip> route-map <name> out'
+        has_export = re.search(
+            rf"neighbor\s+{re.escape(self._LON_PEER_IP)}\s+route-map\s+\S+\s+out\b",
+            fra_cfg,
+        )
+        assert has_export, (
+            f"INTENT-003 VIOLATED: {FRA_BORDER_NODE} has no outbound route-map on the "
+            f"LON WAN session (peer {self._LON_PEER_IP}). TRADING prefixes could be "
+            "advertised back to London (BaFin, REQ-009)."
         )
 
 

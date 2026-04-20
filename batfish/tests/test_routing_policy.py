@@ -18,6 +18,7 @@ Lab guide exercises enabled: 3.6, 3.7, 4.4, 7.1, 7.2
 """
 
 import ipaddress
+import re
 import pytest
 import pandas as pd
 
@@ -100,38 +101,38 @@ class TestRouteSummarisation:
             "suppressing more-specifics correctly (REQ-010)."
         )
 
-    def test_lon_border_has_aggregate_addresses(self, bgp_peer_config):
+    def test_lon_border_has_aggregate_addresses(self, snapshot_configs_dir):
         """
-        border-lon-01 must have aggregate-address configured for the LON DC1
-        supernet (10.1.0.0/16) and UK branch supernet (10.100.0.0/16).
-        Without aggregates, more-specifics would leak across WAN.
-        """
-        # Batfish exposes aggregate routes in the routes table with protocol 'aggregate'
-        # This is a proxy check: we verify the BGP peer config has export policies on WAN sessions
-        lon_wan_sessions = ebgp_sessions(
-            bgp_peer_config[
-                (bgp_peer_config["Node"] == LON_BORDER_NODE) &
-                (bgp_peer_config["Remote_AS"].isin(WAN_PEER_ASNS))
-            ]
-        )
-        if lon_wan_sessions.empty:
-            pytest.skip(
-                "border-lon-01 WAN eBGP sessions (to FRR peers) are not visible in "
-                "bgpPeerConfiguration — Batfish does not model EOS↔FRR cross-platform "
-                "sessions in this query. Verify export policies via device config review."
-            )
+        border-lon-01 must have aggregate-address summary-only configured for the
+        LON DC1 supernet (10.1.0.0/16) and UK branch supernet (10.100.0.0/16).
+        Without summary-only aggregates, individual /31 and /32 fabric prefixes
+        would leak across WAN.
 
-        missing_export = lon_wan_sessions[
-            lon_wan_sessions["Export_Policy"].isna() |
-            (lon_wan_sessions["Export_Policy"].apply(
-                lambda p: (len(p) == 0) if isinstance(p, list) else (not p)
-            ))
+        Verified by parsing the rendered EOS config directly since Batfish does not
+        model EOS↔FRR cross-platform sessions in bgpPeerConfiguration.
+        """
+        lon_cfg = (snapshot_configs_dir / f"{LON_BORDER_NODE}.cfg").read_text()
+
+        required_aggregates = [
+            ("10.1.0.0/16", "LON DC1 supernet"),
+            ("10.100.0.0/16", "UK branch supernet"),
         ]
-        assert_no_rows(
-            missing_export[["Node", "Remote_IP", "Remote_AS"]],
-            "INTENT-006: border-lon-01 WAN eBGP sessions missing export route-map. "
-            "Without export policy, unaggregated prefixes can leak across WAN (REQ-010)."
-        )
+        missing = []
+        for prefix, label in required_aggregates:
+            # EOS syntax: 'aggregate-address <prefix> summary-only'
+            escaped = re.escape(prefix)
+            if not re.search(
+                rf"aggregate-address\s+{escaped}\s+summary-only\b", lon_cfg
+            ):
+                missing.append({"Prefix": prefix, "Label": label})
+
+        if missing:
+            pytest.fail(
+                f"INTENT-006 VIOLATED: {LON_BORDER_NODE} is missing aggregate-address "
+                "summary-only for one or more WAN supernets (REQ-010). Without these, "
+                "fabric /32 loopbacks and /31 P2P links will leak across WAN.\n\n"
+                + pd.DataFrame(missing).to_string(index=False)
+            )
 
     def test_fabric_loopbacks_not_leaked_to_wan(self, routes):
         """
@@ -196,24 +197,25 @@ class TestNoDefaultRouteOrigination:
             "they would attract all unknown traffic and bypass zone enforcement (REQ-010)."
         )
 
-    def test_border_does_not_default_originate_to_wan(self, bgp_peer_config):
+    def test_border_does_not_default_originate_to_wan(self, routes):
         """
-        border-lon-01 must not have default-originate configured on any WAN session.
-        A default-originated into WAN would cause all unknown traffic at remote DCs
-        to route toward London, potentially crossing zone boundaries.
+        No WAN stub node (border-nyc-01, border-sin-01, border-fra-01) should have a
+        0.0.0.0/0 BGP route. If border-lon-01 had default-originate configured, those
+        stubs would receive and install the default. Checked via the routes table since
+        bgpPeerConfiguration does not expose a 'Default_Originate' column in this version.
         """
-        if "Default_Originate" not in bgp_peer_config.columns:
-            pytest.skip("Default_Originate column not available in this Batfish version")
-
-        lon_wan_default_originate = bgp_peer_config[
-            (bgp_peer_config["Node"] == LON_BORDER_NODE) &
-            (bgp_peer_config["Remote_AS"].isin(WAN_PEER_ASNS)) &
-            bgp_peer_config["Default_Originate"].fillna(False)
+        wan_stubs = ["border-nyc-01", "border-sin-01", "border-fra-01"]
+        bgp_defaults_at_stubs = routes[
+            routes["Node"].isin(wan_stubs) &
+            (routes["Network"] == "0.0.0.0/0") &
+            (routes["Protocol"] == "bgp")
         ]
         assert_no_rows(
-            lon_wan_default_originate[["Node", "Remote_IP", "Remote_AS"]],
-            "INTENT-010 VIOLATED: border-lon-01 has default-originate configured on "
-            "a WAN eBGP session. Default routes must not be originated at DC borders (REQ-010)."
+            bgp_defaults_at_stubs[["Node", "VRF", "Network", "Next_Hop_IP", "Protocol"]],
+            "INTENT-010 VIOLATED: A WAN stub node has a BGP default route (0.0.0.0/0). "
+            "This indicates border-lon-01 has default-originate configured on a WAN session. "
+            "Default routes must not be originated at DC borders — they attract all unknown "
+            "traffic and bypass zone enforcement (REQ-010)."
         )
 
     def test_no_default_route_at_spine_level(self, routes):

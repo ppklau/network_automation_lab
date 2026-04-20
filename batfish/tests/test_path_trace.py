@@ -246,24 +246,30 @@ class TestSpineFailureResilience:
         border_loopback,
     ):
         """
-        With spine-lon-01 failed (forbidden transit node), the leaf must still
+        With spine-lon-01 failed (deactivated node), the leaf must still
         reach border-lon-01 via spine-lon-02. Tests ECMP failover.
         """
+        fork_name = "acme_lab_no_spine_lon_01"
+        bf.fork_snapshot(
+            base_name="acme_lab",
+            name=fork_name,
+            deactivate_nodes=["spine-lon-01"],
+            overwrite=True,
+        )
+        bf.set_snapshot(fork_name)
         try:
-            answer = bf.q.reachability(
+            result = bf.q.reachability(
                 pathConstraints=PathConstraints(
-                    startLocation=f"@enter({leaf_node}[Loopback0])",
-                    forbiddenLocations="spine-lon-01",   # simulate spine-01 failure
+                    startLocation=f"@enter({leaf_node}[Ethernet1])",
                 ),
                 headers=HeaderConstraints(
                     srcIps=leaf_loopback,
                     dstIps=border_loopback,
                 ),
                 actions="ACCEPTED",
-            ).answer()
-            result = answer.frame()
-        except (AttributeError, Exception) as exc:
-            pytest.skip(f"forbiddenLocations not supported in this Batfish version: {exc}")
+            ).answer().frame()
+        finally:
+            bf.set_snapshot("acme_lab")
 
         assert not result.empty, (
             f"INTENT-008 VIOLATED: {leaf_node} cannot reach border-lon-01 when "
@@ -282,24 +288,30 @@ class TestSpineFailureResilience:
         border_loopback,
     ):
         """
-        Symmetric: with spine-lon-02 failed, leaves must still reach border
-        via spine-lon-01.
+        Symmetric: with spine-lon-02 failed (deactivated node), leaves must
+        still reach border via spine-lon-01.
         """
+        fork_name = "acme_lab_no_spine_lon_02"
+        bf.fork_snapshot(
+            base_name="acme_lab",
+            name=fork_name,
+            deactivate_nodes=["spine-lon-02"],
+            overwrite=True,
+        )
+        bf.set_snapshot(fork_name)
         try:
-            answer = bf.q.reachability(
+            result = bf.q.reachability(
                 pathConstraints=PathConstraints(
-                    startLocation=f"@enter({leaf_node}[Loopback0])",
-                    forbiddenLocations="spine-lon-02",
+                    startLocation=f"@enter({leaf_node}[Ethernet1])",
                 ),
                 headers=HeaderConstraints(
                     srcIps=leaf_loopback,
                     dstIps=border_loopback,
                 ),
                 actions="ACCEPTED",
-            ).answer()
-            result = answer.frame()
-        except (AttributeError, Exception) as exc:
-            pytest.skip(f"forbiddenLocations not supported in this Batfish version: {exc}")
+            ).answer().frame()
+        finally:
+            bf.set_snapshot("acme_lab")
 
         assert not result.empty, (
             f"INTENT-008 VIOLATED: {leaf_node} cannot reach border-lon-01 when "

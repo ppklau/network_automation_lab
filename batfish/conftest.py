@@ -154,6 +154,12 @@ def node_props(bf):
     return bf.q.nodeProperties().answer().frame()
 
 
+@pytest.fixture(scope="session")
+def snapshot_configs_dir():
+    """Path to the rendered device config files inside the Batfish snapshot."""
+    return pathlib.Path(__file__).parent / "snapshots" / "acme_lab" / "configs"
+
+
 # ── Assertion helpers ─────────────────────────────────────────────────────────
 
 def assert_no_rows(df: pd.DataFrame, message: str) -> None:

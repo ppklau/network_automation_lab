@@ -18,6 +18,7 @@ Lab guide exercises enabled: 4.3, 7.1, 7.2, 3.6
 """
 
 import ipaddress
+import re
 import pytest
 import pandas as pd
 
@@ -48,56 +49,66 @@ class TestBgpMd5Authentication:
     Authentication protects against BGP hijacking and route injection.
     """
 
-    def test_all_bgp_sessions_have_authentication(self, bgp_peer_config):
+    def test_all_bgp_sessions_have_authentication(self, snapshot_configs_dir):
         """
-        No BGP peer configuration should have a null or empty authentication field.
-        Every session — iBGP or eBGP — must have md5_password_ref set in the SoT
-        and rendered as a password in the device config.
+        Every BGP neighbor in the rendered configs must have a password statement.
+        Checked by parsing snapshot configs directly — bgpPeerConfiguration does not
+        expose an 'Authentication' column in the deployed Batfish version.
         """
-        # Batfish exposes authentication via 'MD5' or boolean in 'Authentication' column
-        if "Authentication" not in bgp_peer_config.columns:
-            pytest.skip(
-                "bgpPeerConfiguration does not expose 'Authentication' column in this "
-                "Batfish version — check with bf.q.bgpPeerConfiguration().answer().frame().columns"
+        missing_auth = []
+        for cfg_file in sorted(snapshot_configs_dir.glob("*.cfg")):
+            hostname = cfg_file.stem
+            content = cfg_file.read_text()
+            for nbr_ip in re.findall(
+                r"neighbor\s+(\d+\.\d+\.\d+\.\d+)\s+remote-as\s+", content
+            ):
+                if not re.search(
+                    rf"neighbor\s+{re.escape(nbr_ip)}\s+password\b", content
+                ):
+                    missing_auth.append({"Node": hostname, "Neighbor_IP": nbr_ip})
+
+        if missing_auth:
+            pytest.fail(
+                "INTENT-005 VIOLATED: BGP neighbors without authentication (REQ-012). "
+                "Every session must have md5_password_ref set in the SoT device file.\n\n"
+                + pd.DataFrame(missing_auth).to_string(index=False)
             )
 
-        no_auth = bgp_peer_config[
-            bgp_peer_config["Authentication"].isna() |
-            (bgp_peer_config["Authentication"] == "") |
-            (bgp_peer_config["Authentication"] == False)  # noqa: E712
-        ]
-        assert_no_rows(
-            no_auth[["Node", "VRF", "Local_IP", "Remote_IP", "Remote_AS"]],
-            "INTENT-005 VIOLATED: BGP sessions without MD5 authentication (REQ-012). "
-            "Each session must have md5_password_ref set in the SoT device file."
-        )
-
-    def test_no_bgp_password_in_plaintext(self, bgp_peer_config):
+    def test_no_bgp_password_in_plaintext(self, snapshot_configs_dir):
         """
-        Regression guard: BGP passwords must never appear as plaintext in the
-        network model. Batfish shouldn't be loading cleartext secrets, but
-        this check guards against accidental vault.yml exposure.
+        Regression guard: EOS BGP neighbors must not use type-0 (cleartext) passwords.
+        EOS type-0 syntax is 'neighbor X password 0 <plaintext>'. Production configs
+        must use type-7 hashes. Checked via rendered config files since bgpPeerConfiguration
+        does not expose an 'Authentication' column in the deployed Batfish version.
+
+        FRR nodes do not support password encryption at the CLI layer and are excluded.
         """
-        if "Authentication" not in bgp_peer_config.columns:
-            pytest.skip("Authentication column not available")
+        # Lab uses CHANGEME placeholders; treat those as acceptable stand-ins for
+        # type-7 hashes that would be used in production.
+        _PLACEHOLDER = re.compile(r"^(CHANGEME|changeme|PLACEHOLDER|<[^>]+>)$")
 
-        # If authentication is a string that looks like a real password
-        # (not a hash indicator), flag it
-        def looks_like_plaintext(auth) -> bool:
-            if not isinstance(auth, str):
-                return False
-            return auth.lower() not in ("true", "false", "md5", "none", "") \
-                   and not auth.startswith("7 ")   # EOS type-7 hash prefix
+        plaintext_found = []
+        for cfg_file in sorted(snapshot_configs_dir.glob("*.cfg")):
+            hostname = cfg_file.stem
+            content = cfg_file.read_text()
+            # FRR has no password encryption types — skip
+            if "frr version" in content:
+                continue
+            # EOS: 'neighbor X password 0 <value>' is explicitly type-0 cleartext
+            for match in re.finditer(
+                r"neighbor\s+(\S+)\s+password\s+0\s+(\S+)", content
+            ):
+                nbr_ip, pwd = match.group(1), match.group(2)
+                if not _PLACEHOLDER.match(pwd):
+                    plaintext_found.append({"Node": hostname, "Neighbor_IP": nbr_ip})
 
-        plaintext_auth = bgp_peer_config[
-            bgp_peer_config["Authentication"].apply(looks_like_plaintext)
-        ]
-        assert_no_rows(
-            plaintext_auth[["Node", "VRF", "Remote_IP"]],
-            "SECURITY: BGP peer config appears to contain a plaintext password. "
-            "Passwords must be rendered as EOS type-7 hashes or FRR encrypted strings "
-            "(INTENT-005, SC-103 — no inline plaintext BGP passwords)."
-        )
+        if plaintext_found:
+            pytest.fail(
+                "SECURITY: EOS BGP neighbors using type-0 (cleartext) passwords (SC-103). "
+                "Passwords must be rendered as EOS type-7 hashes — not inline plaintext "
+                "(INTENT-005). Set md5_password_ref in the SoT and encrypt before rendering.\n\n"
+                + pd.DataFrame(plaintext_found).to_string(index=False)
+            )
 
 
 class TestEbgpRouteMaps:
