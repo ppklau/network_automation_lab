@@ -191,7 +191,7 @@
         src: "{{ configs_output_dir }}/{{ inventory_hostname }}"
         dest: "{{ configs_output_dir }}/{{ inventory_hostname }}/running.conf"
         delimiter: "!"
-        regexp: ^(base|interfaces|bgp|acl)\.conf$
+        regexp: ^(base|interfaces|bgp)\.conf$
         mode: "0644"
       when: platform == 'frr'
 
