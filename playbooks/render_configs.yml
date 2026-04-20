@@ -195,6 +195,15 @@
         mode: "0644"
       when: platform == 'frr'
 
+    - name: Assemble FRR Batfish snapshot config (includes ACL for policy analysis)
+      ansible.builtin.assemble:
+        src: "{{ configs_output_dir }}/{{ inventory_hostname }}"
+        dest: "{{ configs_output_dir }}/{{ inventory_hostname }}/batfish.conf"
+        delimiter: "!"
+        regexp: ^(acl|base|bgp|interfaces)\.conf$
+        mode: "0644"
+      when: platform == 'frr' and acls is defined
+
     # ── Render summary ───────────────────────────────────────────────────
 
     - name: Report rendered config path

@@ -39,9 +39,14 @@ mkdir -p "${SNAPSHOT_DIR}" "${REPORTS_DIR}"
 config_count=0
 for host_dir in "${PROJECT_ROOT}/configs"/*/; do
     hostname="$(basename "${host_dir}")"
-    rendered="${host_dir}/running.conf"
-    if [[ -f "${rendered}" ]]; then
-        cp "${rendered}" "${SNAPSHOT_DIR}/${hostname}.cfg"
+    # FRR devices have a separate batfish.conf that includes IOS-style ACL config
+    # for policy analysis. Use it in preference to running.conf (which is stripped
+    # of ACL syntax that FRR vtysh cannot parse).
+    if [[ -f "${host_dir}/batfish.conf" ]]; then
+        cp "${host_dir}/batfish.conf" "${SNAPSHOT_DIR}/${hostname}.cfg"
+        config_count=$((config_count + 1))
+    elif [[ -f "${host_dir}/running.conf" ]]; then
+        cp "${host_dir}/running.conf" "${SNAPSHOT_DIR}/${hostname}.cfg"
         config_count=$((config_count + 1))
     fi
 done
