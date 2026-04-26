@@ -56,6 +56,56 @@ intents:
 
     applies_to: all_devices
 
+    assertion_type: sot_check
+    # Note: GV-005 (audit artefact) is enforced by the GitLab pipeline gate,
+    # not by validate_sot.py. See architectural_notes for the full verification
+    # approach. Batfish is intentionally not used for INTENT-009.
+
+    sot_checks:
+
+      - id: SC-601
+        description: >
+          validate_sot.py verifies that every device in the Ansible inventory
+          has a corresponding SoT file in sot/devices/. Devices in inventory
+          without SoT files cause the validate stage to fail, blocking push.
+        check_type: inventory_completeness
+        target_devices: all_devices
+        severity: critical
+        pipeline_action: block
+
+      - id: SC-602
+        description: >
+          validate_sot.py confirms that all platform types referenced in device
+          files (arista_eos, frr) have corresponding template directories.
+          Missing template files cause the render stage to fail with a clear
+          error before any config is applied to devices.
+        check_type: template_existence
+        target_devices: all_devices
+        severity: critical
+        pipeline_action: block
+
+      - id: SC-603
+        description: >
+          Every device file in sot/devices/ is validated against device.schema.json.
+          Missing required fields (hostname, role, platform, site, region,
+          management_ip, compliance_tags) cause the validate stage to fail,
+          blocking any pipeline progression.
+        check_type: schema_validation
+        target_devices: all_devices
+        severity: critical
+        pipeline_action: block
+
+      - id: SC-604
+        description: >
+          validate_sot.py verifies that every device record has at least one
+          compliance_tag and that all tags are drawn from the permitted set
+          defined in sot/compliance/regulatory.yml. Tags not present in the
+          regulatory register cause the validate stage to fail.
+        check_type: compliance_tag_completeness
+        target_devices: all_devices
+        severity: critical
+        pipeline_action: block
+
     # ──────────────────────────────────────────────────────────────
     # Control 1: SoT as Sole Configuration Source
     # REQ-001 | Regulatory: FCA-003, BAFIN-002, SOX-001
@@ -88,7 +138,7 @@ intents:
 
       sot_enforcement:
         validate_sot_check:
-          check_id: SC-GV-001
+          check_id: SC-601
           description: >
             validate_sot.py verifies that every device in the Ansible inventory
             has a corresponding SoT file in sot/devices/. Devices in inventory
@@ -128,7 +178,7 @@ intents:
 
       sot_enforcement:
         validate_sot_check:
-          check_id: SC-GV-002
+          check_id: SC-602
           description: >
             validate_sot.py confirms that all platform types referenced in device
             files (arista_eos, frr) have corresponding template directories.
@@ -166,7 +216,7 @@ intents:
 
       sot_enforcement:
         schema_check:
-          check_id: SC-GV-003
+          check_id: SC-603
           tool: scripts/validate_sot.py
           schema: schema/device.schema.json
           description: >
@@ -206,7 +256,7 @@ intents:
 
       sot_enforcement:
         validate_sot_check:
-          check_id: SC-GV-004
+          check_id: SC-604
           tool: scripts/validate_sot.py
           description: >
             validate_sot.py verifies that every device record has at least one
@@ -260,7 +310,7 @@ intents:
 
       sot_enforcement:
         pipeline_gate:
-          check_id: SC-GV-005
+          check_id: SC-605
           description: >
             The GitLab approve stage is a mandatory manual gate that must be
             passed by a named engineer before the push stage executes.
